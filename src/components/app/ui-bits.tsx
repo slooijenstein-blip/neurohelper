@@ -94,13 +94,7 @@ export function ProfileAvatar({
   );
 }
 
-export function SocialBar({
-  socials,
-  className,
-}: {
-  socials: Socials;
-  className?: string;
-}) {
+export function SocialBar({ socials, className }: { socials: Socials; className?: string }) {
   const entries = [
     { key: "tiktok", icon: Music2, label: "TikTok" },
     { key: "instagram", icon: Instagram, label: "Instagram" },

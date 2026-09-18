@@ -204,8 +204,7 @@ const myProfile: Profile = {
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
-function remapActivityIds(ids: string[] | undefined): string[] | undefined {
-  if (!ids) return ids;
+function remapActivityIds(ids: string[]): string[] {
   const seen = new Set<string>();
   const next: string[] = [];
   for (const id of ids) {
@@ -215,6 +214,11 @@ function remapActivityIds(ids: string[] | undefined): string[] | undefined {
     next.push(canonical);
   }
   return next;
+}
+
+function remapProfile(profile: Profile): Profile {
+  if (!profile.favouriteActivityIds) return profile;
+  return { ...profile, favouriteActivityIds: remapActivityIds(profile.favouriteActivityIds) };
 }
 
 function refreshScheduleItem(item: ScheduleItem): ScheduleItem {
@@ -678,31 +682,23 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as AppState;
-        setState((prev) => {
-          const profile = parsed.profile
-            ? {
-                ...parsed.profile,
-                favouriteActivityIds: remapActivityIds(parsed.profile.favouriteActivityIds),
-              }
-            : prev.profile;
-          return {
-            ...prev,
-            ...parsed,
-            // Always restore derived/reference collections if missing
-            activities: prev.activities,
-            members: prev.members,
-            articles: parsed.articles?.length ? parsed.articles : prev.articles,
-            dayPlans: parsed.dayPlans ?? prev.dayPlans,
-            following: parsed.following ?? prev.following,
-            profile,
-            favourites: remapActivityIds(parsed.favourites) ?? prev.favourites,
-            schedule: (parsed.schedule ?? prev.schedule).map(refreshScheduleItem),
-            templates: (parsed.templates ?? prev.templates).map((t) => ({
-              ...t,
-              items: t.items.map(refreshScheduleItem),
-            })),
-          };
-        });
+        setState((prev) => ({
+          ...prev,
+          ...parsed,
+          // Always restore derived/reference collections if missing
+          activities: prev.activities,
+          members: prev.members,
+          articles: parsed.articles?.length ? parsed.articles : prev.articles,
+          dayPlans: parsed.dayPlans ?? prev.dayPlans,
+          following: parsed.following ?? prev.following,
+          profile: parsed.profile ? remapProfile(parsed.profile) : prev.profile,
+          favourites: parsed.favourites ? remapActivityIds(parsed.favourites) : prev.favourites,
+          schedule: (parsed.schedule ?? prev.schedule).map(refreshScheduleItem),
+          templates: (parsed.templates ?? prev.templates).map((t) => ({
+            ...t,
+            items: t.items.map(refreshScheduleItem),
+          })),
+        }));
       }
 
       // Try to load a shared schedule from the URL

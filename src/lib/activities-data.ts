@@ -1,10 +1,5 @@
 export type Skill =
-  | "Sensory Play"
-  | "Motor Skills"
-  | "Communication"
-  | "Social Skills"
-  | "Cognitive"
-  | "Self-Care";
+  "Sensory Play" | "Motor Skills" | "Communication" | "Social Skills" | "Cognitive" | "Self-Care";
 
 export const SKILLS: Skill[] = [
   "Sensory Play",

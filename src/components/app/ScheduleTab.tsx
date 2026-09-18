@@ -50,15 +50,13 @@ export function ScheduleTab() {
 
   const filtered = useMemo(
     () =>
-      ACTIVITIES.filter(
-        (a: Activity) =>
-          query.trim()
-            ? a.title.toLowerCase().includes(query.trim().toLowerCase()) ||
-              a.skill.toLowerCase().includes(query.trim().toLowerCase()) ||
-              (a.secondarySkills?.some((s) =>
-                s.toLowerCase().includes(query.trim().toLowerCase()),
-              ) ?? false)
-            : true,
+      ACTIVITIES.filter((a: Activity) =>
+        query.trim()
+          ? a.title.toLowerCase().includes(query.trim().toLowerCase()) ||
+            a.skill.toLowerCase().includes(query.trim().toLowerCase()) ||
+            (a.secondarySkills?.some((s) => s.toLowerCase().includes(query.trim().toLowerCase())) ??
+              false)
+          : true,
       ),
     [query],
   );
