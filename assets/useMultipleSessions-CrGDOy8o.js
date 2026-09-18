@@ -1,0 +1,1 @@
+import{g as e}from"./react-67B_xmXy.js";var t=t=>{let n=e().client.signedInSessions;return{signedInSessions:n,otherSessions:n.filter(e=>e.user?.id!==t.user?.id)}};export{t};

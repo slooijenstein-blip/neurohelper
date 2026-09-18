@@ -1,0 +1,1 @@
+function e(e){if(!e)return``;let t;if(e.match(/^(clerk\.)+\w*$/))t=/(clerk\.)*(?=clerk\.)/;else if(e.match(/\.clerk.accounts/))return e;else t=/^(clerk\.)*/gi;return`clerk.${e.replace(t,``)}`}function t(e=``){return e.startsWith(`/`)}function n(e=``){return t(e)?e:`/`+e}var r=/^[a-zA-Z][a-zA-Z\d+\-.]*?:/,i=e=>r.test(e);export{i as n,n as r,e as t};

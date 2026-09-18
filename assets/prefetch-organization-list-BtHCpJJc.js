@@ -1,0 +1,1 @@
+import{j as e}from"./react-67B_xmXy.js";import{t}from"./utils-B21ywsSJ.js";function n(){return e(t),null}export{n as OrganizationSwitcherPrefetch};

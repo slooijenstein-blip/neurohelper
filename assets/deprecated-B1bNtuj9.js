@@ -1,0 +1,1 @@
+import{n as e,r as t}from"./runtimeEnvironment-CTVGzENl-KQRiGzOq.js";var n=new Set,r=(r,i,a)=>{let o=t()||e(),s=a??r;n.has(s)||o||(n.add(s),console.warn(`Clerk - DEPRECATION WARNING: "${r}" is deprecated and will be removed in the next major release.\n${i}`))};export{r as t};

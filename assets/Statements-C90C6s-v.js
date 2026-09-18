@@ -1,0 +1,1 @@
+import{t as e}from"./StatementPage-Co5HMDcu.js";export{e as StatementPage};

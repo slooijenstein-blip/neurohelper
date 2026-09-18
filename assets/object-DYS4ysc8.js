@@ -1,0 +1,1 @@
+var e=(e,...t)=>{let n={...e};for(let e of t)delete n[e];return n},t=e=>Object.entries(e).reduce((e,[t,n])=>(n!=null&&(e[t]=n),e),{}),n=(e,t)=>{let n={};for(let r in e)n[r]=t(e[r],r);return n},r=(e,t)=>{let n={};for(let r in e)e[r]&&t(e[r])&&(n[r]=e[r]);return n};export{e as i,r as n,t as r,n as t};

@@ -1,0 +1,1 @@
+var e=(e,...t)=>({key:e,params:t[0]});export{e as t};

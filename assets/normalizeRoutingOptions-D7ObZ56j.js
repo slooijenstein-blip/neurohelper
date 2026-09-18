@@ -1,0 +1,1 @@
+import{$ as e}from"./react-67B_xmXy.js";var t=({routing:t,path:n})=>n&&!t?{routing:`path`,path:n}:t!==`path`&&n?e(t):{routing:t,path:n};export{t};

@@ -1,0 +1,1 @@
+var e=()=>{try{return!1}catch{}return!1},t=()=>{try{return!1}catch{}return!1},n=()=>{try{return!0}catch{}return!1};export{n,t as r,e as t};

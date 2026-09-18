@@ -1,0 +1,1 @@
+var e=new Set,t={warnOnce:t=>{e.has(t)||(e.add(t),console.warn(t))},logOnce:t=>{e.has(t)||(console.log(t),e.add(t))}};export{t};

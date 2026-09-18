@@ -1,0 +1,1 @@
+import{n as e}from"./windowNavigate-BCz7h0xO.js";function t(t,n,r){let i=t.__internal_windowNavigate;return typeof i==`function`?i.call(t,n,r):e(n)}export{t};
