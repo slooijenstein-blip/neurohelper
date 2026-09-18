@@ -75,6 +75,8 @@ export type Profile = {
   favouriteActivityIds?: string[];
   /** Member IDs following this profile */
   followers?: string[];
+  /** Clerk user id when this profile is tied to a real session */
+  clerkUserId?: string;
 };
 
 
@@ -183,6 +185,7 @@ export type AppState = {
 };
 
 const STORAGE_KEY = "motor-skill-buddy-v1";
+const DEV_DEMO_KEY = "synlumae-dev-demo";
 
 const MY_ID = "me";
 
@@ -654,11 +657,28 @@ When a child picks the order of two activities, compliance stops being a battle.
 ];
 
 
+const demoObservations: Observation[] = [
+  {
+    id: "o1",
+    activityTitle: "Tape Rescue",
+    note: "Stayed with it for a full ten minutes. Asked for more.",
+    rating: 3,
+    date: "2026-08-24",
+  },
+  {
+    id: "o2",
+    activityTitle: "Color Matching Hunt",
+    note: "Absolute favourite. Wanted to do it twice in a row.",
+    rating: 5,
+    date: "2026-08-23",
+  },
+];
+
 const seed: AppState = {
-  childName: "Nora",
+  childName: "",
   childAge: 4,
-  profile: myProfile,
-  loggedOut: false,
+  profile: null,
+  loggedOut: true,
   schedule: seedTemplates[0]!.items.map((i) => ({ ...i, id: uid() })),
   templates: seedTemplates.map((t, i) => ({
     ...t,
@@ -670,23 +690,8 @@ const seed: AppState = {
   })),
 
   posts: seedPosts,
-  observations: [
-    {
-      id: "o1",
-      activityTitle: "Tape Rescue",
-      note: "Stayed with it for a full ten minutes. Asked for more.",
-      rating: 3,
-      date: "2026-08-24",
-    },
-    {
-      id: "o2",
-      activityTitle: "Color Matching Hunt",
-      note: "Absolute favourite. Wanted to do it twice in a row.",
-      rating: 5,
-      date: "2026-08-23",
-    },
-  ],
-  completedCount: 4,
+  observations: [],
+  completedCount: 0,
   favourites: ["color-matching-hunt"],
   members: memberProfiles,
   activities: ACTIVITIES,
@@ -698,9 +703,13 @@ const seed: AppState = {
 
 type Ctx = {
   state: AppState;
+  hydrated: boolean;
+  devDemo: boolean;
   update: (fn: (prev: AppState) => AppState) => void;
   logout: () => void;
   login: (profile: Profile) => void;
+  enterDevDemo: () => void;
+  exitDevDemo: () => void;
   tryTemplate: (templateId: string) => void;
   toggleTemplateLike: (templateId: string) => void;
   rateTemplate: (templateId: string, stars: number) => void;
@@ -724,6 +733,8 @@ const AppContext = createContext<Ctx | null>(null);
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(seed);
+  const [hydrated, setHydrated] = useState(false);
+  const [devDemo, setDevDemo] = useState(false);
 
   useEffect(() => {
     try {
@@ -740,7 +751,19 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           dayPlans: parsed.dayPlans ?? prev.dayPlans,
           following: parsed.following ?? prev.following,
           profile: parsed.profile ?? prev.profile,
+        }));
+      }
 
+      if (import.meta.env.DEV && window.sessionStorage.getItem(DEV_DEMO_KEY) === "1") {
+        setDevDemo(true);
+        setState((prev) => ({
+          ...prev,
+          profile: myProfile,
+          loggedOut: false,
+          childName: prev.childName || "Nora",
+          childAge: prev.childAge || 4,
+          observations: prev.observations.length ? prev.observations : demoObservations,
+          completedCount: prev.completedCount || 4,
         }));
       }
 
@@ -762,6 +785,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       /* ignore */
+    } finally {
+      setHydrated(true);
     }
   }, []);
 
@@ -778,6 +803,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    try {
+      window.sessionStorage.removeItem(DEV_DEMO_KEY);
+    } catch {
+      /* ignore */
+    }
+    setDevDemo(false);
     update((prev) => ({ ...prev, profile: null, loggedOut: true }));
   }, [update]);
 
@@ -787,6 +818,34 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     },
     [update],
   );
+
+  const enterDevDemo = useCallback(() => {
+    if (!import.meta.env.DEV) return;
+    try {
+      window.sessionStorage.setItem(DEV_DEMO_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setDevDemo(true);
+    update((prev) => ({
+      ...prev,
+      profile: myProfile,
+      loggedOut: false,
+      childName: prev.childName || "Nora",
+      childAge: prev.childAge || 4,
+      observations: prev.observations.length ? prev.observations : demoObservations,
+      completedCount: prev.completedCount || 4,
+    }));
+  }, [update]);
+
+  const exitDevDemo = useCallback(() => {
+    try {
+      window.sessionStorage.removeItem(DEV_DEMO_KEY);
+    } catch {
+      /* ignore */
+    }
+    setDevDemo(false);
+  }, []);
 
   const tryTemplate = useCallback(
     (templateId: string) => {
@@ -891,9 +950,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       state,
+      hydrated,
+      devDemo,
       update,
       logout,
       login,
+      enterDevDemo,
+      exitDevDemo,
       tryTemplate,
       toggleTemplateLike,
       rateTemplate,
@@ -905,9 +968,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     }),
     [
       state,
+      hydrated,
+      devDemo,
       update,
       logout,
       login,
+      enterDevDemo,
+      exitDevDemo,
       tryTemplate,
       toggleTemplateLike,
       rateTemplate,

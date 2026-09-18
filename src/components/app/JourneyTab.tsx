@@ -81,7 +81,10 @@ export function JourneyTab() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <ScreenHeader title="My Journey" subtitle={`${state.childName}'s progress`} />
+      <ScreenHeader
+        title="My Journey"
+        subtitle={state.childName ? `${state.childName}'s progress` : "Progress on this device"}
+      />
 
       <div className="hide-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface px-5 py-4 md:px-8">
         <div className="grid grid-cols-2 gap-3 md:max-w-xl">
@@ -116,7 +119,7 @@ export function JourneyTab() {
           </div>
           <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
             {summary ||
-              `A local summary of ${state.childName}'s completed activities, observations, and suggested next steps. (Not an AI model.)`}
+              `A local summary of ${state.childName ? `${state.childName}'s` : "recent"} completed activities, observations, and suggested next steps. (Not an AI model.)`}
           </p>
         </div>
 

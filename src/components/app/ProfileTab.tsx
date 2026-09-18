@@ -1,21 +1,25 @@
-import { Baby, BookmarkCheck, Sparkles, LogOut, MapPin, UserRound } from "lucide-react";
+import { UserButton, useAuth, useClerk } from "@clerk/react";
+import { useNavigate } from "@tanstack/react-router";
+import { Baby, BookmarkCheck, Sparkles, LogOut, MapPin } from "lucide-react";
 import { toast } from "sonner";
 
-import { useAppStore } from "@/lib/app-store";
-import { ScreenHeader, ProfileAvatar, RoleTag, SocialBar } from "./ui-bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
+import { useAppStore } from "@/lib/app-store";
+import { isClerkConfigured } from "@/lib/clerk";
+import { withBasePath } from "@/lib/paths";
+import { ScreenHeader, ProfileAvatar, RoleTag, SocialBar } from "./ui-bits";
 
 const STORAGE_KEY = "motor-skill-buddy-v1";
 
 export function ProfileTab() {
-  const { state, update, logout } = useAppStore();
+  const { state, update } = useAppStore();
   const profile = state.profile;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <ScreenHeader title="Profile" subtitle="Your identity & family setup" />
+      <ScreenHeader title="Profile" subtitle="Your identity — child details stay on this device" />
 
       <div className="hide-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface px-5 py-4 md:max-w-2xl md:px-8">
         {profile ? (
@@ -43,18 +47,25 @@ export function ProfileTab() {
             <Baby className="size-6" />
           </div>
           <div>
-            <p className="text-base font-semibold">{state.childName}</p>
-            <p className="text-xs text-muted-foreground">{state.childAge} years old</p>
+            <p className="text-base font-semibold">{state.childName || "Add a first name"}</p>
+            <p className="text-xs text-muted-foreground">
+              {state.childName ? `${state.childAge} years old` : "Stored only on this device"}
+            </p>
           </div>
         </div>
 
         <div className="soft-card space-y-4 p-4">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Optional. Use a first name only. Synlumae does not store child details in your Clerk
+            account.
+          </p>
           <div>
             <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              Child's name
+              Child's first name
             </label>
             <Input
               value={state.childName}
+              placeholder="First name (this device only)"
               onChange={(e) => update((prev) => ({ ...prev, childName: e.target.value }))}
             />
           </div>
@@ -113,10 +124,59 @@ export function ProfileTab() {
           Reset local data
         </Button>
 
-        <Button variant="outline" className="w-full" onClick={logout}>
-          <LogOut className="mr-1 size-4" /> Switch identity
-        </Button>
+        {isClerkConfigured() ? <ClerkAwareSessionControls /> : <LocalLogoutButton />}
       </div>
+    </div>
+  );
+}
+
+function LocalLogoutButton() {
+  const { logout } = useAppStore();
+  const navigate = useNavigate();
+
+  return (
+    <Button
+      variant="outline"
+      className="w-full"
+      onClick={() => {
+        logout();
+        void navigate({ to: "/sign-in" });
+      }}
+    >
+      <LogOut className="mr-1 size-4" /> Log out
+    </Button>
+  );
+}
+
+function ClerkAwareSessionControls() {
+  const { isSignedIn } = useAuth();
+  if (!isSignedIn) return <LocalLogoutButton />;
+  return <ClerkAccountControls />;
+}
+
+function ClerkAccountControls() {
+  const { signOut } = useClerk();
+  const { logout } = useAppStore();
+
+  return (
+    <div className="space-y-2">
+      <div className="soft-card flex items-center justify-between p-4">
+        <div>
+          <p className="text-sm font-semibold">Account</p>
+          <p className="text-[11px] text-muted-foreground">Email, password, and session</p>
+        </div>
+        <UserButton />
+      </div>
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={() => {
+          logout();
+          void signOut({ redirectUrl: withBasePath("/sign-in") });
+        }}
+      >
+        <LogOut className="mr-1 size-4" /> Log out
+      </Button>
     </div>
   );
 }

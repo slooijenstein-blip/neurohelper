@@ -24,8 +24,9 @@ export function summarizeJourney(data: JourneyInput): { summary: string } {
     })
     .slice(0, 3);
 
+  const childLabel = data.childName.trim() || "This child";
   const paragraph = [
-    `${data.childName} (${data.childAge}) has ${data.completedCount} completed activities logged.`,
+    `${childLabel} (${data.childAge}) has ${data.completedCount} completed activities logged.`,
     favourite
       ? `${favourite.activityTitle} is standing out (rated ${favourite.rating}/5).`
       : "No parent observations yet. Logging a session will sharpen this picture.",
