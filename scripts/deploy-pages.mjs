@@ -22,7 +22,22 @@ function gitCapture(args, cwd) {
 }
 
 process.env.BASE_PATH = basePath;
+if (!process.env.VITE_CLERK_SIGN_IN_URL) {
+  process.env.VITE_CLERK_SIGN_IN_URL = `${basePath}sign-in`;
+}
+if (!process.env.VITE_CLERK_SIGN_UP_URL) {
+  process.env.VITE_CLERK_SIGN_UP_URL = `${basePath}sign-up`;
+}
+const hasClerkKey = Boolean(process.env.VITE_CLERK_PUBLISHABLE_KEY);
 console.log(`Building with BASE_PATH=${basePath}`);
+console.log(
+  hasClerkKey
+    ? "Clerk publishable key: present (do not log the value)"
+    : "Clerk publishable key: MISSING — Pages will show setup instructions. Dev keys only work on localhost; production auth belongs on Vercel + synlumae.com.",
+);
+if (process.env.CLERK_SECRET_KEY) {
+  console.log("Ignoring CLERK_SECRET_KEY for this static client build (never inlined).");
+}
 execSync("npm run build", { cwd: root, stdio: "inherit", env: process.env });
 
 const shell = path.join(clientDir, "_shell.html");

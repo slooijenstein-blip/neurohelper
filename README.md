@@ -1,15 +1,61 @@
-# NeuroHelper
+# Synlumae
 
 Activities, schedules, journey tracking, and a community feed for neurodiverse families.
+
+Public brand: **Synlumae** (synlumae.com). GitHub repository is still `slooijenstein-blip/neurohelper`.
 
 ## Run locally
 
 ```sh
 npm i
+cp .env.example .env.local   # then paste your Clerk keys (see Auth setup)
 npm run dev
 ```
 
 Open [http://localhost:8080/](http://localhost:8080/).
+
+## Auth setup (Clerk)
+
+Slice 1 uses [Clerk](https://clerk.com) for email sign-up, sign-in, password reset, and sessions.
+
+This app is a **Vite / TanStack Start SPA**. The matching Clerk SDK is **`@clerk/react`** (client-side). We do **not** use `@clerk/tanstack-react-start` here, because that SDK expects server middleware — GitHub Pages cannot run that.
+
+### 1. Create a Clerk application
+
+1. Sign in at [https://dashboard.clerk.com](https://dashboard.clerk.com)
+2. Create an application named Synlumae
+3. Enable **Email** sign-in (password + email code is Clerk’s default)
+
+### 2. Environment variables
+
+Copy `.env.example` to `.env.local` (never commit `.env.local`):
+
+| Variable                     | Where it is used   | Notes                                                                                                                                                                                                |
+| ---------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Browser (required) | Starts with `pk_test_` (dev) or `pk_live_` (production). Safe to expose in the client. Vite only exposes variables that start with `VITE_`.                                                          |
+| `CLERK_SECRET_KEY`           | Server only        | Starts with `sk_test_` or `sk_live_`. **Do not** prefix this with `VITE_`. This static SPA does not read it at runtime; keep it for the Clerk Dashboard, webhooks, and a future host such as Vercel. |
+
+Optional (the app also sets these from Vite `BASE_URL`):
+
+- `VITE_CLERK_SIGN_IN_URL` — default `/sign-in`
+- `VITE_CLERK_SIGN_UP_URL` — default `/sign-up`
+
+In the Clerk Dashboard → **Paths** / allowed origins, add:
+
+- Development: `http://localhost:8080`
+- Later production: `https://synlumae.com` (and the Vercel URL)
+
+### 3. How to test (simple)
+
+1. `npm run dev` and open http://localhost:8080 — you should land on **Sign in**
+2. Click **Sign up**, use your email and a password, complete Clerk’s email check
+3. You should see the Activities / Schedule / Journey / Community / Profile tabs
+4. Refresh the page — you should still be signed in
+5. On the sign-in screen, click **Forgot password**, follow the email, set a new password
+6. Open **Profile** → **Log out** — you should return to sign-in; refresh should stay signed out
+7. “Continue as Sam” appears **only** with `npm run dev` (not in production builds)
+
+Child first name / age stay in this browser (`localStorage` key `motor-skill-buddy-v1`). They are not sent to Clerk.
 
 ## Production
 
@@ -17,6 +63,20 @@ Open [http://localhost:8080/](http://localhost:8080/).
 npm run build
 ```
 
-Static output is in `dist/client`. GitHub Pages: [https://slooijenstein-blip.github.io/neurohelper/](https://slooijenstein-blip.github.io/neurohelper/).
+Static output is in `dist/client`.
+
+### GitHub Pages vs Clerk
+
+Live Pages URL: [https://slooijenstein-blip.github.io/neurohelper/](https://slooijenstein-blip.github.io/neurohelper/).
+
+`npm run deploy:pages` still publishes the static SPA. Clerk **development** keys (`pk_test_`) only work on **localhost**. They will not complete sign-in on `github.io`.
+
+Workable path today:
+
+1. Test auth with `npm run dev` (and `npm run preview` on localhost)
+2. Keep GitHub Pages as a static preview of the UI
+3. For real production sessions, move the host to **Vercel** (or similar) on **synlumae.com**, create a Clerk **production** instance (`pk_live_` / `sk_live_`), and add that domain in the Clerk Dashboard
+
+To bake a publishable key into a Pages build, export `VITE_CLERK_PUBLISHABLE_KEY` in the shell before `npm run deploy:pages`. Never put `CLERK_SECRET_KEY` in a client build.
 
 See [cursor-migration.md](cursor-migration.md) for a codebase overview.
