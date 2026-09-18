@@ -15,6 +15,10 @@ export const SKILLS: Skill[] = [
   "Self-Care",
 ];
 
+export function formatActivityDuration(minMinutes: number, maxMinutes: number) {
+  return minMinutes === maxMinutes ? `${minMinutes} mins` : `${minMinutes}-${maxMinutes} mins`;
+}
+
 export type Activity = {
   id: string;
   title: string;

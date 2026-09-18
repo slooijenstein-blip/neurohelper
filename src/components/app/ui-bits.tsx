@@ -1,8 +1,8 @@
 import { cn } from "@/lib/utils";
-import { skillTone, type Skill } from "@/lib/activities-data";
+import { formatActivityDuration, skillTone, type Skill } from "@/lib/activities-data";
 import { roleTone, type Role, type Socials } from "@/lib/app-store";
 import type { ReactNode } from "react";
-import { Music2, Instagram, Facebook, Linkedin, Globe } from "lucide-react";
+import { Clock, Music2, Instagram, Facebook, Linkedin, Globe } from "lucide-react";
 
 export function SkillTag({ skill }: { skill: Skill }) {
   return <span className={cn("tag-base", skillTone[skill])}>{skill}</span>;
@@ -10,6 +10,15 @@ export function SkillTag({ skill }: { skill: Skill }) {
 
 export function AgeTag({ children }: { children: ReactNode }) {
   return <span className="tag-base bg-secondary text-secondary-foreground">{children}</span>;
+}
+
+export function DurationTag({ minMinutes, maxMinutes }: { minMinutes: number; maxMinutes: number }) {
+  return (
+    <span className="tag-base gap-1 bg-muted text-muted-foreground">
+      <Clock className="size-3" />
+      {formatActivityDuration(minMinutes, maxMinutes)}
+    </span>
+  );
 }
 
 export function RoleTag({ role }: { role: Role }) {
@@ -26,9 +35,9 @@ export function ScreenHeader({
   right?: ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-border bg-card/80 px-5 pb-3 pt-4 backdrop-blur">
+    <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-card/80 px-5 pb-3 pt-4 backdrop-blur md:px-8 md:pb-4 md:pt-6">
       <div>
-        <h2 className="text-lg font-semibold leading-tight">{title}</h2>
+        <h2 className="text-lg font-semibold leading-tight md:text-2xl">{title}</h2>
         {subtitle ? <p className="text-xs text-muted-foreground">{subtitle}</p> : null}
       </div>
       {right}

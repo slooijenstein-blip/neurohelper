@@ -1,8 +1,8 @@
 import { toast } from "sonner";
 
-import { ACTIVITIES } from "@/lib/activities-data";
+import { ACTIVITIES, formatActivityDuration } from "@/lib/activities-data";
 import { useAppStore, uid } from "@/lib/app-store";
-import { AgeTag, SkillTag } from "./ui-bits";
+import { AgeTag, DurationTag, SkillTag } from "./ui-bits";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -52,11 +52,20 @@ export function ActivityDetailDialog({
         </DialogHeader>
         {detail ? (
           <div className="space-y-4 text-sm">
-            <div className="flex gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
               <AgeTag>
                 Age: {detail.minAge}-{detail.maxAge}
               </AgeTag>
               <SkillTag skill={detail.skill} />
+              <DurationTag minMinutes={detail.minMinutes} maxMinutes={detail.maxMinutes} />
+            </div>
+            <div>
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                Duration
+              </p>
+              <p className="text-muted-foreground">
+                {formatActivityDuration(detail.minMinutes, detail.maxMinutes)}
+              </p>
             </div>
             <div>
               <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">

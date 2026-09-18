@@ -151,6 +151,12 @@
     border-color: var(--color-border);
   }
 
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
@@ -175,6 +181,97 @@
   position: relative;
   display: flex;
   flex-direction: column;
+}
+
+/* Desktop: full-width workspace with a side nav (matches useIsMobile 768px). */
+@media (min-width: 768px) {
+  .phone-shell {
+    max-width: none;
+    margin-inline: 0;
+    flex-direction: row;
+    background: var(--background);
+  }
+}
+
+@utility app-sidebar {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .app-sidebar {
+    display: flex;
+    width: 16.5rem;
+    flex-shrink: 0;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: var(--card);
+    padding: 1.5rem 1rem;
+  }
+}
+
+@utility app-tabbar {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border-top: 1px solid var(--border);
+  background: var(--card);
+  padding: 0.5rem 0.5rem 1rem;
+}
+
+@media (min-width: 768px) {
+  .app-tabbar {
+    display: none;
+  }
+}
+
+@utility app-main {
+  min-height: 0;
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@utility app-screen {
+  min-height: 0;
+  flex: 1 1 0%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-screen > * {
+  min-height: 0;
+  flex: 1 1 0%;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-main > .app-login-panel {
+  min-height: 0;
+  flex: 1 1 0%;
+  height: 100%;
+  overflow: hidden;
+}
+
+@media (min-width: 768px) {
+  .app-main {
+    background: var(--background);
+  }
+
+  .app-main > .app-screen {
+    max-width: 72rem;
+    margin-inline: auto;
+    width: 100%;
+  }
+
+  .app-main > .app-login-panel {
+    width: 100%;
+    max-width: 26rem;
+  }
 }
 
 @utility soft-card {

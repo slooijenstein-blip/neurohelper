@@ -14,10 +14,10 @@ export function ProfileTab() {
   const profile = state.profile;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader title="Profile" subtitle="Your identity & family setup" />
 
-      <div className="hide-scrollbar flex-1 space-y-4 overflow-y-auto bg-surface px-5 py-4">
+      <div className="hide-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface px-5 py-4 md:max-w-2xl md:px-8">
         {profile ? (
           <div className="soft-card flex items-center gap-3 p-4">
             <ProfileAvatar name={profile.name} color={profile.color} />
@@ -107,7 +107,7 @@ export function ProfileTab() {
           className="w-full text-destructive"
           onClick={() => {
             window.localStorage.removeItem(STORAGE_KEY);
-            toast.success("Local data reset — refresh to see defaults");
+            toast.success("Local data reset. Refresh to see defaults");
           }}
         >
           Reset local data

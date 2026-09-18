@@ -516,7 +516,7 @@ const seedPosts: Post[] = [
     authorRole: "Creator",
     authorLocation: "Barcelona",
     kind: "Promotion",
-    body: "I just posted a new printable set of scissor skills strips on my site. Link in bio — grab it for free this week! Great for 3–5 year olds building fine motor control.",
+    body: "I just posted a new printable set of scissor skills strips on my site. Link in bio. Grab it for free this week! Great for 3–5 year olds building fine motor control.",
     likes: 18,
     liked: false,
     reactions: { heart: 5, celebrate: 1 },
@@ -562,7 +562,7 @@ const seedArticles: Article[] = [
     authorId: "elena",
     authorName: "Elena",
     authorRole: "Creator",
-    title: "Sensory play is not a mess — it is a message",
+    title: "Sensory play is not a mess, it is a message",
     excerpt:
       "Why rice bins, water trays and playdough do far more than keep small hands busy, and how to read what your child is telling you through them.",
     body: `When people see a tray of coloured rice on the kitchen floor, they see a mess. I see a child telling me exactly what their nervous system needs today.
@@ -577,7 +577,7 @@ A shallow baking tray beats a giant bin. Less material means less overwhelm and 
 Narrate softly: "cold", "smooth", "pouring". You are not testing them. You are giving words to a feeling they already have, which is how vocabulary sticks for a lot of neurodiverse kids.
 
 **Know when to stop**
-Stop while it is still fun. Ending on a good moment is what makes a child ask for it again — and repetition is where the real development happens.`,
+Stop while it is still fun. Ending on a good moment is what makes a child ask for it again, and repetition is where the real development happens.`,
     tags: ["Sensory", "Play", "Regulation"],
     readMinutes: 4,
     likes: 24,
@@ -605,7 +605,7 @@ Writing is a whole-body skill. Wall push-ups, crawling through tunnels, and draw
 Tape Rescue, tearing paper, tongs and pom-poms, squeezing playdough. Two to five minutes a day is plenty. You are building endurance, not producing artwork.
 
 **3. Then the tool**
-Short, broken crayons force a tripod grip naturally — far more effective than correcting a grip verbally.
+Short, broken crayons force a tripod grip naturally, far more effective than correcting a grip verbally.
 
 **Watch for fatigue, not failure**
 A child who writes beautifully for one line and falls apart on the second does not lack effort. They lack endurance, and endurance is trainable.
@@ -635,13 +635,13 @@ Give it six weeks of small daily doses before you judge progress.`,
 Movement, then focus, then calm. If lunch runs late, the order still holds and the day still feels safe.
 
 **Show it, do not just say it**
-Three picture cards on the fridge do more than ten spoken reminders. Let your child move the finished card into a pocket — that small act of control reduces resistance enormously.
+Three picture cards on the fridge do more than ten spoken reminders. Let your child move the finished card into a pocket. That small act of control reduces resistance enormously.
 
 **Build transitions into the plan**
 The hard part is rarely the activity; it is the gap between two activities. Name it out loud: "two more minutes, then we tidy, then snack."
 
 **Let the child co-author it**
-When a child picks the order of two activities, compliance stops being a battle. That is the whole idea behind sharing routines here — you take someone's structure and make it yours.`,
+When a child picks the order of two activities, compliance stops being a battle. That is the whole idea behind sharing routines here. You take someone's structure and make it yours.`,
     tags: ["Routines", "Transitions", "Classroom"],
     readMinutes: 3,
     likes: 17,

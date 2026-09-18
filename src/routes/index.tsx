@@ -8,13 +8,13 @@ import { Toaster } from "@/components/ui/sonner";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "NeuroHelper — Activities & routines for neurodiverse kids" },
+      { title: "NeuroHelper: Activities & routines for neurodiverse kids" },
       {
         name: "description",
         content:
           "Discover activities, build daily schedules, track progress, and share routines with parents, teachers, therapists, and creators.",
       },
-      { property: "og:title", content: "NeuroHelper — Activities & routines for neurodiverse kids" },
+      { property: "og:title", content: "NeuroHelper: Activities & routines for neurodiverse kids" },
       {
         property: "og:description",
         content:

@@ -76,7 +76,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "NeuroHelper" },
       { name: "description", content: "Activities, routines, and community for neurodiverse kids and their caregivers." },
       { name: "author", content: "NeuroHelper" },
-      { property: "og:title", content: "NeuroHelper — Activities & routines for neurodiverse kids" },
+      { property: "og:title", content: "NeuroHelper: Activities & routines for neurodiverse kids" },
       { property: "og:description", content: "Discover activities, build daily schedules, track progress, and share routines with parents, teachers, therapists, and creators." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

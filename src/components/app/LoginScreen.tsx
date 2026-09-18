@@ -61,7 +61,7 @@ export function LoginScreen() {
 
   if (mode === "create") {
     return (
-      <div className="flex h-full flex-col bg-surface px-5 py-6">
+      <div className="flex h-full min-h-0 flex-col bg-surface px-5 py-6">
         <div className="mb-6 text-center">
           <div className="mx-auto mb-3 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground">
             <Sparkles className="size-7" />
@@ -70,7 +70,7 @@ export function LoginScreen() {
           <p className="text-xs text-muted-foreground">Tell the community a little about you.</p>
         </div>
 
-        <div className="hide-scrollbar flex-1 space-y-4 overflow-y-auto">
+        <div className="hide-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto">
           <div>
             <label className="mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               Name
@@ -147,7 +147,7 @@ export function LoginScreen() {
   }
 
   return (
-    <div className="flex h-full flex-col items-center justify-center bg-surface px-6 text-center">
+    <div className="flex h-full flex-col items-center justify-center bg-surface px-6 py-8 text-center md:h-auto md:py-10">
       <div className="mb-4 grid size-16 place-items-center rounded-full bg-primary text-primary-foreground">
         <Sparkles className="size-8" />
       </div>
