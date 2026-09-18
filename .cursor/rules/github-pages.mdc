@@ -1,0 +1,13 @@
+---
+description: Mandatory GitHub Pages publish after any user-visible NeuroHelper change
+alwaysApply: true
+---
+
+# GitHub Pages (mandatory)
+
+After any user-visible fix or UI change, publish so GitHub Pages matches local:
+
+1. Run `npm run deploy:pages` from the app root (builds with `BASE_PATH=/neurohelper/`, copies `_shell.html` → `index.html` + `404.html`, updates `gh-pages` without force-push).
+2. Confirm https://slooijenstein-blip.github.io/neurohelper/ serves the new hashed assets.
+
+Do not skip this because the local preview looks correct. Do not add `.github/workflows` unless `git push` of workflow YAML succeeds (`workflow` OAuth scope). Do not put tokens in git remotes; use `gh auth setup-git`. Do not reintroduce Lovable.

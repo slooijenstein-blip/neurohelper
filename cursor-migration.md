@@ -32,8 +32,11 @@ src/
     journey.functions.ts  # Local (non-AI) progress summary
   components/app/   # Product UI: tabs, login, community, schedule
   components/ui/    # Shared primitives
-  styles.css
+  styles.css        # phone-shell (≤767px) + desktop sidebar (≥768px)
+  hooks/use-mobile.tsx  # 768px breakpoint (same as Tailwind md)
 ```
+
+`PhoneApp` is mobile-first: a 480px phone chrome with a bottom tab bar. From `md` (768px) it becomes a full-width desktop workspace with a left sidebar. Same tabs and localStorage data.
 
 ## Screens (tabs)
 
@@ -52,12 +55,13 @@ State is provided by `AppStoreProvider` in `src/routes/index.tsx`.
 
 ```sh
 npm i
-npm run dev      # http://localhost:8080
-npm run build    # dist/client (copy `_shell.html` → `index.html` + `404.html` for Pages)
+npm run dev           # http://localhost:8080
+npm run build         # dist/client (copy `_shell.html` → `index.html` + `404.html` for Pages)
+npm run deploy:pages  # required after user-visible fixes: build + publish origin/gh-pages
 npm run lint
 ```
 
-GitHub Pages needs `BASE_PATH=/neurohelper/` at build time.
+GitHub Pages needs `BASE_PATH=/neurohelper/` at build time. After any user-visible change, run `npm run deploy:pages` so https://slooijenstein-blip.github.io/neurohelper/ matches local. Do not force-push `gh-pages`. Do not add GitHub Actions unless the `workflow` OAuth scope is available.
 
 ## Lovable disconnect (done)
 
