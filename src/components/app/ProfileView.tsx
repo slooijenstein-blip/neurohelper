@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { useAppStore } from "@/lib/app-store";
+import { findActivity } from "@/lib/activities-data";
 import { ScreenHeader, ProfileAvatar, RoleTag, SocialBar, SkillTag } from "./ui-bits";
 import { Button } from "@/components/ui/button";
 import { ActivityDetailDialog } from "./ActivityDetailDialog";
@@ -201,9 +202,9 @@ export function ProfileView({
             <h4 className="mb-2 text-sm font-semibold">Favourite activities</h4>
             <div className="flex flex-wrap gap-1.5">
               {member.favouriteActivityIds.map((aid: string) => {
-                const act = state.activities.find((a) => a.id === aid);
+                const act = findActivity(aid, state.activities);
                 if (!act) return null;
-                return <SkillTag key={aid} skill={act.skill} />;
+                return <SkillTag key={act.id} skill={act.skill} />;
               })}
             </div>
           </div>

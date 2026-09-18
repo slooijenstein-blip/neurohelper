@@ -1,8 +1,8 @@
 import { toast } from "sonner";
 
-import { ACTIVITIES } from "@/lib/activities-data";
+import { findActivity } from "@/lib/activities-data";
 import { useAppStore, uid } from "@/lib/app-store";
-import { AgeTag, SkillTag } from "./ui-bits";
+import { AgeTag, SkillTags } from "./ui-bits";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,7 +20,7 @@ export function ActivityDetailDialog({
   onClose: () => void;
 }) {
   const { update } = useAppStore();
-  const detail = activityId ? ACTIVITIES.find((a) => a.id === activityId) ?? null : null;
+  const detail = activityId ? (findActivity(activityId) ?? null) : null;
 
   const addToSchedule = () => {
     if (!detail) return;
@@ -52,11 +52,11 @@ export function ActivityDetailDialog({
         </DialogHeader>
         {detail ? (
           <div className="space-y-4 text-sm">
-            <div className="flex gap-1.5">
+            <div className="flex flex-wrap gap-1.5">
               <AgeTag>
                 Age: {detail.minAge}-{detail.maxAge}
               </AgeTag>
-              <SkillTag skill={detail.skill} />
+              <SkillTags activity={detail} />
             </div>
             <div>
               <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">

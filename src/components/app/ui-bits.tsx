@@ -1,11 +1,22 @@
 import { cn } from "@/lib/utils";
-import { skillTone, type Skill } from "@/lib/activities-data";
+import { skillTone, type Activity, type Skill } from "@/lib/activities-data";
 import { roleTone, type Role, type Socials } from "@/lib/app-store";
 import type { ReactNode } from "react";
 import { Music2, Instagram, Facebook, Linkedin, Globe } from "lucide-react";
 
 export function SkillTag({ skill }: { skill: Skill }) {
   return <span className={cn("tag-base", skillTone[skill])}>{skill}</span>;
+}
+
+export function SkillTags({ activity }: { activity: Activity }) {
+  return (
+    <>
+      <SkillTag skill={activity.skill} />
+      {activity.secondarySkills?.map((skill) => (
+        <SkillTag key={skill} skill={skill} />
+      ))}
+    </>
+  );
 }
 
 export function AgeTag({ children }: { children: ReactNode }) {

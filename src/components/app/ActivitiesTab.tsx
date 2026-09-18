@@ -2,9 +2,15 @@ import { useMemo, useState } from "react";
 import { Clock, Filter, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { ACTIVITIES, SKILLS, type Activity, type Skill } from "@/lib/activities-data";
+import {
+  ACTIVITIES,
+  activityHasSkill,
+  SKILLS,
+  type Activity,
+  type Skill,
+} from "@/lib/activities-data";
 import { useAppStore, uid } from "@/lib/app-store";
-import { AgeTag, ScreenHeader, SkillTag } from "./ui-bits";
+import { AgeTag, ScreenHeader, SkillTags } from "./ui-bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -28,7 +34,7 @@ export function ActivitiesTab() {
   const results = useMemo(
     () =>
       ACTIVITIES.filter((a) => a.maxAge >= (range[0] ?? 1) && a.minAge <= (range[1] ?? 10))
-        .filter((a) => (skills.length ? skills.includes(a.skill) : true))
+        .filter((a) => (skills.length ? skills.some((s) => activityHasSkill(a, s)) : true))
         .filter((a) =>
           query.trim()
             ? (a.title + a.description).toLowerCase().includes(query.trim().toLowerCase())
@@ -156,11 +162,11 @@ export function ActivitiesTab() {
             </button>
             <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{a.description}</p>
             <div className="mt-3 flex items-center justify-between">
-              <div className="flex gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 <AgeTag>
                   Age: {a.minAge}-{a.maxAge}
                 </AgeTag>
-                <SkillTag skill={a.skill} />
+                <SkillTags activity={a} />
               </div>
               <Button size="sm" className="h-7 rounded-full px-3" onClick={() => addToSchedule(a)}>
                 <Plus className="size-3.5" /> Add
@@ -183,11 +189,11 @@ export function ActivitiesTab() {
           </DialogHeader>
           {detail ? (
             <div className="space-y-4 text-sm">
-              <div className="flex gap-1.5">
+              <div className="flex flex-wrap gap-1.5">
                 <AgeTag>
                   Age: {detail.minAge}-{detail.maxAge}
                 </AgeTag>
-                <SkillTag skill={detail.skill} />
+                <SkillTags activity={detail} />
               </div>
               <div>
                 <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
