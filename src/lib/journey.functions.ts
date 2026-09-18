@@ -1,95 +1,48 @@
-import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
+export type JourneyInput = {
+  childName: string;
+  childAge: number;
+  completedCount: number;
+  scheduled: Array<{ title: string; minutes: number; done: boolean }>;
+  observations: Array<{ activityTitle: string; note: string; rating: number; date: string }>;
+  activityCatalog: string[];
+};
 
-const JourneyInput = z.object({
-  childName: z.string(),
-  childAge: z.number(),
-  completedCount: z.number(),
-  scheduled: z.array(z.object({ title: z.string(), minutes: z.number(), done: z.boolean() })),
-  observations: z.array(
-    z.object({ activityTitle: z.string(), note: z.string(), rating: z.number(), date: z.string() }),
-  ),
-  activityCatalog: z.array(z.string()),
-});
+/** Local progress summary — no external AI or server. */
+export function summarizeJourney(data: JourneyInput): { summary: string } {
+  const upcoming = data.scheduled.filter((item) => !item.done);
+  const doneThisWeek = data.scheduled.filter((item) => item.done);
+  const avgRating =
+    data.observations.length > 0
+      ? data.observations.reduce((sum, o) => sum + o.rating, 0) / data.observations.length
+      : 0;
+  const favourite = [...data.observations].sort((a, b) => b.rating - a.rating)[0];
+  const seen = new Set(data.observations.map((o) => o.activityTitle.toLowerCase()));
+  const suggestions = data.activityCatalog
+    .filter((entry) => {
+      const title = entry.split(" (")[0]?.toLowerCase() ?? entry.toLowerCase();
+      return !seen.has(title);
+    })
+    .slice(0, 3);
 
-export const summarizeJourney = createServerFn({ method: "POST" })
-  .validator((input: unknown) => JourneyInput.parse(input))
-  .handler(async ({ data }) => {
-    const apiKey = process.env["LOVABLE_API_KEY"];
-    if (!apiKey) throw new Error("Missing LOVABLE_API_KEY");
+  const paragraph = [
+    `${data.childName} (${data.childAge}) has ${data.completedCount} completed activities logged.`,
+    favourite
+      ? `${favourite.activityTitle} is standing out (rated ${favourite.rating}/5).`
+      : "No parent observations yet — logging a session will sharpen this picture.",
+    upcoming.length
+      ? `${upcoming.length} items are still upcoming this week${
+          doneThisWeek.length ? `; ${doneThisWeek.length} already done` : ""
+        }.`
+      : "Nothing is scheduled yet — add a routine from Activities or Schedule.",
+    avgRating ? `Average observation rating is ${avgRating.toFixed(1)}/5.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
-    const prompt = [
-      `Child: ${data.childName}, age ${data.childAge}.`,
-      `Activities completed so far: ${data.completedCount}.`,
-      `This week's schedule: ${
-        data.scheduled.map((s) => `${s.title} (${s.minutes}m, ${s.done ? "done" : "upcoming"})`).join("; ") ||
-        "nothing scheduled"
-      }.`,
-      `Parent observations: ${
-        data.observations
-          .map((o) => `${o.date} – ${o.activityTitle} rated ${o.rating}/5: ${o.note || "no note"}`)
-          .join(" | ") || "none yet"
-      }.`,
-      `Available activities to suggest from: ${data.activityCatalog.join(", ")}.`,
-      "",
-      "Write a warm, concise progress summary for the parent (2-3 sentences), then suggest 3 next activities.",
-      "Pick suggestions only from the available activities list and give one short reason each.",
-      "Format as plain text: a paragraph, then three lines starting with '- '.",
-    ].join("\n");
+  const suggestionLines =
+    suggestions.length > 0
+      ? suggestions.map((s) => `- ${s} — a fresh skill mix not recently logged.`)
+      : ["- Color Matching Hunt (Motor Skills) — always a hit when energy is high."];
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": apiKey,
-        "X-Lovable-AIG-SDK": "fetch",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-5.6-sol",
-        input: prompt,
-        stream: true,
-        reasoning: { effort: "low", summary: "auto" },
-      }),
-    });
-
-    if (!res.ok || !res.body) {
-      const message = await res.text().catch(() => "");
-      if (res.status === 429)
-        throw new Error("NeuroHelper is busy right now — please try again in a moment.");
-      if (res.status === 402)
-        throw new Error("AI credits are exhausted. Add credits in Lovable to keep using this.");
-      throw new Error(message || `AI request failed (${res.status})`);
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let text = "";
-
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.startsWith("data:")) continue;
-        const payload = line.slice(5).trim();
-        if (!payload || payload === "[DONE]") continue;
-        try {
-          const evt = JSON.parse(payload) as {
-            type?: string;
-            delta?: string;
-            response?: { output_text?: string };
-          };
-          if (evt.type === "response.output_text.delta" && evt.delta) text += evt.delta;
-          if (evt.type === "response.completed" && !text && evt.response?.output_text)
-            text = evt.response.output_text;
-        } catch {
-          /* ignore malformed chunk */
-        }
-      }
-    }
-
-    return { summary: text.trim() };
-  });
+  return { summary: [paragraph, ...suggestionLines].join("\n") };
+}

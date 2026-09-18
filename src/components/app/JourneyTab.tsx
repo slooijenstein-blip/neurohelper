@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { CalendarDays, CircleCheck, Heart, Plus, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useServerFn } from "@tanstack/react-start";
 
 import { useAppStore, uid } from "@/lib/app-store";
 import { ACTIVITIES } from "@/lib/activities-data";
@@ -26,7 +25,6 @@ export function JourneyTab() {
   const [rating, setRating] = useState(4);
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(false);
-  const runSummary = useServerFn(summarizeJourney);
 
   const scheduled = state.schedule.filter((i) => !i.done).length;
   const mostLoved = [...state.observations].sort((a, b) => b.rating - a.rating)[0];
@@ -34,24 +32,22 @@ export function JourneyTab() {
   const generateSummary = async () => {
     setLoading(true);
     try {
-      const res = await runSummary({
-        data: {
-          childName: state.childName,
-          childAge: state.childAge,
-          completedCount: state.completedCount,
-          scheduled: state.schedule.map((s) => ({
-            title: s.title,
-            minutes: s.minutes,
-            done: s.done,
-          })),
-          observations: state.observations.map((o) => ({
-            activityTitle: o.activityTitle,
-            note: o.note,
-            rating: o.rating,
-            date: o.date,
-          })),
-          activityCatalog: ACTIVITIES.map((a) => `${a.title} (${a.skill})`),
-        },
+      const res = summarizeJourney({
+        childName: state.childName,
+        childAge: state.childAge,
+        completedCount: state.completedCount,
+        scheduled: state.schedule.map((s) => ({
+          title: s.title,
+          minutes: s.minutes,
+          done: s.done,
+        })),
+        observations: state.observations.map((o) => ({
+          activityTitle: o.activityTitle,
+          note: o.note,
+          rating: o.rating,
+          date: o.date,
+        })),
+        activityCatalog: ACTIVITIES.map((a) => `${a.title} (${a.skill})`),
       });
       setSummary(res.summary || "No summary returned — try again.");
     } catch (e) {
