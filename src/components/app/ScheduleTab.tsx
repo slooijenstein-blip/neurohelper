@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { useAppStore, uid, WEEKDAYS } from "@/lib/app-store";
-import { ACTIVITIES, type Activity } from "@/lib/activities-data";
+import { ACTIVITIES, findActivity, type Activity } from "@/lib/activities-data";
 import { ScreenHeader } from "./ui-bits";
 import { ScheduleCalendar } from "./ScheduleCalendar";
 import { Button } from "@/components/ui/button";
@@ -50,12 +50,13 @@ export function ScheduleTab() {
 
   const filtered = useMemo(
     () =>
-      ACTIVITIES.filter(
-        (a: Activity) =>
-          query.trim()
-            ? a.title.toLowerCase().includes(query.trim().toLowerCase()) ||
-              a.skill.toLowerCase().includes(query.trim().toLowerCase())
-            : true,
+      ACTIVITIES.filter((a: Activity) =>
+        query.trim()
+          ? a.title.toLowerCase().includes(query.trim().toLowerCase()) ||
+            a.skill.toLowerCase().includes(query.trim().toLowerCase()) ||
+            (a.secondarySkills?.some((s) => s.toLowerCase().includes(query.trim().toLowerCase())) ??
+              false)
+          : true,
       ),
     [query],
   );
@@ -74,7 +75,7 @@ export function ScheduleTab() {
     }));
 
   const addActivity = (activityId: string) => {
-    const act = ACTIVITIES.find((a: Activity) => a.id === activityId);
+    const act = findActivity(activityId);
     if (!act) return;
     const start = state.schedule.reduce((sum, i) => sum + i.minutes, 0);
     update((prev) => ({

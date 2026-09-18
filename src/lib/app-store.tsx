@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { ACTIVITIES, type Activity, type Skill } from "./activities-data";
+import { ACTIVITIES, canonicalActivityId, findActivity, type Activity } from "./activities-data";
 
 export type ScheduleItem = {
   id: string;
@@ -204,6 +204,54 @@ const myProfile: Profile = {
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
+function remapActivityIds(ids: string[]): string[] {
+  const seen = new Set<string>();
+  const next: string[] = [];
+  for (const id of ids) {
+    const canonical = canonicalActivityId(id);
+    if (seen.has(canonical)) continue;
+    seen.add(canonical);
+    next.push(canonical);
+  }
+  return next;
+}
+
+function remapProfile(profile: Profile): Profile {
+  if (!profile.favouriteActivityIds) return profile;
+  return { ...profile, favouriteActivityIds: remapActivityIds(profile.favouriteActivityIds) };
+}
+
+function refreshScheduleItem(item: ScheduleItem): ScheduleItem {
+  const activityId = canonicalActivityId(item.activityId);
+  const act = findActivity(activityId);
+  if (!act) return { ...item, activityId };
+  return {
+    ...item,
+    activityId,
+    title: act.title,
+    description: act.description,
+  };
+}
+
+function itemFromActivity(
+  scheduleId: string,
+  activityId: string,
+  time: string,
+  minutes?: number,
+): ScheduleItem {
+  const act = findActivity(activityId);
+  if (!act) throw new Error(`Unknown activity ${activityId}`);
+  return {
+    id: scheduleId,
+    activityId: act.id,
+    title: act.title,
+    description: act.description,
+    time,
+    minutes: minutes ?? act.minMinutes,
+    done: false,
+  };
+}
+
 const seedTemplates: Template[] = [
   {
     id: "tpl-morning",
@@ -212,33 +260,9 @@ const seedTemplates: Template[] = [
     isPublic: true,
     createdAt: "2026-08-18",
     items: [
-      {
-        id: "s1",
-        activityId: "sensory-rice-bin",
-        title: "Sensory Rice Bin",
-        description: "A calming sensory activity using colored rice to explore textures.",
-        time: "09:00",
-        minutes: 15,
-        done: false,
-      },
-      {
-        id: "s2",
-        activityId: "mirror-emotions",
-        title: "Mirror Emotions",
-        description: "Learning to identify and mimic facial expressions.",
-        time: "09:20",
-        minutes: 5,
-        done: false,
-      },
-      {
-        id: "s3",
-        activityId: "deep-pressure-sandwich",
-        title: "Deep Pressure Sandwich",
-        description: "Deep pressure therapy using pillows for regulation.",
-        time: "09:30",
-        minutes: 5,
-        done: false,
-      },
+      itemFromActivity("s1", "sensory-rice-bin", "09:00", 15),
+      itemFromActivity("s2", "mirror-emotions", "09:20", 5),
+      itemFromActivity("s3", "deep-pressure-sandwich", "09:30", 5),
     ],
   },
   {
@@ -248,33 +272,9 @@ const seedTemplates: Template[] = [
     isPublic: true,
     createdAt: "2026-08-20",
     items: [
-      {
-        id: "f1",
-        activityId: "tape-rescue",
-        title: "Tape Rescue",
-        description: "Fine motor activity peeling tape off toys.",
-        time: "10:00",
-        minutes: 10,
-        done: false,
-      },
-      {
-        id: "f2",
-        activityId: "color-matching-hunt",
-        title: "Color Matching Hunt",
-        description: "A whole-house hunt for objects that match a colour card.",
-        time: "10:15",
-        minutes: 15,
-        done: false,
-      },
-      {
-        id: "f3",
-        activityId: "calming-glitter-bottle",
-        title: "Calming Glitter Bottle",
-        description: "A self-regulation tool your child helps build.",
-        time: "10:35",
-        minutes: 15,
-        done: false,
-      },
+      itemFromActivity("f1", "tape-rescue", "10:00", 10),
+      itemFromActivity("f2", "color-matching-hunt", "10:15", 15),
+      itemFromActivity("f3", "calming-glitter-bottle", "10:35", 15),
     ],
   },
   {
@@ -284,33 +284,9 @@ const seedTemplates: Template[] = [
     isPublic: true,
     createdAt: "2026-08-19",
     items: [
-      {
-        id: "e1",
-        activityId: "obstacle-course",
-        title: "Living Room Obstacle Course",
-        description: "Gross motor planning with cushions and tunnels.",
-        time: "15:00",
-        minutes: 20,
-        done: false,
-      },
-      {
-        id: "e2",
-        activityId: "interactive-bubble-chase",
-        title: "Interactive Bubble Chase",
-        description: "Joint attention and turn-taking fun.",
-        time: "15:25",
-        minutes: 15,
-        done: false,
-      },
-      {
-        id: "e3",
-        activityId: "turn-taking-tower",
-        title: "Turn-Taking Tower",
-        description: "Building a block tower one turn each.",
-        time: "15:45",
-        minutes: 10,
-        done: false,
-      },
+      itemFromActivity("e1", "obstacle-course", "15:00", 20),
+      itemFromActivity("e2", "interactive-bubble-chase", "15:25", 15),
+      itemFromActivity("e3", "turn-taking-tower", "15:45", 10),
     ],
   },
   {
@@ -320,33 +296,9 @@ const seedTemplates: Template[] = [
     isPublic: true,
     createdAt: "2026-08-21",
     items: [
-      {
-        id: "c1",
-        activityId: "mirror-emotions",
-        title: "Mirror Emotions",
-        description: "Learning to identify and mimic facial expressions.",
-        time: "08:45",
-        minutes: 5,
-        done: false,
-      },
-      {
-        id: "c2",
-        activityId: "rhyming-match",
-        title: "Rhyming Match",
-        description: "Phonological awareness development.",
-        time: "08:55",
-        minutes: 15,
-        done: false,
-      },
-      {
-        id: "c3",
-        activityId: "story-time-props",
-        title: "Story Time with Props",
-        description: "Using objects to bring a story to life.",
-        time: "09:15",
-        minutes: 20,
-        done: false,
-      },
+      itemFromActivity("c1", "mirror-emotions", "08:45", 5),
+      itemFromActivity("c2", "rhyming-match", "08:55", 15),
+      itemFromActivity("c3", "story-time-props", "09:15", 20),
     ],
   },
 ];
@@ -396,7 +348,7 @@ const memberProfiles: Profile[] = [
     bio: "Creating sensory play videos and printable activities for families.",
     socials: { tiktok: "https://tiktok.com/@elena.plays", instagram: "https://instagram.com/elena.plays" },
     color: "bg-pink-500",
-    favouriteActivityIds: ["sensory-rice-bin", "playdough-letters"],
+    favouriteActivityIds: ["sensory-rice-bin", "playdough-pinch"],
     followers: ["maya", "jonas", "tom"],
   },
 
@@ -739,8 +691,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           articles: parsed.articles?.length ? parsed.articles : prev.articles,
           dayPlans: parsed.dayPlans ?? prev.dayPlans,
           following: parsed.following ?? prev.following,
-          profile: parsed.profile ?? prev.profile,
-
+          profile: parsed.profile ? remapProfile(parsed.profile) : prev.profile,
+          favourites: parsed.favourites ? remapActivityIds(parsed.favourites) : prev.favourites,
+          schedule: (parsed.schedule ?? prev.schedule).map(refreshScheduleItem),
+          templates: (parsed.templates ?? prev.templates).map((t) => ({
+            ...t,
+            items: t.items.map(refreshScheduleItem),
+          })),
         }));
       }
 
