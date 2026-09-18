@@ -10,33 +10,102 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SignInRouteRouteImport } from './routes/sign-in/route'
+import { Route as SignUpRouteRouteImport } from './routes/sign-up/route'
+import { Route as SignInIndexRouteImport } from './routes/sign-in/index'
+import { Route as SignInSplatRouteImport } from './routes/sign-in/$'
+import { Route as SignUpIndexRouteImport } from './routes/sign-up/index'
+import { Route as SignUpSplatRouteImport } from './routes/sign-up/$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SignInRouteRoute = SignInRouteRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignUpRouteRoute = SignUpRouteRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInIndexRoute = SignInIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SignInRouteRoute,
+} as any)
+const SignInSplatRoute = SignInSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => SignInRouteRoute,
+} as any)
+const SignUpIndexRoute = SignUpIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SignUpRouteRoute,
+} as any)
+const SignUpSplatRoute = SignUpSplatRouteImport.update({
+  id: '/$',
+  path: '/$',
+  getParentRoute: () => SignUpRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/sign-in': typeof SignInRouteRouteWithChildren
+  '/sign-up': typeof SignUpRouteRouteWithChildren
+  '/sign-in/$': typeof SignInSplatRoute
+  '/sign-up/$': typeof SignUpSplatRoute
+  '/sign-in/': typeof SignInIndexRoute
+  '/sign-up/': typeof SignUpIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/sign-in/$': typeof SignInSplatRoute
+  '/sign-up/$': typeof SignUpSplatRoute
+  '/sign-in': typeof SignInIndexRoute
+  '/sign-up': typeof SignUpIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/sign-in': typeof SignInRouteRouteWithChildren
+  '/sign-up': typeof SignUpRouteRouteWithChildren
+  '/sign-in/$': typeof SignInSplatRoute
+  '/sign-up/$': typeof SignUpSplatRoute
+  '/sign-in/': typeof SignInIndexRoute
+  '/sign-up/': typeof SignUpIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/sign-in'
+    | '/sign-up'
+    | '/sign-in/$'
+    | '/sign-up/$'
+    | '/sign-in/'
+    | '/sign-up/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/sign-in/$' | '/sign-up/$' | '/sign-in' | '/sign-up'
+  id:
+    | '__root__'
+    | '/'
+    | '/sign-in'
+    | '/sign-up'
+    | '/sign-in/$'
+    | '/sign-up/$'
+    | '/sign-in/'
+    | '/sign-up/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SignInRouteRoute: typeof SignInRouteRouteWithChildren
+  SignUpRouteRoute: typeof SignUpRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +117,83 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof SignUpRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in/': {
+      id: '/sign-in/'
+      path: '/'
+      fullPath: '/sign-in/'
+      preLoaderRoute: typeof SignInIndexRouteImport
+      parentRoute: typeof SignInRouteRoute
+    }
+    '/sign-in/$': {
+      id: '/sign-in/$'
+      path: '/$'
+      fullPath: '/sign-in/$'
+      preLoaderRoute: typeof SignInSplatRouteImport
+      parentRoute: typeof SignInRouteRoute
+    }
+    '/sign-up/': {
+      id: '/sign-up/'
+      path: '/'
+      fullPath: '/sign-up/'
+      preLoaderRoute: typeof SignUpIndexRouteImport
+      parentRoute: typeof SignUpRouteRoute
+    }
+    '/sign-up/$': {
+      id: '/sign-up/$'
+      path: '/$'
+      fullPath: '/sign-up/$'
+      preLoaderRoute: typeof SignUpSplatRouteImport
+      parentRoute: typeof SignUpRouteRoute
+    }
   }
 }
 
+interface SignInRouteRouteChildren {
+  SignInSplatRoute: typeof SignInSplatRoute
+  SignInIndexRoute: typeof SignInIndexRoute
+}
+
+const SignInRouteRouteChildren: SignInRouteRouteChildren = {
+  SignInSplatRoute: SignInSplatRoute,
+  SignInIndexRoute: SignInIndexRoute,
+}
+
+const SignInRouteRouteWithChildren = SignInRouteRoute._addFileChildren(
+  SignInRouteRouteChildren,
+)
+
+interface SignUpRouteRouteChildren {
+  SignUpSplatRoute: typeof SignUpSplatRoute
+  SignUpIndexRoute: typeof SignUpIndexRoute
+}
+
+const SignUpRouteRouteChildren: SignUpRouteRouteChildren = {
+  SignUpSplatRoute: SignUpSplatRoute,
+  SignUpIndexRoute: SignUpIndexRoute,
+}
+
+const SignUpRouteRouteWithChildren = SignUpRouteRoute._addFileChildren(
+  SignUpRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SignInRouteRoute: SignInRouteRouteWithChildren,
+  SignUpRouteRoute: SignUpRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

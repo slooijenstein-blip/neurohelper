@@ -57,7 +57,6 @@ export function JourneyTab() {
     }
   };
 
-
   const save = () => {
     if (!title.trim()) return;
     update((prev) => ({
@@ -81,7 +80,10 @@ export function JourneyTab() {
 
   return (
     <div className="flex h-full flex-col">
-      <ScreenHeader title="My Journey" subtitle={`${state.childName}'s progress`} />
+      <ScreenHeader
+        title="My Journey"
+        subtitle={state.childName ? `${state.childName}'s progress` : "Progress on this device"}
+      />
 
       <div className="hide-scrollbar flex-1 space-y-4 overflow-y-auto bg-surface px-5 py-4">
         <div className="grid grid-cols-2 gap-3">
@@ -116,11 +118,9 @@ export function JourneyTab() {
           </div>
           <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
             {summary ||
-              `Get a personalised read on ${state.childName}'s progress plus three suggested next activities.`}
+              `Get a personalised read on ${state.childName ? `${state.childName}'s` : "recent"} progress plus three suggested next activities.`}
           </p>
         </div>
-
-
 
         {mostLoved ? (
           <div className="rounded-xl border border-warm/50 bg-warm/20 p-4">

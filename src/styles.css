@@ -1,6 +1,7 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import "@clerk/ui/themes/shadcn.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -259,6 +260,16 @@
 @utility hide-scrollbar {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
+}
+
+.clerk-auth-host {
+  width: 100%;
+}
+
+.clerk-auth-host .cl-rootBox,
+.clerk-auth-host .cl-cardBox {
+  width: 100%;
+  max-width: 100%;
 }
 
 
