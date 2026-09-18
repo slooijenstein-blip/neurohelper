@@ -1,1 +1,0 @@
-import{o as e}from"./react-BqBvWGiZ.js";import{t}from"./jsx-runtime-BurxjvZa.js";import{n,r}from"./AuthScreen-CbriDHza.js";var i=e(t());function a(){return(0,i.jsx)(r,{children:(0,i.jsx)(n,{mode:`sign-in`})})}export{a as component};
