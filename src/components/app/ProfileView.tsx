@@ -44,7 +44,7 @@ export function ProfileView({
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader
         title="Profile"
         right={
@@ -58,7 +58,7 @@ export function ProfileView({
         }
       />
 
-      <div className="hide-scrollbar flex-1 space-y-3 overflow-y-auto bg-surface px-5 py-4">
+      <div className="hide-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto bg-surface px-5 py-4 md:max-w-3xl md:px-8">
         <div className="soft-card flex flex-col items-center p-5 text-center">
           <ProfileAvatar name={member.name} color={member.color} size="lg" />
           <h3 className="mt-3 text-lg font-bold">{member.name}</h3>

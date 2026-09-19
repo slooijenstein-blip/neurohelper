@@ -2,9 +2,9 @@ import { useMemo, useState } from "react";
 import { Clock, Filter, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { ACTIVITIES, SKILLS, type Activity, type Skill } from "@/lib/activities-data";
+import { ACTIVITIES, SKILLS, formatActivityDuration, type Activity, type Skill } from "@/lib/activities-data";
 import { useAppStore, uid } from "@/lib/app-store";
-import { AgeTag, ScreenHeader, SkillTag } from "./ui-bits";
+import { AgeTag, DurationTag, ScreenHeader, SkillTag } from "./ui-bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -60,10 +60,10 @@ export function ActivitiesTab() {
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader title="Activity Library" subtitle={`${results.length} activities`} />
 
-      <div className="space-y-3 border-b border-border bg-surface px-5 py-3">
+      <div className="space-y-3 border-b border-border bg-surface px-5 py-3 md:px-8">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -135,16 +135,14 @@ export function ActivitiesTab() {
         ) : null}
       </div>
 
-      <div className="hide-scrollbar flex-1 space-y-3 overflow-y-auto bg-surface px-5 py-4">
+      <div className="hide-scrollbar grid min-h-0 flex-1 content-start gap-3 overflow-y-auto bg-surface px-5 py-4 md:grid-cols-2 md:gap-4 md:px-8 lg:grid-cols-3">
         {results.map((a) => (
-          <div key={a.id} className="soft-card p-4">
+          <div key={a.id} className="soft-card flex flex-col p-4">
             <div className="mb-2 flex items-start justify-between">
               <span className="tag-base bg-accent text-accent-foreground">{a.skill}</span>
               <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
                 <Clock className="size-3" />
-                {a.minMinutes === a.maxMinutes
-                  ? `${a.minMinutes} mins`
-                  : `${a.minMinutes}-${a.maxMinutes} mins`}
+                {formatActivityDuration(a.minMinutes, a.maxMinutes)}
               </span>
             </div>
             <button
@@ -154,8 +152,8 @@ export function ActivitiesTab() {
             >
               {a.title}
             </button>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{a.description}</p>
-            <div className="mt-3 flex items-center justify-between">
+            <p className="mt-1 flex-1 text-xs leading-relaxed text-muted-foreground">{a.description}</p>
+            <div className="mt-3 flex items-center justify-between gap-2">
               <div className="flex gap-1.5">
                 <AgeTag>
                   Age: {a.minAge}-{a.maxAge}
@@ -169,30 +167,39 @@ export function ActivitiesTab() {
           </div>
         ))}
         {!results.length ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
+          <p className="py-10 text-center text-sm text-muted-foreground md:col-span-2 lg:col-span-3">
             No activities match those filters.
           </p>
         ) : null}
       </div>
 
       <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm md:max-w-lg">
           <DialogHeader>
             <DialogTitle>{detail?.title}</DialogTitle>
             <DialogDescription>{detail?.description}</DialogDescription>
           </DialogHeader>
           {detail ? (
             <div className="space-y-4 text-sm">
-              <div className="flex gap-1.5">
-                <AgeTag>
-                  Age: {detail.minAge}-{detail.maxAge}
-                </AgeTag>
-                <SkillTag skill={detail.skill} />
-              </div>
-              <div>
-                <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  What you need
-                </p>
+            <div className="flex flex-wrap gap-1.5">
+              <AgeTag>
+                Age: {detail.minAge}-{detail.maxAge}
+              </AgeTag>
+              <SkillTag skill={detail.skill} />
+              <DurationTag minMinutes={detail.minMinutes} maxMinutes={detail.maxMinutes} />
+            </div>
+            <div>
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                Duration
+              </p>
+              <p className="text-muted-foreground">
+                {formatActivityDuration(detail.minMinutes, detail.maxMinutes)}
+              </p>
+            </div>
+            <div>
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                What you need
+              </p>
                 <ul className="list-inside list-disc text-muted-foreground">
                   {detail.materials.map((m) => (
                     <li key={m}>{m}</li>

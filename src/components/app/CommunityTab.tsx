@@ -177,10 +177,10 @@ export function CommunityTab({
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader title="Community" subtitle="Connect with parents, therapists & creators" />
 
-      <div className="space-y-3 border-b border-border bg-surface px-5 py-3">
+      <div className="space-y-3 border-b border-border bg-surface px-5 py-3 md:px-8">
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -215,7 +215,7 @@ export function CommunityTab({
         </div>
       </div>
 
-      <div className="hide-scrollbar flex-1 space-y-3 overflow-y-auto bg-surface px-5 py-4">
+      <div className="hide-scrollbar grid min-h-0 flex-1 content-start gap-3 overflow-y-auto bg-surface px-5 py-4 md:grid-cols-2 md:gap-4 md:px-8">
         {tab === "posts"
           ? posts.map((p) => (
               <div key={p.id} className="soft-card p-4">
@@ -359,7 +359,7 @@ export function CommunityTab({
           : null}
 
         {tab === "articles" && !articles.length ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No articles yet.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground md:col-span-2">No articles yet.</p>
         ) : null}
 
         {tab === "schedules"
@@ -400,7 +400,7 @@ export function CommunityTab({
           : null}
 
         {tab === "schedules" && !publicTemplates.length ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No shared schedules yet.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground md:col-span-2">No shared schedules yet.</p>
         ) : null}
 
         {tab === "following" ? (
@@ -459,7 +459,7 @@ export function CommunityTab({
               );
             })
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">
+            <p className="py-8 text-center text-sm text-muted-foreground md:col-span-2">
               You are not following anyone yet. Tap Follow on a post or profile.
             </p>
           )

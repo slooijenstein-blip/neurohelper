@@ -113,7 +113,7 @@ export function ScheduleTab() {
     setSaveOpen(false);
     toast.success(
       repeatDays.length
-        ? `Saved — repeats on ${repeatDays.map((d) => WEEKDAYS[d]).join(", ")}`
+        ? `Saved. Repeats on ${repeatDays.map((d) => WEEKDAYS[d]).join(", ")}`
         : "Saved as template",
     );
   };
@@ -190,7 +190,7 @@ export function ScheduleTab() {
   const resetSchedule = () => update((prev) => ({ ...prev, schedule: [] }));
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader
         title="Schedule"
         subtitle="Build a routine step by step"
@@ -211,7 +211,7 @@ export function ScheduleTab() {
         }
       />
 
-      <div className="hide-scrollbar flex-1 space-y-3 overflow-y-auto bg-surface px-5 py-4">
+      <div className="hide-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto bg-surface px-5 py-4 md:max-w-3xl md:px-8">
         <div className="flex gap-1 rounded-xl bg-card p-1">
           {(["list", "calendar"] as const).map((v) => (
             <button
@@ -234,7 +234,12 @@ export function ScheduleTab() {
         {view === "list" ? (
           <>
         {state.schedule.length ? (
-          <Button variant="outline" className="w-full" onClick={addToGoogleCalendar}>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={addToGoogleCalendar}
+            title="Opens Google Calendar with one combined event for today (not one event per activity)"
+          >
             <CalendarDays className="mr-1 size-4" /> Add today’s routine to Google Calendar
           </Button>
         ) : null}

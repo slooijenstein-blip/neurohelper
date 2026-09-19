@@ -32,7 +32,7 @@ export function ArticleView({
     }));
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader
         title="Article"
         right={
@@ -46,7 +46,7 @@ export function ArticleView({
         }
       />
 
-      <div className="hide-scrollbar flex-1 space-y-3 overflow-y-auto bg-surface px-5 py-4">
+      <div className="hide-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto bg-surface px-5 py-4 md:max-w-3xl md:px-8">
         <div className="soft-card p-4">
           <h3 className="text-base font-bold leading-snug">{article.title}</h3>
           <button

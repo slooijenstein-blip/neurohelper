@@ -75,6 +75,8 @@ export type Profile = {
   favouriteActivityIds?: string[];
   /** Member IDs following this profile */
   followers?: string[];
+  /** Clerk user id when this profile is tied to a real session */
+  clerkUserId?: string;
 };
 
 
@@ -183,6 +185,7 @@ export type AppState = {
 };
 
 const STORAGE_KEY = "motor-skill-buddy-v1";
+const DEV_DEMO_KEY = "synlumae-dev-demo";
 
 const MY_ID = "me";
 
@@ -516,7 +519,7 @@ const seedPosts: Post[] = [
     authorRole: "Creator",
     authorLocation: "Barcelona",
     kind: "Promotion",
-    body: "I just posted a new printable set of scissor skills strips on my site. Link in bio — grab it for free this week! Great for 3–5 year olds building fine motor control.",
+    body: "I just posted a new printable set of scissor skills strips on my site. Link in bio. Grab it for free this week! Great for 3–5 year olds building fine motor control.",
     likes: 18,
     liked: false,
     reactions: { heart: 5, celebrate: 1 },
@@ -562,7 +565,7 @@ const seedArticles: Article[] = [
     authorId: "elena",
     authorName: "Elena",
     authorRole: "Creator",
-    title: "Sensory play is not a mess — it is a message",
+    title: "Sensory play is not a mess, it is a message",
     excerpt:
       "Why rice bins, water trays and playdough do far more than keep small hands busy, and how to read what your child is telling you through them.",
     body: `When people see a tray of coloured rice on the kitchen floor, they see a mess. I see a child telling me exactly what their nervous system needs today.
@@ -577,7 +580,7 @@ A shallow baking tray beats a giant bin. Less material means less overwhelm and 
 Narrate softly: "cold", "smooth", "pouring". You are not testing them. You are giving words to a feeling they already have, which is how vocabulary sticks for a lot of neurodiverse kids.
 
 **Know when to stop**
-Stop while it is still fun. Ending on a good moment is what makes a child ask for it again — and repetition is where the real development happens.`,
+Stop while it is still fun. Ending on a good moment is what makes a child ask for it again, and repetition is where the real development happens.`,
     tags: ["Sensory", "Play", "Regulation"],
     readMinutes: 4,
     likes: 24,
@@ -605,7 +608,7 @@ Writing is a whole-body skill. Wall push-ups, crawling through tunnels, and draw
 Tape Rescue, tearing paper, tongs and pom-poms, squeezing playdough. Two to five minutes a day is plenty. You are building endurance, not producing artwork.
 
 **3. Then the tool**
-Short, broken crayons force a tripod grip naturally — far more effective than correcting a grip verbally.
+Short, broken crayons force a tripod grip naturally, far more effective than correcting a grip verbally.
 
 **Watch for fatigue, not failure**
 A child who writes beautifully for one line and falls apart on the second does not lack effort. They lack endurance, and endurance is trainable.
@@ -635,13 +638,13 @@ Give it six weeks of small daily doses before you judge progress.`,
 Movement, then focus, then calm. If lunch runs late, the order still holds and the day still feels safe.
 
 **Show it, do not just say it**
-Three picture cards on the fridge do more than ten spoken reminders. Let your child move the finished card into a pocket — that small act of control reduces resistance enormously.
+Three picture cards on the fridge do more than ten spoken reminders. Let your child move the finished card into a pocket. That small act of control reduces resistance enormously.
 
 **Build transitions into the plan**
 The hard part is rarely the activity; it is the gap between two activities. Name it out loud: "two more minutes, then we tidy, then snack."
 
 **Let the child co-author it**
-When a child picks the order of two activities, compliance stops being a battle. That is the whole idea behind sharing routines here — you take someone's structure and make it yours.`,
+When a child picks the order of two activities, compliance stops being a battle. That is the whole idea behind sharing routines here. You take someone's structure and make it yours.`,
     tags: ["Routines", "Transitions", "Classroom"],
     readMinutes: 3,
     likes: 17,
@@ -654,11 +657,28 @@ When a child picks the order of two activities, compliance stops being a battle.
 ];
 
 
+const demoObservations: Observation[] = [
+  {
+    id: "o1",
+    activityTitle: "Tape Rescue",
+    note: "Stayed with it for a full ten minutes. Asked for more.",
+    rating: 3,
+    date: "2026-08-24",
+  },
+  {
+    id: "o2",
+    activityTitle: "Color Matching Hunt",
+    note: "Absolute favourite. Wanted to do it twice in a row.",
+    rating: 5,
+    date: "2026-08-23",
+  },
+];
+
 const seed: AppState = {
-  childName: "Nora",
+  childName: "",
   childAge: 4,
-  profile: myProfile,
-  loggedOut: false,
+  profile: null,
+  loggedOut: true,
   schedule: seedTemplates[0]!.items.map((i) => ({ ...i, id: uid() })),
   templates: seedTemplates.map((t, i) => ({
     ...t,
@@ -670,23 +690,8 @@ const seed: AppState = {
   })),
 
   posts: seedPosts,
-  observations: [
-    {
-      id: "o1",
-      activityTitle: "Tape Rescue",
-      note: "Stayed with it for a full ten minutes. Asked for more.",
-      rating: 3,
-      date: "2026-08-24",
-    },
-    {
-      id: "o2",
-      activityTitle: "Color Matching Hunt",
-      note: "Absolute favourite. Wanted to do it twice in a row.",
-      rating: 5,
-      date: "2026-08-23",
-    },
-  ],
-  completedCount: 4,
+  observations: [],
+  completedCount: 0,
   favourites: ["color-matching-hunt"],
   members: memberProfiles,
   activities: ACTIVITIES,
@@ -698,9 +703,13 @@ const seed: AppState = {
 
 type Ctx = {
   state: AppState;
+  hydrated: boolean;
+  devDemo: boolean;
   update: (fn: (prev: AppState) => AppState) => void;
   logout: () => void;
   login: (profile: Profile) => void;
+  enterDevDemo: () => void;
+  exitDevDemo: () => void;
   tryTemplate: (templateId: string) => void;
   toggleTemplateLike: (templateId: string) => void;
   rateTemplate: (templateId: string, stars: number) => void;
@@ -724,6 +733,8 @@ const AppContext = createContext<Ctx | null>(null);
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(seed);
+  const [hydrated, setHydrated] = useState(false);
+  const [devDemo, setDevDemo] = useState(false);
 
   useEffect(() => {
     try {
@@ -740,7 +751,19 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           dayPlans: parsed.dayPlans ?? prev.dayPlans,
           following: parsed.following ?? prev.following,
           profile: parsed.profile ?? prev.profile,
+        }));
+      }
 
+      if (import.meta.env.DEV && window.sessionStorage.getItem(DEV_DEMO_KEY) === "1") {
+        setDevDemo(true);
+        setState((prev) => ({
+          ...prev,
+          profile: myProfile,
+          loggedOut: false,
+          childName: prev.childName || "Nora",
+          childAge: prev.childAge || 4,
+          observations: prev.observations.length ? prev.observations : demoObservations,
+          completedCount: prev.completedCount || 4,
         }));
       }
 
@@ -762,6 +785,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       /* ignore */
+    } finally {
+      setHydrated(true);
     }
   }, []);
 
@@ -778,6 +803,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    try {
+      window.sessionStorage.removeItem(DEV_DEMO_KEY);
+    } catch {
+      /* ignore */
+    }
+    setDevDemo(false);
     update((prev) => ({ ...prev, profile: null, loggedOut: true }));
   }, [update]);
 
@@ -787,6 +818,34 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     },
     [update],
   );
+
+  const enterDevDemo = useCallback(() => {
+    if (!import.meta.env.DEV) return;
+    try {
+      window.sessionStorage.setItem(DEV_DEMO_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setDevDemo(true);
+    update((prev) => ({
+      ...prev,
+      profile: myProfile,
+      loggedOut: false,
+      childName: prev.childName || "Nora",
+      childAge: prev.childAge || 4,
+      observations: prev.observations.length ? prev.observations : demoObservations,
+      completedCount: prev.completedCount || 4,
+    }));
+  }, [update]);
+
+  const exitDevDemo = useCallback(() => {
+    try {
+      window.sessionStorage.removeItem(DEV_DEMO_KEY);
+    } catch {
+      /* ignore */
+    }
+    setDevDemo(false);
+  }, []);
 
   const tryTemplate = useCallback(
     (templateId: string) => {
@@ -891,9 +950,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       state,
+      hydrated,
+      devDemo,
       update,
       logout,
       login,
+      enterDevDemo,
+      exitDevDemo,
       tryTemplate,
       toggleTemplateLike,
       rateTemplate,
@@ -905,9 +968,13 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     }),
     [
       state,
+      hydrated,
+      devDemo,
       update,
       logout,
       login,
+      enterDevDemo,
+      exitDevDemo,
       tryTemplate,
       toggleTemplateLike,
       rateTemplate,

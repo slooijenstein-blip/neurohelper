@@ -49,7 +49,7 @@ export function JourneyTab() {
         })),
         activityCatalog: ACTIVITIES.map((a) => `${a.title} (${a.skill})`),
       });
-      setSummary(res.summary || "No summary returned — try again.");
+      setSummary(res.summary || "No summary returned. Try again.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not generate summary");
     } finally {
@@ -80,11 +80,14 @@ export function JourneyTab() {
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <ScreenHeader title="My Journey" subtitle={`${state.childName}'s progress`} />
+    <div className="flex h-full min-h-0 flex-col">
+      <ScreenHeader
+        title="My Journey"
+        subtitle={state.childName ? `${state.childName}'s progress` : "Progress on this device"}
+      />
 
-      <div className="hide-scrollbar flex-1 space-y-4 overflow-y-auto bg-surface px-5 py-4">
-        <div className="grid grid-cols-2 gap-3">
+      <div className="hide-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface px-5 py-4 md:px-8">
+        <div className="grid grid-cols-2 gap-3 md:max-w-xl">
           <div className="soft-card p-4 text-center">
             <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               Completed
@@ -102,7 +105,7 @@ export function JourneyTab() {
         <div className="soft-card space-y-2 p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="flex items-center gap-1.5 text-sm font-semibold">
-              <Sparkles className="size-4 text-primary" /> AI progress summary
+              <Sparkles className="size-4 text-primary" /> Progress summary
             </p>
             <Button
               size="sm"
@@ -116,7 +119,7 @@ export function JourneyTab() {
           </div>
           <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
             {summary ||
-              `Get a personalised read on ${state.childName}'s progress plus three suggested next activities.`}
+              `A local summary of ${state.childName ? `${state.childName}'s` : "recent"} completed activities, observations, and suggested next steps. (Not an AI model.)`}
           </p>
         </div>
 

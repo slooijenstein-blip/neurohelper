@@ -9,6 +9,10 @@ import {
 } from "@tanstack/react-router";
 import { type ReactNode } from "react";
 
+import { ClerkAppProvider } from "@/components/app/ClerkAppProvider";
+import { ClerkProfileSync } from "@/components/app/ClerkProfileSync";
+import { AppStoreProvider } from "@/lib/app-store";
+
 import appCss from "../styles.css?url";
 
 function NotFoundComponent() {
@@ -73,10 +77,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "NeuroHelper" },
+      { title: "Synlumae" },
       { name: "description", content: "Activities, routines, and community for neurodiverse kids and their caregivers." },
-      { name: "author", content: "NeuroHelper" },
-      { property: "og:title", content: "NeuroHelper — Activities & routines for neurodiverse kids" },
+      { name: "author", content: "Synlumae" },
+      { property: "og:title", content: "Synlumae — Activities & routines for neurodiverse kids" },
       { property: "og:description", content: "Discover activities, build daily schedules, track progress, and share routines with parents, teachers, therapists, and creators." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -119,9 +123,14 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
-    </QueryClientProvider>
+    <ClerkAppProvider>
+      <QueryClientProvider client={queryClient}>
+        <AppStoreProvider>
+          <ClerkProfileSync />
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </AppStoreProvider>
+      </QueryClientProvider>
+    </ClerkAppProvider>
   );
 }

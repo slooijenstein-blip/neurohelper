@@ -7,7 +7,7 @@ export type JourneyInput = {
   activityCatalog: string[];
 };
 
-/** Local progress summary — no external AI or server. */
+/** Local progress summary. No external AI or server. */
 export function summarizeJourney(data: JourneyInput): { summary: string } {
   const upcoming = data.scheduled.filter((item) => !item.done);
   const doneThisWeek = data.scheduled.filter((item) => item.done);
@@ -24,16 +24,17 @@ export function summarizeJourney(data: JourneyInput): { summary: string } {
     })
     .slice(0, 3);
 
+  const childLabel = data.childName.trim() || "This child";
   const paragraph = [
-    `${data.childName} (${data.childAge}) has ${data.completedCount} completed activities logged.`,
+    `${childLabel} (${data.childAge}) has ${data.completedCount} completed activities logged.`,
     favourite
       ? `${favourite.activityTitle} is standing out (rated ${favourite.rating}/5).`
-      : "No parent observations yet — logging a session will sharpen this picture.",
+      : "No parent observations yet. Logging a session will sharpen this picture.",
     upcoming.length
       ? `${upcoming.length} items are still upcoming this week${
           doneThisWeek.length ? `; ${doneThisWeek.length} already done` : ""
         }.`
-      : "Nothing is scheduled yet — add a routine from Activities or Schedule.",
+      : "Nothing is scheduled yet. Add a routine from Activities or Schedule.",
     avgRating ? `Average observation rating is ${avgRating.toFixed(1)}/5.` : "",
   ]
     .filter(Boolean)
@@ -41,8 +42,8 @@ export function summarizeJourney(data: JourneyInput): { summary: string } {
 
   const suggestionLines =
     suggestions.length > 0
-      ? suggestions.map((s) => `- ${s} — a fresh skill mix not recently logged.`)
-      : ["- Color Matching Hunt (Motor Skills) — always a hit when energy is high."];
+      ? suggestions.map((s) => `- ${s}: a fresh skill mix not recently logged.`)
+      : ["- Color Matching Hunt (Motor Skills): always a hit when energy is high."];
 
   return { summary: [paragraph, ...suggestionLines].join("\n") };
 }
