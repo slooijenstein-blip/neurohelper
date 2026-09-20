@@ -64,7 +64,13 @@ Child first name / age stay in this browser (`localStorage` key `motor-skill-bud
 npm run build
 ```
 
-Static output is in `dist/client`.
+Static output is in `dist/client` (`index.html` plus hashed `/assets`).
+
+### Vercel
+
+This app is a **static SPA**. `vercel.json` sets Framework to Other, Output Directory to `dist/client`, and rewrites client routes to `/index.html` (hashed `/assets/*` are still served as files).
+
+Do not add the `nitro()` Vite plugin for this host. Nitro’s Vercel preset writes `.vercel/output` (Build Output API) and can replace that static publish with an empty deploy. Clerk env var names stay `VITE_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY`.
 
 ### GitHub Pages vs Clerk
 

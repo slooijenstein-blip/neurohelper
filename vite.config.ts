@@ -21,6 +21,9 @@ export default defineConfig({
   },
   plugins: [
     tsConfigPaths({ projects: ["./tsconfig.json"] }),
+    // SPA-only: do not add nitro(). Nitro's Vercel preset writes
+    // .vercel/output (Build Output API) and can replace dist/client with an
+    // empty deploy. vercel.json publishes dist/client as a static site.
     tanstackStart({
       spa: { enabled: true },
       server: { entry: "server" },
