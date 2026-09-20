@@ -15,6 +15,11 @@ import { AppStoreProvider } from "@/lib/app-store";
 
 import appCss from "../styles.css?url";
 
+const ICON_VERSION = "20260920";
+function brandIcon(file: string) {
+  return `${import.meta.env.BASE_URL}${file}?v=${ICON_VERSION}`;
+}
+
 function NotFoundComponent() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -84,6 +89,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "Discover activities, build daily schedules, track progress, and share routines with parents, teachers, therapists, and creators." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "theme-color", content: "#ffffff" },
     ],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -96,7 +102,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
-      { rel: "icon", href: `${import.meta.env.BASE_URL}favicon.ico`, type: "image/x-icon" },
+      { rel: "icon", type: "image/png", sizes: "32x32", href: brandIcon("favicon-32.png") },
+      { rel: "icon", type: "image/png", sizes: "192x192", href: brandIcon("favicon-192.png") },
+      { rel: "icon", type: "image/png", sizes: "512x512", href: brandIcon("favicon-512.png") },
+      { rel: "icon", href: brandIcon("favicon.ico"), type: "image/x-icon" },
+      { rel: "apple-touch-icon", sizes: "192x192", href: brandIcon("apple-touch-icon.png") },
+      { rel: "manifest", href: brandIcon("site.webmanifest") },
     ],
   }),
   shellComponent: RootShell,
