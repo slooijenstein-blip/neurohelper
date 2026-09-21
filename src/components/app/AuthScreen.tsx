@@ -1,6 +1,6 @@
 import { SignIn, SignUp, useAuth } from "@clerk/react";
 import { Link, Navigate } from "@tanstack/react-router";
-import { LogIn, Sparkles } from "lucide-react";
+import { LogIn } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -8,14 +8,14 @@ import { useAppStore } from "@/lib/app-store";
 import { isClerkConfigured } from "@/lib/clerk";
 import { withBasePath } from "@/lib/paths";
 
+import { BrandLogo } from "./BrandLogo";
+
 export function AuthLoading() {
   return (
     <div className="phone-shell">
       <div className="app-main min-h-0 flex-1 md:items-center md:justify-center md:p-10">
         <div className="flex h-full flex-col items-center justify-center bg-surface px-6 text-center">
-          <div className="mb-4 grid size-16 place-items-center rounded-full bg-primary text-primary-foreground">
-            <Sparkles className="size-8 animate-pulse" />
-          </div>
+          <BrandLogo variant="icon" className="mb-4 size-16 animate-pulse" />
           <p className="text-sm text-muted-foreground">Loading Synlumae…</p>
         </div>
       </div>
@@ -68,10 +68,9 @@ function AuthChrome({ children }: { children: ReactNode }) {
         <div className="app-login-panel h-full min-h-0 md:h-auto md:overflow-hidden md:rounded-2xl md:border md:border-border md:bg-card md:shadow-lg">
           <div className="hide-scrollbar flex h-full flex-col overflow-y-auto bg-surface px-5 py-6">
             <div className="mb-5 text-center">
-              <div className="mx-auto mb-3 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground">
-                <Sparkles className="size-7" />
-              </div>
-              <h1 className="text-2xl font-bold">Synlumae</h1>
+              <h1 className="mb-3 flex justify-center">
+                <BrandLogo variant="full" className="h-28 w-auto max-w-[14rem]" />
+              </h1>
               <p className="text-sm text-muted-foreground">
                 Activities, schedules, and community for neurodiverse families.
               </p>
