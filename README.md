@@ -10,6 +10,7 @@ Public brand: **Synlumae** (synlumae.com). GitHub repository is still `slooijens
 npm i
 cp .env.example .env.local   # then paste your Clerk keys (see Auth setup)
 npm run dev
+npm test
 ```
 
 Open [http://localhost:8080/](http://localhost:8080/).
@@ -53,7 +54,7 @@ In the Clerk Dashboard → **Paths** / allowed origins, add:
 4. Open **Help** — the caregiver help hubs should still be there
 5. Refresh the page — you should still be signed in
 6. On the sign-in screen, click **Forgot password**, follow the email, set a new password
-7. Open **Profile** — caregiver name comes from Clerk; child first name/age stay on this device. Click **Log out** — you should return to sign-in; refresh should stay signed out
+7. Open **Profile** — tap **Edit profile** to change your name, role, location, and bio. Those save on this device; your name is also sent to Clerk (not child details). **Manage account** opens Clerk for email/password. Child first name/age stay on this device. Click **Log out** — you should return to sign-in; refresh should stay signed out
 8. “Continue as Sam” appears **only** with `npm run dev` (not in production builds)
 
 Child first name / age stay in this browser (`localStorage` key `motor-skill-buddy-v1`). They are not sent to Clerk.

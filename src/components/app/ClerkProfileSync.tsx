@@ -3,7 +3,11 @@ import { useEffect } from "react";
 
 import { useAppStore } from "@/lib/app-store";
 import { isClerkConfigured } from "@/lib/clerk";
-import { isLegacyDemoProfile, profileFromClerkUser } from "@/lib/clerk-profile";
+import {
+  isLegacyDemoProfile,
+  planClerkProfileSync,
+  profileFromClerkUser,
+} from "@/lib/clerk-profile";
 
 function ClerkProfileSyncInner() {
   const { isLoaded, user } = useUser();
@@ -12,13 +16,16 @@ function ClerkProfileSyncInner() {
   useEffect(() => {
     if (!isLoaded || !user || !hydrated) return;
 
-    const nextProfile = profileFromClerkUser(user, state.profile);
+    const plan = planClerkProfileSync({
+      existing: state.profile,
+      clerkUserId: user.id,
+      loggedOut: state.loggedOut,
+      devDemo,
+    });
+    if (plan.action === "skip") return;
+
     const wasDemo = isLegacyDemoProfile(state.profile);
     const sameUser = state.profile?.clerkUserId === user.id;
-
-    if (sameUser && state.profile?.name === nextProfile.name && !state.loggedOut && !devDemo) {
-      return;
-    }
 
     exitDevDemo();
     update((prev) => ({
