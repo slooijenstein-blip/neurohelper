@@ -172,6 +172,18 @@ describe("family HTTP health", () => {
     expect(body.store).toBe("none");
   });
 
+  it("accepts a Request-like object that is not instanceof Request", async () => {
+    const headers = new Headers();
+    const fake = {
+      url: "https://synlumae.com/api/family/health",
+      method: "GET",
+      headers,
+    };
+    const res = await runFamilyFunction(fake as never);
+    expect(res).toBeInstanceOf(Response);
+    expect(res?.status).toBe(200);
+  });
+
   it("health does not require CLERK_SECRET_KEY", async () => {
     const res = await handleFamilyApi(new Request("https://synlumae.com/api/family/health"));
     expect(res.status).toBe(200);

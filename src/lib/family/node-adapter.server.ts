@@ -63,19 +63,38 @@ function isNodeResponse(res: unknown): res is ServerResponse {
   return Boolean(res && typeof (res as ServerResponse).end === "function");
 }
 
+function asWebRequest(req: unknown): Request | null {
+  if (!req || typeof req !== "object") return null;
+  const row = req as Request;
+  if (typeof row.url !== "string" || !/^[a-z][a-z0-9+.-]*:\/\//i.test(row.url)) return null;
+  if (typeof row.headers?.get !== "function") return null;
+  try {
+    if (typeof Request !== "undefined" && req instanceof Request) return req;
+  } catch {
+    /* cross-realm Request */
+  }
+  try {
+    return new Request(row.url, row);
+  } catch {
+    return new Request(row.url, { method: row.method || "GET", headers: row.headers });
+  }
+}
+
 /**
  * Vercel preview/production invokes `/api` files as Web handlers (`Request` in,
  * `Response` out). The Node `(req, res)` helper is still used by `vite` middleware.
+ * Do not use `instanceof Request` as the only check — Vercel may pass a Request
+ * from another realm, which made the previous Node-only helper 500.
  */
 export async function runFamilyFunction(
   req: (IncomingMessage & { body?: unknown }) | Request,
   res?: ServerResponse,
 ): Promise<Response | void> {
+  const webReq = asWebRequest(req);
+  const resolved = webReq ?? (await nodeToWebRequest(req as IncomingMessage & { body?: unknown }));
   if (isNodeResponse(res)) {
-    const webReq = req instanceof Request ? req : await nodeToWebRequest(req);
-    await sendWebResponse(res, await handleFamilyApi(webReq));
+    await sendWebResponse(res, await handleFamilyApi(resolved));
     return;
   }
-  if (req instanceof Request) return handleFamilyApi(req);
-  return handleFamilyApi(await nodeToWebRequest(req));
+  return handleFamilyApi(resolved);
 }
