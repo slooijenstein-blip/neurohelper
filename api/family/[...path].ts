@@ -1,36 +1,25 @@
-import { runFamilyFunction } from "../../src/lib/family/node-adapter.server";
+import { handleNodeFamilyRequest } from "../../src/lib/family/node-adapter.server";
 
-function jsonError() {
-  return Response.json(
-    { error: "Something went wrong. Try again.", code: "server_error" },
-    { status: 500 },
-  );
-}
-
-async function handle(req: unknown, res?: unknown) {
+export default async function handler(
+  req: {
+    method?: string;
+    url?: string;
+    headers: Record<string, string | string[] | undefined>;
+    body?: unknown;
+  },
+  res: {
+    statusCode: number;
+    setHeader: (key: string, value: string) => void;
+    end: (body?: Buffer | string) => void;
+  },
+) {
   try {
-    const result = await runFamilyFunction(req as never, res as never);
-    if (result) return result;
+    await handleNodeFamilyRequest(req as never, res as never);
   } catch (err) {
     console.error("family api", err);
-    if (res && typeof (res as { end?: unknown }).end === "function") {
-      const nodeRes = res as {
-        statusCode: number;
-        setHeader: (key: string, value: string) => void;
-        end: (body?: string) => void;
-      };
-      nodeRes.statusCode = 500;
-      nodeRes.setHeader("content-type", "application/json; charset=utf-8");
-      nodeRes.end(JSON.stringify({ error: "Something went wrong. Try again.", code: "server_error" }));
-      return;
-    }
-    return jsonError();
+    const message = err instanceof Error ? err.message : "Something went wrong. Try again.";
+    res.statusCode = 500;
+    res.setHeader("content-type", "application/json; charset=utf-8");
+    res.end(JSON.stringify({ error: message, code: "server_error" }));
   }
 }
-
-export const GET = handle;
-export const POST = handle;
-export const PUT = handle;
-export const PATCH = handle;
-export const DELETE = handle;
-export default handle;
