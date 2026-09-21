@@ -1,4 +1,12 @@
-import { Activity, CalendarDays, Heart, Globe, CircleHelp, UserRound } from "lucide-react";
+import {
+  Activity,
+  Baby,
+  CalendarDays,
+  Heart,
+  Globe,
+  CircleHelp,
+  UserRound,
+} from "lucide-react";
 import { Navigate } from "@tanstack/react-router";
 import { useAuth } from "@clerk/react";
 import { useState } from "react";
@@ -7,6 +15,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 import { isClerkConfigured } from "@/lib/clerk";
 import { ActivitiesTab } from "./ActivitiesTab";
+import { ChildrenTab } from "./ChildrenTab";
 import { ScheduleTab } from "./ScheduleTab";
 import { JourneyTab } from "./JourneyTab";
 import { CommunityTab } from "./CommunityTab";
@@ -18,10 +27,12 @@ import { AuthLoading } from "./AuthScreen";
 import { BrandLogo } from "./BrandLogo";
 import { useAppStore } from "@/lib/app-store";
 
-export type TabKey = "activities" | "schedule" | "journey" | "community" | "help" | "profile";
+export type TabKey =
+  "activities" | "children" | "schedule" | "journey" | "community" | "help" | "profile";
 
 const TABS = [
   { key: "activities", labelKey: "nav.activities", icon: Activity },
+  { key: "children", labelKey: "nav.children", icon: Baby },
   { key: "schedule", labelKey: "nav.schedule", icon: CalendarDays },
   { key: "journey", labelKey: "nav.journey", icon: Heart },
   { key: "community", labelKey: "nav.community", icon: Globe },
@@ -62,7 +73,8 @@ function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
   ) : (
     {
       activities: <ActivitiesTab />,
-      schedule: <ScheduleTab />,
+      children: <ChildrenTab />,
+      schedule: <ScheduleTab onOpenChildren={() => goTab("children")} />,
       journey: <JourneyTab />,
       community: (
         <CommunityTab onProfile={(id) => setProfileId(id)} onArticle={(id) => setArticleId(id)} />
@@ -120,14 +132,14 @@ function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
             type="button"
             onClick={() => goTab(key)}
             className={cn(
-              "flex flex-col items-center gap-1 rounded-lg py-1 text-[9px] font-semibold transition-colors",
+              "flex flex-col items-center gap-1 rounded-lg py-1 text-[8px] font-semibold transition-colors sm:text-[9px]",
               tab === key && !articleId && !profileId ? "text-primary" : "text-muted-foreground",
             )}
           >
             <Icon
               className={cn("size-5", tab === key && !articleId && !profileId && "fill-primary/15")}
             />
-            {t(labelKey)}
+            <span className="leading-tight">{t(labelKey)}</span>
           </button>
         ))}
       </nav>

@@ -7,6 +7,7 @@ export const en = {
   nav: {
     label: "Main",
     activities: "Activities",
+    children: "Children",
     schedule: "Schedule",
     journey: "Journey",
     community: "Community",
@@ -66,12 +67,12 @@ export const en = {
   },
   profile: {
     title: "Profile",
-    subtitle: "Your identity — child details stay on this device",
+    subtitle: "Your account — children live under Children",
     addFirstName: "Add a first name",
     yearsOld: "{{age}} years old",
     storedOnDevice: "Stored only on this device",
     childNote:
-      "Optional. Use a first name only. Synlumae does not store child details in your Clerk account.",
+      "Optional device-only nickname. Shared family plans use the Children tab (first name + age band). Synlumae does not store medical diagnoses.",
     childFirstName: "Child's first name",
     childPlaceholder: "First name (this device only)",
     age: "Age",
@@ -117,6 +118,10 @@ export const en = {
   schedule: {
     title: "Schedule",
     subtitle: "Build a routine step by step",
+    sharedSubtitle: "A shared day plan for one child",
+    day: "Day",
+    templates: "Templates",
+    deviceRoutine: "Personal routine on this device.",
     today: "Today",
     calendar: "Calendar",
     addToCalendar: "Add today’s routine to Google Calendar",

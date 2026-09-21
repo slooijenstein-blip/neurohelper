@@ -3,10 +3,28 @@ import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function familyApiDevPlugin(): Plugin {
+  return {
+    name: "synlumae-family-api",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const url = req.url ?? "";
+        if (!url.startsWith("/api/family")) {
+          next();
+          return;
+        }
+        void import("./src/lib/family/node-adapter.server")
+          .then(({ handleNodeFamilyRequest }) => handleNodeFamilyRequest(req, res))
+          .catch(next);
+      });
+    },
+  };
+}
 
 export default defineConfig({
   server: {
@@ -20,6 +38,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    familyApiDevPlugin(),
     tsConfigPaths({ projects: ["./tsconfig.json"] }),
     // SPA-only: do not add nitro(). Nitro's Vercel preset writes
     // .vercel/output (Build Output API) and can replace dist/client with an

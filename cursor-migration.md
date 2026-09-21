@@ -8,7 +8,7 @@ Keep this file in the repo. When working in Cursor, treat the quote above as sta
 
 **Synlumae** (public brand; synlumae.com) is a phone-framed web app for parents, teachers, therapists, and caregivers. GitHub repo is still `slooijenstein-blip/neurohelper`.
 
-Auth is Clerk (`@clerk/react` SPA SDK). Schedule / community / journey / help data still lives in the browser (`localStorage` key `motor-skill-buddy-v1`). There is no app database yet. Child first name/age are device-local and are not stored on the Clerk user.
+Auth is Clerk (`@clerk/react` SPA SDK). Help / community / journey still keep device-local data (`localStorage` key `motor-skill-buddy-v1`). Shared children, invites, and day plans are stored via a Clerk-authenticated `/api/family` endpoint (Vercel serverless) in Clerk user `privateMetadata`. Child first name/age on Profile remain device-local; shared profiles use display name + age band only.
 
 Live (GitHub Pages): https://slooijenstein-blip.github.io/neurohelper/
 
@@ -34,6 +34,7 @@ src/
   start.ts          # Start middleware (errors + CSRF for leftover server fns)
   lib/
     app-store.tsx   # Profiles, schedule, community seed data, persistence
+    family/         # Shared children, invites, day plans, role guards
     clerk.ts        # Publishable key + Clerk appearance
     clerk-profile.ts# Clerk user → local profile name mapping
     help-content.ts # Caregiver help hubs (no diagnostic claims)
@@ -53,7 +54,8 @@ src/
 | ------------ | ----------------------------------------------------- | --------------------------------------------- |
 | Sign in / up | `AuthScreen.tsx` + `routes/sign-in`, `routes/sign-up` | Clerk email auth; DEV-only Continue as Sam    |
 | Activities   | `ActivitiesTab.tsx`                                   | Filterable library (age range slider, skills) |
-| Schedule     | `ScheduleTab.tsx`                                     | Daily routine, templates, calendar share      |
+| Children     | `ChildrenTab.tsx`                                     | Child profile, invite by email, roles         |
+| Schedule     | `ScheduleTab.tsx` + `SharedDaySchedule.tsx`           | Shared day plan + local templates             |
 | Journey      | `JourneyTab.tsx`                                      | Child progress, observations, local summary   |
 | Community    | `CommunityTab.tsx`                                    | Posts, articles, follow                       |
 | Help         | `HelpTab.tsx` + `help-content.ts`                     | Caregiver hubs, emergency disclaimer          |

@@ -15,6 +15,7 @@ import { I18nProvider } from "@/i18n/I18nProvider";
 import { LOCALE_STORAGE_KEY, resolveLocale } from "@/i18n/locales";
 import { translate } from "@/i18n/translate";
 import { AppStoreProvider } from "@/lib/app-store";
+import { FamilyStoreProvider } from "@/lib/family/family-context";
 
 import appCss from "../styles.css?url";
 
@@ -174,9 +175,11 @@ function RootComponent() {
       <QueryClientProvider client={queryClient}>
         <AppStoreProvider>
           <I18nProvider>
-            <ClerkProfileSync />
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
+            <FamilyStoreProvider>
+              <ClerkProfileSync />
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+            </FamilyStoreProvider>
           </I18nProvider>
         </AppStoreProvider>
       </QueryClientProvider>

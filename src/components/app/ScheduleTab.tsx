@@ -17,6 +17,7 @@ import { useAppStore, uid } from "@/lib/app-store";
 import { ACTIVITIES, type Activity } from "@/lib/activities-data";
 import { ScreenHeader } from "./ui-bits";
 import { ScheduleCalendar } from "./ScheduleCalendar";
+import { SharedDaySchedule } from "./SharedDaySchedule";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -46,7 +47,7 @@ const WEEKDAY_KEYS = [
   "schedule.weekdays.sat",
 ] as const;
 
-export function ScheduleTab() {
+export function ScheduleTab({ onOpenChildren }: { onOpenChildren?: () => void }) {
   const { state, update } = useAppStore();
   const { t } = useI18n();
   const [adding, setAdding] = useState(false);
@@ -56,7 +57,7 @@ export function ScheduleTab() {
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
   const [shareOpen, setShareOpen] = useState(false);
   const [postBody, setPostBody] = useState("");
-  const [view, setView] = useState<"list" | "calendar">("list");
+  const [view, setView] = useState<"day" | "templates">("day");
 
   const filtered = useMemo(
     () =>
@@ -205,9 +206,9 @@ export function ScheduleTab() {
     <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader
         title={t("schedule.title")}
-        subtitle={t("schedule.subtitle")}
+        subtitle={view === "day" ? t("schedule.sharedSubtitle") : t("schedule.subtitle")}
         right={
-          state.schedule.length ? (
+          view === "templates" && state.schedule.length ? (
             <div className="flex gap-1">
               <Button
                 size="icon"
@@ -243,7 +244,7 @@ export function ScheduleTab() {
 
       <div className="hide-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto bg-surface px-5 py-4 md:max-w-3xl md:px-8">
         <div className="flex gap-1 rounded-xl bg-card p-1">
-          {(["list", "calendar"] as const).map((v) => (
+          {(["day", "templates"] as const).map((v) => (
             <button
               key={v}
               type="button"
@@ -253,20 +254,23 @@ export function ScheduleTab() {
                 view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground",
               )}
             >
-              {v === "list" ? (
+              {v === "day" ? (
                 <ListChecks className="size-3.5" />
               ) : (
                 <CalendarDays className="size-3.5" />
               )}
-              {v === "list" ? t("schedule.today") : t("schedule.calendar")}
+              {v === "day" ? t("schedule.day") : t("schedule.templates")}
             </button>
           ))}
         </div>
 
-        {view === "calendar" ? <ScheduleCalendar /> : null}
+        {view === "day" ? (
+          <SharedDaySchedule {...(onOpenChildren ? { onInvite: onOpenChildren } : {})} />
+        ) : null}
 
-        {view === "list" ? (
+        {view === "templates" ? (
           <>
+            <ScheduleCalendar />
             {state.schedule.length ? (
               <Button
                 variant="outline"
@@ -279,7 +283,7 @@ export function ScheduleTab() {
             ) : null}
             {state.schedule.length === 0 ? (
               <div className="soft-card py-8 text-center">
-                <p className="text-sm text-muted-foreground">{t("schedule.empty")}</p>
+                <p className="text-sm text-muted-foreground">{t("schedule.deviceRoutine")}</p>
                 <Button className="mt-3" onClick={() => setAdding(true)}>
                   <Plus className="mr-1 size-4" /> {t("schedule.addActivity")}
                 </Button>
@@ -328,7 +332,7 @@ export function ScheduleTab() {
                 <h3 className="mb-2 text-sm font-semibold">{t("schedule.yourTemplates")}</h3>
                 <div className="space-y-2">
                   {state.templates
-                    .filter((t) => t.ownerId === state.profile?.id && !t.isPublic)
+                    .filter((tmpl) => tmpl.ownerId === state.profile?.id && !tmpl.isPublic)
                     .map((template) => (
                       <div
                         key={template.id}

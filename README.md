@@ -59,6 +59,34 @@ In the Clerk Dashboard → **Paths** / allowed origins, add:
 
 Child first name / age stay in this browser (`localStorage` key `motor-skill-buddy-v1`). They are not sent to Clerk.
 
+## Shared schedules (Slice 2)
+
+Parents can add a child (first name + age band), build a day plan, and invite others by email.
+
+**Storage choice:** there is no app database yet. Sharing uses a Clerk-authenticated `/api/family` endpoint on Vercel. Child records, memberships, invites, and day plans are stored in the invited users’ Clerk **private metadata** (server-only, via `CLERK_SECRET_KEY`). That is the smallest durable store that works with the current static SPA + Clerk setup and does not add a second auth system.
+
+Known limits: Clerk metadata is small (~8KB per user), so we keep about three weeks of day plans. GitHub Pages has no API, so sharing is local-only there. Production sharing is on [synlumae.com](https://synlumae.com).
+
+### How to try it locally
+
+1. Put `VITE_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in `.env.local`
+2. `npm run dev` and sign in
+3. Open **Children** → add a child → **Invite** someone by email (copy the link)
+4. Open **Schedule** (Day) → **Start a 1-hour afternoon plan**
+5. The invited person signs in with that email, opens the invite link, and sees the same plan
+
+Without `CLERK_SECRET_KEY`, the Children/Schedule UI still works on this device only (including **Continue as Sam** in `npm run dev`).
+
+### Env vars
+
+| Variable                     | Where                  | Notes                                                             |
+| ---------------------------- | ---------------------- | ----------------------------------------------------------------- |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Browser                | Unchanged from Slice 1                                            |
+| `CLERK_SECRET_KEY`           | Server (`/api/family`) | Now required for cross-user sharing on Vercel                     |
+| `CLERK_AUTHORIZED_PARTIES`   | Server, optional       | Extra JWT origins. localhost and synlumae.com are already allowed |
+
+Do not change DNS, the Vercel domain, or Clerk’s Primary/Frontend API domain.
+
 ## Production
 
 ```sh
