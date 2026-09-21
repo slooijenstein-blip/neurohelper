@@ -1,12 +1,4 @@
-import {
-  Activity,
-  Baby,
-  CalendarDays,
-  Heart,
-  Globe,
-  CircleHelp,
-  UserRound,
-} from "lucide-react";
+import { Activity, Baby, CalendarDays, Heart, Globe, CircleHelp, UserRound } from "lucide-react";
 import { Navigate } from "@tanstack/react-router";
 import { useAuth } from "@clerk/react";
 import { useState } from "react";

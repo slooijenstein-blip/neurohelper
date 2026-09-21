@@ -1,10 +1,10 @@
 import { SignIn, useAuth } from "@clerk/react";
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { AuthLoading } from "./AuthScreen";
+import { BrandLogo } from "./BrandLogo";
 import { familyCopy } from "@/lib/family/copy";
 import { useFamilyStore } from "@/lib/family/family-context";
 import { FamilyError, type InvitePreview } from "@/lib/family/types";
@@ -71,10 +71,10 @@ function InviteAcceptBody({ token, signedIn }: { token: string; signedIn: boolea
         <div className="app-login-panel h-full min-h-0 md:h-auto md:overflow-hidden md:rounded-2xl md:border md:border-border md:bg-card md:shadow-lg">
           <div className="hide-scrollbar flex h-full flex-col overflow-y-auto bg-surface px-5 py-6">
             <div className="mb-5 text-center">
-              <div className="mx-auto mb-3 grid size-14 place-items-center rounded-full bg-primary text-primary-foreground">
-                <Sparkles className="size-7" />
-              </div>
-              <h1 className="text-2xl font-bold">{familyCopy.acceptTitle}</h1>
+              <h1 className="mb-3 flex justify-center">
+                <BrandLogo variant="full" className="h-28 w-auto max-w-[14rem]" />
+              </h1>
+              <h2 className="text-2xl font-bold">{familyCopy.acceptTitle}</h2>
               <p className="text-sm text-muted-foreground">{familyCopy.acceptBody}</p>
             </div>
 
