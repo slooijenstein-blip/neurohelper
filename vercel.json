@@ -13,5 +13,10 @@
       "source": "/((?!assets/|api/).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/family-handler.ts": {
+      "includeFiles": "src/lib/family/**"
+    }
+  }
 }

@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 
-import { handleFamilyApi } from "./http.server";
+import { handleFamilyApi } from "./http";
 
 function readStream(req: IncomingMessage): Promise<Buffer> {
   return new Promise((resolve, reject) => {

@@ -1,9 +1,9 @@
 import { createClerkClient, verifyToken } from "@clerk/backend";
 
-import { createClerkFamilyStore } from "./clerk-store.server";
+import { createClerkFamilyStore } from "./clerk-store";
 import { FamilyService } from "./family-service";
 import { createFamilyHttpHandler } from "./family-http";
-import { createHmacTokenSigner } from "./hmac-token.server";
+import { createHmacTokenSigner } from "./hmac-token";
 import type { Actor } from "./types";
 
 type ClerkUserLike = {

@@ -1,3 +1,20 @@
+import { handleNodeFamilyRequest } from "../src/lib/family/node-adapter";
+
+function header(req: { headers: Record<string, string | string[] | undefined> }, name: string) {
+  const value = req.headers[name];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function originalUrl(req: { url?: string; headers: Record<string, string | string[] | undefined> }) {
+  const url = req.url || "/";
+  if (url.startsWith("/api/family/") && !url.includes("family-handler")) return url;
+  for (const name of ["x-forwarded-uri", "x-invoke-path", "x-vercel-original-url"]) {
+    const value = header(req, name);
+    if (value && value.includes("/api/family")) return value;
+  }
+  return url;
+}
+
 export default async function handler(
   req: {
     method?: string;
@@ -11,8 +28,8 @@ export default async function handler(
     end: (body?: Buffer | string) => void;
   },
 ) {
+  req.url = originalUrl(req);
   try {
-    const { handleNodeFamilyRequest } = await import("../src/lib/family/node-adapter.server");
     await handleNodeFamilyRequest(req as never, res as never);
   } catch (err) {
     console.error("family api", err);

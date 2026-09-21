@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { createAfternoonPlanBlocks } from "./afternoon-plan";
 import { FamilyService } from "./family-service";
 import { createFamilyHttpHandler } from "./family-http";
-import { handleFamilyApi } from "./http.server";
-import { createHmacTokenSigner } from "./hmac-token.server";
+import { handleFamilyApi } from "./http";
+import { createHmacTokenSigner } from "./hmac-token";
 import { createLocalTokenSigner } from "./local-token";
 import { MemoryFamilyStore } from "./memory-store";
-import { runFamilyFunction } from "./node-adapter.server";
+import { runFamilyFunction } from "./node-adapter";
 import { FamilyError, type Actor } from "./types";
 
 const parentA: Actor = { userId: "user_parent_a", email: "parent@example.com", name: "Alex" };

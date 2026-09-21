@@ -18,7 +18,7 @@ function familyApiDevPlugin(): Plugin {
           next();
           return;
         }
-        void import("./src/lib/family/node-adapter.server")
+        void import("./src/lib/family/node-adapter")
           .then(({ handleNodeFamilyRequest }) => handleNodeFamilyRequest(req, res))
           .catch(next);
       });
