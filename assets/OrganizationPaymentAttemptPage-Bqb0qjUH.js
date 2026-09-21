@@ -1,0 +1,1 @@
+import{n as e}from"./emotion-react-jsx-runtime.browser.esm-CqUdyvNU.js";import{t}from"./SubscriberType-BbiBQrcw.js";import{t as n}from"./PaymentAttemptPage-CvN37m0h.js";var r=()=>e(t.Provider,{value:`organization`,children:e(n,{})});export{r as OrganizationPaymentAttemptPage};
