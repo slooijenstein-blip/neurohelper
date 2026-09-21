@@ -67,7 +67,7 @@ State is provided by `AppStoreProvider` in `src/routes/__root.tsx`. Clerk wraps 
 
 ```sh
 npm i
-cp .env.example .env.local   # VITE_CLERK_PUBLISHABLE_KEY (+ CLERK_SECRET_KEY, unused in the SPA)
+cp .env.example .env.local   # VITE_CLERK_PUBLISHABLE_KEY (+ CLERK_SECRET_KEY for /api/family sharing)
 npm run dev           # http://localhost:8080
 npm run build         # dist/client (copy `_shell.html` → `index.html` + `404.html` for Pages)
 npm run deploy:pages  # required after user-visible fixes: build + publish origin/gh-pages

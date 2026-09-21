@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import { createAfternoonPlanBlocks } from "./afternoon-plan";
 import { FamilyService } from "./family-service";
 import { createFamilyHttpHandler } from "./family-http";
+import { handleFamilyApi } from "./http.server";
 import { createHmacTokenSigner } from "./hmac-token.server";
 import { createLocalTokenSigner } from "./local-token";
 import { MemoryFamilyStore } from "./memory-store";
+import { runFamilyFunction } from "./node-adapter.server";
 import { FamilyError, type Actor } from "./types";
 
 const parentA: Actor = { userId: "user_parent_a", email: "parent@example.com", name: "Alex" };
@@ -156,6 +158,24 @@ describe("shared schedules + family roles", () => {
       status: 403,
       code: "wrong_email",
     });
+  });
+});
+
+describe("family HTTP health", () => {
+  it("returns JSON when invoked as a Web Request with no Node res", async () => {
+    const res = await runFamilyFunction(new Request("https://synlumae.com/api/family/health"));
+    expect(res).toBeInstanceOf(Response);
+    expect(res?.status).toBe(200);
+    const body = (await res!.json()) as { ok?: boolean; configured?: boolean; store?: string };
+    expect(body.ok).toBe(true);
+    expect(body.configured).toBe(false);
+    expect(body.store).toBe("none");
+  });
+
+  it("health does not require CLERK_SECRET_KEY", async () => {
+    const res = await handleFamilyApi(new Request("https://synlumae.com/api/family/health"));
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ ok: true });
   });
 });
 

@@ -58,3 +58,24 @@ export async function handleNodeFamilyRequest(
   const webRes = await handleFamilyApi(webReq);
   await sendWebResponse(res, webRes);
 }
+
+function isNodeResponse(res: unknown): res is ServerResponse {
+  return Boolean(res && typeof (res as ServerResponse).end === "function");
+}
+
+/**
+ * Vercel preview/production invokes `/api` files as Web handlers (`Request` in,
+ * `Response` out). The Node `(req, res)` helper is still used by `vite` middleware.
+ */
+export async function runFamilyFunction(
+  req: (IncomingMessage & { body?: unknown }) | Request,
+  res?: ServerResponse,
+): Promise<Response | void> {
+  if (isNodeResponse(res)) {
+    const webReq = req instanceof Request ? req : await nodeToWebRequest(req);
+    await sendWebResponse(res, await handleFamilyApi(webReq));
+    return;
+  }
+  if (req instanceof Request) return handleFamilyApi(req);
+  return handleFamilyApi(await nodeToWebRequest(req));
+}

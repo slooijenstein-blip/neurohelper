@@ -34,7 +34,7 @@ Copy `.env.example` to `.env.local` (never commit `.env.local`):
 | Variable                     | Where it is used   | Notes                                                                                                                                                                                                |
 | ---------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `VITE_CLERK_PUBLISHABLE_KEY` | Browser (required) | Starts with `pk_test_` (dev) or `pk_live_` (production). Safe to expose in the client. Vite only exposes variables that start with `VITE_`.                                                          |
-| `CLERK_SECRET_KEY`           | Server only        | Starts with `sk_test_` or `sk_live_`. **Do not** prefix this with `VITE_`. This static SPA does not read it at runtime; keep it for the Clerk Dashboard, webhooks, and a future host such as Vercel. |
+| `CLERK_SECRET_KEY`           | Server only        | Starts with `sk_test_` or `sk_live_`. **Do not** prefix this with `VITE_`. Required on Vercel (and in `.env.local` for local sharing) so `/api/family` can verify sessions and store shared plans.    |
 
 Optional (the app also sets these from Vite `BASE_URL`):
 
@@ -50,7 +50,7 @@ In the Clerk Dashboard → **Paths** / allowed origins, add:
 
 1. `cp .env.example .env.local`, paste your Clerk publishable key, then `npm run dev` and open http://localhost:8080 — you should land on **Sign in**
 2. Click **Sign up**, use your email and a password, complete Clerk’s email check
-3. You should see the Activities / Schedule / Journey / Community / **Help** / Profile tabs (desktop sidebar + mobile tab bar)
+3. You should see the Activities / **Children** / Schedule / Journey / Community / **Help** / Profile tabs (desktop sidebar + mobile tab bar)
 4. Open **Help** — the caregiver help hubs should still be there
 5. Refresh the page — you should still be signed in
 6. On the sign-in screen, click **Forgot password**, follow the email, set a new password
