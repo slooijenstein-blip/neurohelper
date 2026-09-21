@@ -1,0 +1,1 @@
+import{t as e}from"./VirtualRouter-BBvjZHY7.js";export{e as VirtualRouter};

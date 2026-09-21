@@ -1,0 +1,1 @@
+import{G as e}from"./react-67B_xmXy.js";import{n as t}from"./emotion-react-jsx-runtime.browser.esm-CqUdyvNU.js";import{n}from"./PreviewButton-BTsH0zq7.js";import{t as r}from"./add-BTHeqNGS.js";var i=i=>{let{icon:a=r,...o}=i,{user:s}=e();return s?.createOrganizationEnabled?t(n,{...o,icon:a}):null};export{i as t};
