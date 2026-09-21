@@ -1,6 +1,3 @@
-import { createClerkClient, verifyToken } from "@clerk/backend";
-
-import { createClerkFamilyStore } from "./clerk-store";
 import { FamilyService } from "./family-service";
 import { createFamilyHttpHandler } from "./family-http";
 import { createHmacTokenSigner } from "./hmac-token";
@@ -47,7 +44,12 @@ function authorizedParties(req: Request): string[] {
   return [...new Set([...defaults, ...extra])];
 }
 
+async function loadClerk() {
+  return import("@clerk/backend");
+}
+
 async function authenticate(req: Request, secretKey: string): Promise<Actor | null> {
+  const { createClerkClient, verifyToken } = await loadClerk();
   const clerk = createClerkClient({ secretKey });
   try {
     const state = await clerk.authenticateRequest(req, {
@@ -80,6 +82,7 @@ async function authenticate(req: Request, secretKey: string): Promise<Actor | nu
 
 async function maybeSendClerkInvite(email: string, inviteUrl: string, secretKey: string) {
   try {
+    const { createClerkClient } = await loadClerk();
     const clerk = createClerkClient({ secretKey });
     await clerk.invitations.createInvitation({
       emailAddress: email,
@@ -92,7 +95,7 @@ async function maybeSendClerkInvite(email: string, inviteUrl: string, secretKey:
   }
 }
 
-export function createProductionFamilyHandler() {
+export async function createProductionFamilyHandler() {
   const secretKey = process.env["CLERK_SECRET_KEY"];
   if (!secretKey) {
     return createFamilyHttpHandler({
@@ -102,6 +105,7 @@ export function createProductionFamilyHandler() {
       authenticate: async () => null,
     });
   }
+  const { createClerkFamilyStore } = await import("./clerk-store");
   const service = new FamilyService(
     createClerkFamilyStore(secretKey),
     createHmacTokenSigner(secretKey),
@@ -116,5 +120,5 @@ export function createProductionFamilyHandler() {
 }
 
 export async function handleFamilyApi(req: Request): Promise<Response> {
-  return createProductionFamilyHandler()(req);
+  return (await createProductionFamilyHandler())(req);
 }

@@ -12,16 +12,20 @@ function asFamilyDoc(value: unknown): FamilyDoc | null {
 }
 
 export function createClerkFamilyStore(secretKey: string): FamilyStore {
-  const clerk = createClerkClient({ secretKey });
+  let client: ReturnType<typeof createClerkClient> | null = null;
+  const clerk = () => {
+    client ??= createClerkClient({ secretKey });
+    return client;
+  };
 
   return {
     async getDoc(userId) {
-      const user = await clerk.users.getUser(userId);
+      const user = await clerk().users.getUser(userId);
       return asFamilyDoc(user.privateMetadata[METADATA_KEY]) ?? emptyDoc();
     },
     async putDoc(userId, doc) {
-      const user = await clerk.users.getUser(userId);
-      await clerk.users.updateUser(userId, {
+      const user = await clerk().users.getUser(userId);
+      await clerk().users.updateUser(userId, {
         privateMetadata: {
           ...user.privateMetadata,
           [METADATA_KEY]: doc,
