@@ -1,4 +1,4 @@
-import { Activity, CalendarDays, Heart, Globe, CircleHelp, UserRound, Sparkles } from "lucide-react";
+import { Activity, CalendarDays, Heart, Globe, CircleHelp, UserRound } from "lucide-react";
 import { Navigate } from "@tanstack/react-router";
 import { useAuth } from "@clerk/react";
 import { useState } from "react";
@@ -14,6 +14,7 @@ import { ProfileTab } from "./ProfileTab";
 import { ProfileView } from "./ProfileView";
 import { ArticleView } from "./ArticleView";
 import { AuthLoading } from "./AuthScreen";
+import { BrandLogo } from "./BrandLogo";
 import { useAppStore } from "@/lib/app-store";
 
 export type TabKey = "activities" | "schedule" | "journey" | "community" | "help" | "profile";
@@ -81,14 +82,9 @@ function AppShell({
   return (
     <div className="phone-shell">
       <aside className="app-sidebar">
-        <div className="mb-8 flex items-center gap-3 px-2">
-          <div className="grid size-10 place-items-center rounded-full bg-primary text-primary-foreground">
-            <Sparkles className="size-5" />
-          </div>
-          <div>
-            <p className="font-display text-lg font-semibold leading-tight">Synlumae</p>
-            <p className="text-xs text-muted-foreground">For neurodiverse families</p>
-          </div>
+        <div className="mb-8 px-2">
+          <BrandLogo variant="lockup" className="h-10 w-auto max-w-full" />
+          <p className="mt-1 text-xs text-muted-foreground">For neurodiverse families</p>
         </div>
 
         <nav className="flex flex-1 flex-col gap-1" aria-label="Main">
