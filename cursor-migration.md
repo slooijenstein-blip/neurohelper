@@ -57,7 +57,7 @@ src/
 | Journey      | `JourneyTab.tsx`                                      | Child progress, observations, local summary   |
 | Community    | `CommunityTab.tsx`                                    | Posts, articles, follow                       |
 | Help         | `HelpTab.tsx` + `help-content.ts`                     | Caregiver hubs, emergency disclaimer          |
-| Profile      | `ProfileTab.tsx`                                      | Clerk account, local child fields, log out    |
+| Profile      | `ProfileTab.tsx`                                      | Edit caregiver identity, Clerk account, local child fields, log out |
 
 State is provided by `AppStoreProvider` in `src/routes/__root.tsx`. Clerk wraps the tree via `ClerkAppProvider`.
 
@@ -70,6 +70,7 @@ npm run dev           # http://localhost:8080
 npm run build         # dist/client (copy `_shell.html` → `index.html` + `404.html` for Pages)
 npm run deploy:pages  # required after user-visible fixes: build + publish origin/gh-pages
 npm run lint
+npm test              # clerk-profile helpers (local edits vs Clerk sync)
 ```
 
 GitHub Pages needs `BASE_PATH=/neurohelper/` at build time. After any user-visible change, run `npm run deploy:pages` so https://slooijenstein-blip.github.io/neurohelper/ matches local. Do not force-push `gh-pages`. Do not add GitHub Actions unless the `workflow` OAuth scope is available. Clerk **test** keys will not sign users in on github.io.

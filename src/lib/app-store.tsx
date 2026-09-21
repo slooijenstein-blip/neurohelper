@@ -758,7 +758,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         setDevDemo(true);
         setState((prev) => ({
           ...prev,
-          profile: myProfile,
+          // Keep caregiver edits from localStorage; only seed Sam when none exist.
+          profile: prev.profile ?? myProfile,
           loggedOut: false,
           childName: prev.childName || "Nora",
           childAge: prev.childAge || 4,

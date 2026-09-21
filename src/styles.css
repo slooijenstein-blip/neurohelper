@@ -369,4 +369,21 @@
   max-width: 100%;
 }
 
+/* Clerk account / user profile: keep modal usable inside the phone chrome. */
+.clerk-account-host .cl-userButton-root,
+.clerk-account-host .cl-avatarBox {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.cl-modalBackdrop {
+  z-index: 80;
+}
+
+.cl-modalContent {
+  z-index: 81;
+  max-height: 100dvh;
+  overflow-y: auto;
+}
+
 
