@@ -1,5 +1,3 @@
-import { handleNodeFamilyRequest } from "../../src/lib/family/node-adapter.server";
-
 export default async function handler(
   req: {
     method?: string;
@@ -14,6 +12,7 @@ export default async function handler(
   },
 ) {
   try {
+    const { handleNodeFamilyRequest } = await import("../src/lib/family/node-adapter.server");
     await handleNodeFamilyRequest(req as never, res as never);
   } catch (err) {
     console.error("family api", err);

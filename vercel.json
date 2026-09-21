@@ -6,6 +6,10 @@
   "outputDirectory": "dist/client",
   "rewrites": [
     {
+      "source": "/api/family/:path*",
+      "destination": "/api/family-handler"
+    },
+    {
       "source": "/((?!assets/|api/).*)",
       "destination": "/index.html"
     }
