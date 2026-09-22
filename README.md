@@ -14,8 +14,8 @@ How Sam tests (one browser, role switcher):
 
 1. Open the preview → **Continue as Therapist**
 2. Patients → open **Alex** (or Add patient) → Library → apply a template to weekdays → People → invite a caregiver
-3. Profile → **Continue as Parent** → Today shows the plan → People → invite Grandma as Helper → copy link / accept
-4. Profile → **Continue as Helper** → Today → mark steps **Done**
+3. Profile → **Continue as Parent** → Today shows the plan → People → Invite with email `grandma@example.com` as **Helper**
+4. Profile → **Continue as Helper** (claims that pending invite) → Today → mark steps **Done**
 
 Clerk sign-in still works when `VITE_CLERK_PUBLISHABLE_KEY` is set. Prototype personas stay available so the preview is walkable without three accounts.
 
