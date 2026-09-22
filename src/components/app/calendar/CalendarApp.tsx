@@ -38,6 +38,8 @@ function CalendarShell() {
   const isHelper = cal.activePerson.appRole === "helper";
   const needsChildPicker =
     !isTherapist && cal.myChildren.length !== 1 && !cal.selectedChild;
+  const helperWaiting =
+    isHelper && cal.myChildren.length === 0;
 
   useEffect(() => {
     if (isTherapist && !cal.selectedChild && tab !== "patients" && tab !== "help" && tab !== "profile") {
@@ -46,10 +48,10 @@ function CalendarShell() {
   }, [isTherapist, cal.selectedChild, tab]);
 
   useEffect(() => {
-    if (needsChildPicker && tab !== "children" && tab !== "help" && tab !== "profile") {
+    if (needsChildPicker && !helperWaiting && tab !== "children" && tab !== "help" && tab !== "profile") {
       setTab("children");
     }
-  }, [needsChildPicker, tab]);
+  }, [needsChildPicker, helperWaiting, tab]);
 
   useEffect(() => {
     if (isHelper && (tab === "library" || tab === "patients")) setTab("today");
@@ -104,6 +106,17 @@ function CalendarShell() {
           setTab("today");
         }}
       />
+    );
+  } else if (helperWaiting) {
+    screen = (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-surface px-6 text-center">
+          <p className="text-sm font-semibold text-foreground">
+            {t("calendar.helper.waitingTitle")}
+          </p>
+          <p className="text-xs text-muted-foreground">{t("calendar.helper.waitingBody")}</p>
+        </div>
+      </div>
     );
   } else if (needsChildPicker || tab === "children") {
     screen = (

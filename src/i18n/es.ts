@@ -322,6 +322,11 @@ export const es: DeepString<Messages> = {
       step: "Paso {{n}}",
       tweaked: "Ajustes solo de este día (aún no en Biblioteca)",
     },
+    helper: {
+      waitingTitle: "Esperando una invitación",
+      waitingBody:
+        "Pide a un cuidador que invite a este ayudante en Personas del niño, y vuelve aquí — o abre el enlace de invitación.",
+    },
     library: {
       title: "Biblioteca",
       subtitle: "Planes reutilizables — separados del horario en vivo de hoy",

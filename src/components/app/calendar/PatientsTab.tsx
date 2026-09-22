@@ -202,6 +202,7 @@ export function ChildrenHome({ onOpenChild }: { onOpenChild: () => void }) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
   const [ageBand, setAgeBand] = useState<AgeBand>("3-5");
+  const canAdd = cal.activePerson.appRole === "caregiver";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -209,9 +210,11 @@ export function ChildrenHome({ onOpenChild }: { onOpenChild: () => void }) {
         title={t("calendar.children.title")}
         subtitle={t("calendar.children.subtitle")}
         right={
-          <Button type="button" size="sm" onClick={() => setAdding(true)}>
-            <Plus className="mr-1 size-4" /> {t("calendar.children.add")}
-          </Button>
+          canAdd ? (
+            <Button type="button" size="sm" onClick={() => setAdding(true)}>
+              <Plus className="mr-1 size-4" /> {t("calendar.children.add")}
+            </Button>
+          ) : undefined
         }
       />
       <div className="hide-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto bg-surface px-5 py-4 md:max-w-2xl md:px-8">
@@ -238,10 +241,16 @@ export function ChildrenHome({ onOpenChild }: { onOpenChild: () => void }) {
         ))}
         {cal.myChildren.length === 0 ? (
           <div className="rounded-2xl bg-card p-5 text-center ring-1 ring-border">
-            <p className="text-sm font-semibold">{t("calendar.children.emptyTitle")}</p>
-            <Button type="button" className="mt-3" onClick={() => setAdding(true)}>
-              <Plus className="mr-1 size-4" /> {t("calendar.children.add")}
-            </Button>
+            <p className="text-sm font-semibold">
+              {canAdd ? t("calendar.children.emptyTitle") : t("calendar.helper.waitingTitle")}
+            </p>
+            {!canAdd ? (
+              <p className="mt-2 text-xs text-muted-foreground">{t("calendar.helper.waitingBody")}</p>
+            ) : (
+              <Button type="button" className="mt-3" onClick={() => setAdding(true)}>
+                <Plus className="mr-1 size-4" /> {t("calendar.children.add")}
+              </Button>
+            )}
           </div>
         ) : null}
       </div>

@@ -1,0 +1,29 @@
+=============================================================================
+SYNLUMAE CALENDAR PROTOTYPE TEST - FILE LOCATIONS
+=============================================================================
+
+All test results and screenshots are saved in:
+/workspace/test-results/
+
+=============================================================================
+ABSOLUTE FILE PATHS
+=============================================================================
+
+REPORTS:
+--------
+/workspace/test-results/TEST_REPORT.md     - Detailed test report (7.7KB)
+/workspace/test-results/SUMMARY.txt        - Quick summary of results
+/workspace/test-results/FILE_PATHS.txt     - This file
+
+SCREENSHOTS:
+------------
+/workspace/test-results/screenshot-01-patients-list.webp          (23KB)
+  → Patients list showing Alex and Jordan
+
+/workspace/test-results/screenshot-02-today-as-therapist.webp     (26KB)
+  → Today tab with week strip and day plan, 0/5 steps done
+
+/workspace/test-results/screenshot-03-today-step-marked-done.webp (26KB)
+  → Today tab with step 1 marked done, 1/5 progress shown
+
+=============================================================================

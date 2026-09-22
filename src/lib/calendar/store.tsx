@@ -176,14 +176,38 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
     selectedChild,
     resetDemo: () => update(() => createSeedState()),
     switchPersona: (personId) =>
-      update((prev) => ({
-        ...prev,
-        activePersonId: personId,
-        selectedChildId:
-          prev.people.find((p) => p.id === personId)?.appRole === "therapist"
-            ? null
-            : prev.selectedChildId,
-      })),
+      update((prev) => {
+        const person = prev.people.find((p) => p.id === personId);
+        if (!person) return prev;
+
+        // Prototype convenience: claim any pending invites for this persona's email
+        // so Profile → Continue as Helper works after Parent sent an invite.
+        let invites = prev.invites;
+        let memberships = prev.memberships;
+        let selectedChildId =
+          person.appRole === "therapist" ? null : prev.selectedChildId;
+
+        for (const invite of prev.invites) {
+          if (invite.status !== "pending" || invite.email !== person.email) continue;
+          invites = invites.map((i) =>
+            i.id === invite.id ? { ...i, status: "active" } : i,
+          );
+          memberships = memberships.map((m) =>
+            m.id === invite.membershipId
+              ? { ...m, personId: person.id, status: "active", role: invite.role }
+              : m,
+          );
+          selectedChildId = invite.childId;
+        }
+
+        return {
+          ...prev,
+          activePersonId: personId,
+          invites,
+          memberships,
+          selectedChildId,
+        };
+      }),
     selectChild: (childId) => update((prev) => ({ ...prev, selectedChildId: childId })),
     addChild: (displayName, ageBand, tagIds = []) => {
       const child: Child = {

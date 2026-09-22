@@ -314,6 +314,11 @@ export const en = {
       step: "Step {{n}}",
       tweaked: "Day-only tweaks (not in Library yet)",
     },
+    helper: {
+      waitingTitle: "Waiting for an invite",
+      waitingBody:
+        "Ask a caregiver to invite this helper on the child’s People screen, then switch back here — or open the invite link.",
+    },
     library: {
       title: "Library",
       subtitle: "Reusable plans — separate from today’s live schedule",

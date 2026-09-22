@@ -1,0 +1,91 @@
+=============================================================================
+SYNLUMAE CALENDAR PROTOTYPE - MANUAL TESTING SUMMARY
+=============================================================================
+
+Test Date: Tuesday, September 22, 2026, 11:24 AM UTC
+Test URL: https://neurohelper-git-cursor-synlumae-calendar-726cdf-samlooijenstein.vercel.app/
+
+=============================================================================
+TEST RESULTS
+=============================================================================
+
+PASS RATE: 9/10 (90%)
+
+Step 1: Sign-in with "Continue as Therapist"               ✅ PASS
+Step 2: Patients list shows Alex and Jordan                ✅ PASS
+Step 3: Today tab - week strip & day plan with checkboxes  ✅ PASS
+Step 4: Library shows "My templates"                       ✅ PASS
+Step 4a: Apply dialog opens                                ✅ PASS
+Step 5: People page shows "Invite" button                  ✅ PASS
+Step 5a: Invite dialog opens                               ✅ PASS
+Step 6: Parent view shows Today for Alex                   ✅ PASS
+Step 7: Helper view allows marking steps Done              ⚠️  PARTIAL FAIL
+Step 7a: Alternative - marking done as Therapist           ✅ PASS
+
+=============================================================================
+BUGS FOUND
+=============================================================================
+
+🐛 BUG #1: Helper View Doesn't Show Today/Day Plan
+Severity: Medium
+Description: When switching to "Continue as Helper", users see a "Children" 
+page prompting to "Add your first child to start" instead of seeing the 
+Today view for assigned children. Cannot access day plan or mark steps done.
+
+Expected: Helper should see Today view for Alex with ability to mark done
+Actual: Shows "Children" empty state page
+Impact: Helper role workflow incomplete in prototype
+
+=============================================================================
+SCREENSHOTS CAPTURED
+=============================================================================
+
+Location: /workspace/test-results/
+
+1. screenshot-01-patients-list.webp
+   - Patients list showing Alex (5-6 years) and Jordan (6-8 years)
+   
+2. screenshot-02-today-as-therapist.webp
+   - Today tab with week strip (MON 21 - SUN 27, TUE 22 highlighted)
+   - Day plan "Weekday afternoon calm hour" with 5 steps
+   - All checkboxes initially unchecked (0/5 done)
+   
+3. screenshot-03-today-step-marked-done.webp
+   - Step 1 "Arrive and settle" marked as done
+   - Checkbox checked, step highlighted
+   - Progress updated to 1/5 done
+
+=============================================================================
+WHAT WORKS WELL
+=============================================================================
+
+✅ Sign-in flow with role switching (Therapist/Parent/Helper buttons)
+✅ Patient list display and navigation
+✅ Today view with week strip calendar
+✅ Day plan display with steps, timing, and descriptions
+✅ Library with template sections (My templates, For Alex)
+✅ Apply dialog with weekday selection
+✅ People page with invite functionality
+✅ Invite dialog with role assignment
+✅ Parent role switching and scoped view (Alex only, not Jordan)
+✅ Checkbox functionality and progress tracking
+✅ Visual design and user experience
+
+=============================================================================
+RECOMMENDATIONS
+=============================================================================
+
+1. Fix helper view to show Today/day plan for assigned children
+2. Investigate if helper-to-child assignment flow is missing
+3. Test complete helper workflow once view access is resolved
+4. Clarify if "Children" page for helpers is intentional design
+5. Consider helper onboarding flow if assignment is required
+
+=============================================================================
+FULL REPORT
+=============================================================================
+
+Detailed test report available at:
+/workspace/test-results/TEST_REPORT.md
+
+=============================================================================
