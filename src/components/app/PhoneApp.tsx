@@ -1,33 +1,44 @@
-import { Activity, CalendarDays, Heart, Globe, CircleHelp, UserRound } from "lucide-react";
+import {
+  Activity,
+  CalendarDays,
+  Heart,
+  Globe,
+  CircleHelp,
+  UserRound,
+  Stethoscope,
+} from "lucide-react";
 import { Navigate } from "@tanstack/react-router";
 import { useAuth } from "@clerk/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { useI18n } from "@/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 import { isClerkConfigured } from "@/lib/clerk";
+import { isProAccount, tabsForAccount, type AppTabKey } from "@/lib/pro-access";
 import { ActivitiesTab } from "./ActivitiesTab";
 import { ScheduleTab } from "./ScheduleTab";
 import { JourneyTab } from "./JourneyTab";
 import { CommunityTab } from "./CommunityTab";
 import { HelpTab } from "./HelpTab";
 import { ProfileTab } from "./ProfileTab";
+import { ProTab } from "./ProTab";
 import { ProfileView } from "./ProfileView";
 import { ArticleView } from "./ArticleView";
 import { AuthLoading } from "./AuthScreen";
 import { BrandLogo } from "./BrandLogo";
 import { useAppStore } from "@/lib/app-store";
 
-export type TabKey = "activities" | "schedule" | "journey" | "community" | "help" | "profile";
+export type TabKey = AppTabKey;
 
-const TABS = [
-  { key: "activities", labelKey: "nav.activities", icon: Activity },
-  { key: "schedule", labelKey: "nav.schedule", icon: CalendarDays },
-  { key: "journey", labelKey: "nav.journey", icon: Heart },
-  { key: "community", labelKey: "nav.community", icon: Globe },
-  { key: "help", labelKey: "nav.help", icon: CircleHelp },
-  { key: "profile", labelKey: "nav.profile", icon: UserRound },
-] as const;
+const TAB_META: Record<TabKey, { labelKey: string; icon: typeof Activity }> = {
+  activities: { labelKey: "nav.activities", icon: Activity },
+  pro: { labelKey: "nav.pro", icon: Stethoscope },
+  schedule: { labelKey: "nav.schedule", icon: CalendarDays },
+  journey: { labelKey: "nav.journey", icon: Heart },
+  community: { labelKey: "nav.community", icon: Globe },
+  help: { labelKey: "nav.help", icon: CircleHelp },
+  profile: { labelKey: "nav.profile", icon: UserRound },
+};
 
 function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const { state } = useAppStore();
@@ -35,6 +46,12 @@ function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const [profileId, setProfileId] = useState<string | null>(null);
   const [articleId, setArticleId] = useState<string | null>(null);
   const [helpNonce, setHelpNonce] = useState(0);
+  const isPro = isProAccount(state.profile);
+  const tabs = tabsForAccount(isPro);
+
+  useEffect(() => {
+    if (tab === "pro" && !isPro) onTab("activities");
+  }, [tab, isPro, onTab]);
 
   const goTab = (key: TabKey) => {
     setArticleId(null);
@@ -62,6 +79,7 @@ function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
   ) : (
     {
       activities: <ActivitiesTab />,
+      pro: <ProTab />,
       schedule: <ScheduleTab />,
       journey: <JourneyTab />,
       community: (
@@ -69,7 +87,7 @@ function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
       ),
       help: <HelpTab key={helpNonce} />,
       profile: <ProfileTab />,
-    }[tab]
+    }[tab === "pro" && !isPro ? "activities" : tab]
   );
 
   return (
@@ -81,27 +99,31 @@ function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
         </div>
 
         <nav className="flex flex-1 flex-col gap-1" aria-label={t("nav.label")}>
-          {TABS.map(({ key, labelKey, icon: Icon }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => goTab(key)}
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
-                tab === key && !articleId && !profileId
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              <Icon
+          {tabs.map((key) => {
+            const { labelKey, icon: Icon } = TAB_META[key];
+            return (
+              <button
+                key={key}
+                type="button"
+                data-nav={key}
+                onClick={() => goTab(key)}
                 className={cn(
-                  "size-5",
-                  tab === key && !articleId && !profileId && "fill-primary/15",
+                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                  tab === key && !articleId && !profileId
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
-              />
-              {t(labelKey)}
-            </button>
-          ))}
+              >
+                <Icon
+                  className={cn(
+                    "size-5",
+                    tab === key && !articleId && !profileId && "fill-primary/15",
+                  )}
+                />
+                {t(labelKey)}
+              </button>
+            );
+          })}
         </nav>
 
         <p className="mt-auto px-2 pt-6 text-[11px] text-muted-foreground">
@@ -113,23 +135,34 @@ function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
         <div className="app-screen min-h-0">{screen}</div>
       </div>
 
-      <nav className="app-tabbar" aria-label={t("nav.label")}>
-        {TABS.map(({ key, labelKey, icon: Icon }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => goTab(key)}
-            className={cn(
-              "flex flex-col items-center gap-1 rounded-lg py-1 text-[9px] font-semibold transition-colors",
-              tab === key && !articleId && !profileId ? "text-primary" : "text-muted-foreground",
-            )}
-          >
-            <Icon
-              className={cn("size-5", tab === key && !articleId && !profileId && "fill-primary/15")}
-            />
-            {t(labelKey)}
-          </button>
-        ))}
+      <nav
+        className="app-tabbar"
+        aria-label={t("nav.label")}
+        style={{ ["--app-tab-count" as string]: String(tabs.length) }}
+      >
+        {tabs.map((key) => {
+          const { labelKey, icon: Icon } = TAB_META[key];
+          return (
+            <button
+              key={key}
+              type="button"
+              data-nav={key}
+              onClick={() => goTab(key)}
+              className={cn(
+                "flex flex-col items-center gap-1 rounded-lg py-1 text-[9px] font-semibold transition-colors",
+                tab === key && !articleId && !profileId ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              <Icon
+                className={cn(
+                  "size-5",
+                  tab === key && !articleId && !profileId && "fill-primary/15",
+                )}
+              />
+              {t(labelKey)}
+            </button>
+          );
+        })}
       </nav>
     </div>
   );
@@ -137,17 +170,18 @@ function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
 
 function ClerkGatedApp(props: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const { isLoaded, isSignedIn } = useAuth();
-  const { devDemo, hydrated } = useAppStore();
+  const { devDemo, prototypeDemo, hydrated } = useAppStore();
 
   if (!isLoaded || !hydrated) return <AuthLoading />;
-  if (isSignedIn || (import.meta.env.DEV && devDemo)) return <AppShell {...props} />;
+  if (isSignedIn || prototypeDemo || (import.meta.env.DEV && devDemo))
+    return <AppShell {...props} />;
   return <Navigate to="/sign-in" />;
 }
 
 function LocalGatedApp(props: { tab: TabKey; onTab: (t: TabKey) => void }) {
-  const { devDemo, hydrated } = useAppStore();
+  const { devDemo, prototypeDemo, hydrated } = useAppStore();
   if (!hydrated) return <AuthLoading />;
-  if (import.meta.env.DEV && devDemo) return <AppShell {...props} />;
+  if (prototypeDemo || (import.meta.env.DEV && devDemo)) return <AppShell {...props} />;
   return <Navigate to="/sign-in" />;
 }
 

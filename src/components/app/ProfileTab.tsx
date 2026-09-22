@@ -14,6 +14,8 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { ROLES, useAppStore, type Profile, type Role } from "@/lib/app-store";
+import { useCalendarStore } from "@/lib/calendar/store";
+import { isProAccount } from "@/lib/pro-access";
 import { isClerkConfigured } from "@/lib/clerk";
 import {
   applyCaregiverProfileEdits,
@@ -137,6 +139,8 @@ export function ProfileTab() {
         >
           {t("profile.resetLocal")}
         </Button>
+
+        <DemoPersonaNote />
 
         {isClerkConfigured() ? <ClerkAwareSessionControls /> : <LocalLogoutButton />}
       </div>
@@ -415,6 +419,33 @@ function CaregiverIdentityCard({
         </Button>
       </div>
     </form>
+  );
+}
+
+function DemoPersonaNote() {
+  const { prototypeDemo } = useAppStore();
+  const { state } = useAppStore();
+  const cal = useCalendarStore();
+  const { t } = useI18n();
+  if (!prototypeDemo) return null;
+
+  return (
+    <div className="rounded-2xl bg-warm/30 p-4 ring-1 ring-border">
+      <p className="text-xs text-muted-foreground">
+        {isProAccount(state.profile) ? t("pro.demoBanner") : t("shared.demoBanner")}
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        className="mt-3 h-10 w-full"
+        onClick={() => {
+          cal.resetDemo();
+          toast.success(t("calendar.prototype.reset"));
+        }}
+      >
+        {t("calendar.prototype.reset")}
+      </Button>
+    </div>
   );
 }
 

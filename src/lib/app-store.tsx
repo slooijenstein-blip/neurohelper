@@ -81,7 +81,14 @@ export type Profile = {
   locale?: "en" | "es";
   /** ISO country the caregiver lives in. Help opens on this country. */
   helpCountry?: string;
+  /**
+   * Professional account. We set this; the profile editor cannot turn it on.
+   * Demo: Continue as Pro. Parents stay unset.
+   */
+  isPro?: boolean;
 };
+
+export type DemoPersona = "pro" | "parent";
 
 
 export type Template = {
@@ -190,6 +197,9 @@ export type AppState = {
 
 const STORAGE_KEY = "motor-skill-buddy-v1";
 const DEV_DEMO_KEY = "synlumae-dev-demo";
+/** Preview walkthrough — Continue as Pro / Parent, including on Vercel preview. */
+const PROTOTYPE_DEMO_KEY = "synlumae-pro-demo";
+const DEMO_PERSONA_KEY = "synlumae-demo-persona";
 
 const MY_ID = "me";
 
@@ -206,7 +216,24 @@ const myProfile: Profile = {
   color: "bg-primary",
   favouriteActivityIds: ["color-matching-hunt"],
   followers: ["maya", "jonas"],
+  isPro: false,
 };
+
+export const proDemoProfile: Profile = {
+  id: MY_ID,
+  name: "Maya Chen",
+  role: "Therapist",
+  location: "Utrecht",
+  bio: "Pediatric therapist. I build activity plans from the catalog and share them with families.",
+  socials: { website: "https://example.com" },
+  color: "bg-primary",
+  isPro: true,
+};
+
+export function profileForDemoPersona(persona: DemoPersona): Profile {
+  if (persona === "pro") return { ...proDemoProfile };
+  return { ...myProfile, isPro: false };
+}
 
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -709,11 +736,16 @@ type Ctx = {
   state: AppState;
   hydrated: boolean;
   devDemo: boolean;
+  /** Continue as Pro / Parent without a Clerk session. Preview only. */
+  prototypeDemo: boolean;
+  demoPersona: DemoPersona | null;
   update: (fn: (prev: AppState) => AppState) => void;
   logout: () => void;
   login: (profile: Profile) => void;
   enterDevDemo: () => void;
   exitDevDemo: () => void;
+  enterPrototypeDemo: (persona: DemoPersona) => void;
+  exitPrototypeDemo: () => void;
   tryTemplate: (templateId: string) => void;
   toggleTemplateLike: (templateId: string) => void;
   rateTemplate: (templateId: string, stars: number) => void;
@@ -739,6 +771,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(seed);
   const [hydrated, setHydrated] = useState(false);
   const [devDemo, setDevDemo] = useState(false);
+  const [prototypeDemo, setPrototypeDemo] = useState(false);
+  const [demoPersona, setDemoPersona] = useState<DemoPersona | null>(null);
 
   useEffect(() => {
     try {
@@ -755,6 +789,19 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           dayPlans: parsed.dayPlans ?? prev.dayPlans,
           following: parsed.following ?? prev.following,
           profile: parsed.profile ?? prev.profile,
+        }));
+      }
+
+      const storedPersona = window.sessionStorage.getItem(DEMO_PERSONA_KEY);
+      const persona: DemoPersona | null =
+        storedPersona === "pro" || storedPersona === "parent" ? storedPersona : null;
+      if (window.sessionStorage.getItem(PROTOTYPE_DEMO_KEY) === "1" && persona) {
+        setPrototypeDemo(true);
+        setDemoPersona(persona);
+        setState((prev) => ({
+          ...prev,
+          profile: profileForDemoPersona(persona),
+          loggedOut: false,
         }));
       }
 
@@ -810,10 +857,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     try {
       window.sessionStorage.removeItem(DEV_DEMO_KEY);
+      window.sessionStorage.removeItem(PROTOTYPE_DEMO_KEY);
+      window.sessionStorage.removeItem(DEMO_PERSONA_KEY);
     } catch {
       /* ignore */
     }
     setDevDemo(false);
+    setPrototypeDemo(false);
+    setDemoPersona(null);
     update((prev) => ({ ...prev, profile: null, loggedOut: true }));
   }, [update]);
 
@@ -850,6 +901,36 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
     setDevDemo(false);
+  }, []);
+
+  const enterPrototypeDemo = useCallback(
+    (persona: DemoPersona) => {
+      try {
+        window.sessionStorage.setItem(PROTOTYPE_DEMO_KEY, "1");
+        window.sessionStorage.setItem(DEMO_PERSONA_KEY, persona);
+      } catch {
+        /* ignore */
+      }
+      setPrototypeDemo(true);
+      setDemoPersona(persona);
+      update((prev) => ({
+        ...prev,
+        profile: profileForDemoPersona(persona),
+        loggedOut: false,
+      }));
+    },
+    [update],
+  );
+
+  const exitPrototypeDemo = useCallback(() => {
+    try {
+      window.sessionStorage.removeItem(PROTOTYPE_DEMO_KEY);
+      window.sessionStorage.removeItem(DEMO_PERSONA_KEY);
+    } catch {
+      /* ignore */
+    }
+    setPrototypeDemo(false);
+    setDemoPersona(null);
   }, []);
 
   const tryTemplate = useCallback(
@@ -957,11 +1038,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       state,
       hydrated,
       devDemo,
+      prototypeDemo,
+      demoPersona,
       update,
       logout,
       login,
       enterDevDemo,
       exitDevDemo,
+      enterPrototypeDemo,
+      exitPrototypeDemo,
       tryTemplate,
       toggleTemplateLike,
       rateTemplate,
@@ -975,11 +1060,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       state,
       hydrated,
       devDemo,
+      prototypeDemo,
+      demoPersona,
       update,
       logout,
       login,
       enterDevDemo,
       exitDevDemo,
+      enterPrototypeDemo,
+      exitPrototypeDemo,
       tryTemplate,
       toggleTemplateLike,
       rateTemplate,

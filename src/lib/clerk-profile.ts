@@ -61,6 +61,7 @@ export function profileFromClerkUser(user: ClerkNameSource, existing: Profile | 
     ...(existing?.followers ? { followers: existing.followers } : {}),
     ...(existing?.locale ? { locale: existing.locale } : {}),
     ...(existing?.helpCountry ? { helpCountry: existing.helpCountry } : {}),
+    ...(keepLocalExtras && existing?.isPro ? { isPro: true as const } : {}),
   };
 }
 
