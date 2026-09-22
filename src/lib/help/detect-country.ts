@@ -37,6 +37,7 @@ const TIMEZONE_COUNTRY: Record<string, string> = {
   "Europe/Riga": "LV",
   "Europe/Vilnius": "LT",
   "Europe/Malta": "MT",
+  "Atlantic/Reykjavik": "IS",
   "Asia/Nicosia": "CY",
   "Europe/London": "GB",
   "Europe/Belfast": "GB",
@@ -78,6 +79,7 @@ const LANGUAGE_COUNTRY: Record<string, string> = {
   nb: "NO",
   nn: "NO",
   no: "NO",
+  is: "IS",
 };
 
 export function detectCountry(browserLocale?: string | null, timeZone?: string | null): string {

@@ -228,7 +228,15 @@ export const en = {
     countryLabel: "Country",
     countryHelp:
       "We guess from your browser language or time zone. You can change it, and Synlumae remembers.",
-    needsReview: "Still being checked",
+    needsReview: "Limited verified resources — emergency number only",
+    mediumReview: "Some details for this country still need a second check.",
+    goodToKnow: "Good to know",
+    findHelpline: "Find a helpline",
+    findHelplineHelp:
+      "Directory of local helplines. Synlumae does not add a number from that list until it has been checked on an official page.",
+    englishResourceNote:
+      "These resource descriptions are still in English. A full Spanish (Spain) version is coming.",
+    checkedOn: "Last checked {{date}}",
     emergencyHeading: "Emergency",
     crisisHeading: "Crisis lines",
     caregiverHeading: "Caregiver support",

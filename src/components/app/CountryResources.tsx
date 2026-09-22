@@ -3,9 +3,9 @@ import { ExternalLink, Phone } from "lucide-react";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   countryName,
+  FIND_A_HELPLINE_URL,
   getCountry,
   resourceDescription,
-  reviewNote,
   serviceLabel,
   sortedCountries,
   type SupportResource,
@@ -70,7 +70,7 @@ function ResourceCard({ resource }: { resource: SupportResource }) {
     <div className="soft-card space-y-2 p-4">
       <p className="text-sm font-semibold">{resource.name}</p>
       <p className="text-xs leading-relaxed text-muted-foreground">
-        {resourceDescription(resource, locale)}
+        {resourceDescription(resource)}
       </p>
       <div className="flex flex-wrap gap-2">
         {href && resource.phone ? (
@@ -126,13 +126,23 @@ export function CountryResources({
 
       {!country ? null : (
         <>
-          {country.needsReview && reviewNote(country, locale) ? (
+          {country.needsReview ? (
             <div className="rounded-xl border border-warm/50 bg-warm/25 p-3">
-              <p className="text-[11px] font-bold uppercase tracking-wide text-warm-foreground">
-                {t("help.needsReview")}
-              </p>
-              <p className="mt-1 text-sm leading-relaxed">{reviewNote(country, locale)}</p>
+              <p className="text-sm font-semibold leading-snug">{t("help.needsReview")}</p>
             </div>
+          ) : null}
+          {country.confidence === "medium" ? (
+            <div className="rounded-xl border border-warm/50 bg-warm/25 p-3">
+              <p className="text-sm font-semibold leading-snug">{t("help.mediumReview")}</p>
+            </div>
+          ) : null}
+          {locale === "es" &&
+          (country.uncertaintyNotes ||
+            country.crisisLines.length > 0 ||
+            country.caregiverSupport.length > 0) ? (
+            <p className="rounded-xl border border-border bg-card px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+              {t("help.englishResourceNote")}
+            </p>
           ) : null}
 
           <section className="space-y-2">
@@ -178,6 +188,14 @@ export function CountryResources({
             ) : (
               <p className="text-sm text-muted-foreground">{t("help.emergencyMissing")}</p>
             )}
+            {country.uncertaintyNotes && !country.needsReview ? (
+              <div className="rounded-xl border border-border bg-card p-3">
+                <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  {t("help.goodToKnow")}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed">{country.uncertaintyNotes}</p>
+              </div>
+            ) : null}
           </section>
 
           <section className="space-y-2">
@@ -204,29 +222,50 @@ export function CountryResources({
             )}
           </section>
 
-          <section className="space-y-1.5">
-            <h3 className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              {t("help.sources")}
-            </h3>
-            <ul className="space-y-1.5">
-              {country.sources.map((source) => {
-                const href = safeHttpsUrl(source.url);
-                if (!href) return null;
-                return (
-                  <li key={source.url}>
-                    <a
-                      href={href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-semibold text-primary underline-offset-2 hover:underline"
-                    >
-                      {source.label}
-                    </a>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+          <div className="rounded-xl border border-border bg-card p-3">
+            <a
+              href={FIND_A_HELPLINE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-sm font-semibold text-primary underline-offset-2 hover:underline"
+            >
+              <ExternalLink className="size-3.5" />
+              {t("help.findHelpline")}
+            </a>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              {t("help.findHelplineHelp")}
+            </p>
+          </div>
+
+          <p className="text-[11px] text-muted-foreground">
+            {t("help.checkedOn", { date: country.lastChecked })}
+          </p>
+
+          {country.sources.length ? (
+            <section className="space-y-1.5">
+              <h3 className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                {t("help.sources")}
+              </h3>
+              <ul className="space-y-1.5">
+                {country.sources.map((source) => {
+                  const href = safeHttpsUrl(source.url);
+                  if (!href) return null;
+                  return (
+                    <li key={source.url}>
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-semibold text-primary underline-offset-2 hover:underline"
+                      >
+                        {source.label}
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
         </>
       )}
     </div>

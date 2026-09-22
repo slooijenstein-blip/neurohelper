@@ -118,6 +118,11 @@ export function HelpTab() {
           <div className="space-y-3">
             <HelpDisclaimer />
             <CountryPicker countryCode={countryCode} onCountry={setCountry} />
+            {country?.needsReview ? (
+              <p className="rounded-xl border border-warm/50 bg-warm/25 px-3 py-2 text-sm font-semibold leading-snug">
+                {t("help.needsReview")}
+              </p>
+            ) : null}
             {locale === "es" ? <EnglishGuidesNote /> : null}
             <p className="text-xs leading-relaxed text-muted-foreground">{t("help.audience")}</p>
             {HELP_HUBS.map((entry) => {

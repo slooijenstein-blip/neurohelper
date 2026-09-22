@@ -236,7 +236,15 @@ export const es: DeepString<Messages> = {
     countryLabel: "País",
     countryHelp:
       "Lo estimamos con el idioma o la zona horaria del navegador. Puedes cambiarlo y Synlumae lo recuerda.",
-    needsReview: "Aún en revisión",
+    needsReview: "Recursos verificados limitados: solo el número de emergencias",
+    mediumReview: "Algunos datos de este país aún necesitan una segunda comprobación.",
+    goodToKnow: "Ten en cuenta",
+    findHelpline: "Buscar una línea de ayuda",
+    findHelplineHelp:
+      "Directorio de líneas locales. Synlumae no añade un número de esa lista hasta comprobarlo en una página oficial.",
+    englishResourceNote:
+      "Las descripciones de estos recursos siguen en inglés. La versión completa en español de España está en camino.",
+    checkedOn: "Última comprobación: {{date}}",
     emergencyHeading: "Emergencias",
     crisisHeading: "Líneas de crisis",
     caregiverHeading: "Apoyo a cuidadores",

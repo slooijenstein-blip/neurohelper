@@ -1,71 +1,115 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import rawPacks from "./country-resources.json" with { type: "json" };
+
 import { COUNTRIES, getCountry, REQUIRED_COUNTRY_CODES, sortedCountries } from "./countries.ts";
 import { detectCountry, resolveHelpCountry } from "./detect-country.ts";
 import { safeHttpsUrl, telHref } from "./links.ts";
 
+type Pack = {
+  countryCode: string;
+  emergencyDial: string;
+  confidence: string;
+  crisisLines: { phone: string; sourceUrl: string }[];
+  caregiverOrgs: { sourceUrl: string }[];
+};
+
+const packs = rawPacks as Pack[];
+
 describe("country help directory", () => {
-  it("includes every requested country exactly once", () => {
+  it("loads every research pack exactly once", () => {
     const codes = COUNTRIES.map((country) => country.code);
+    assert.deepEqual(
+      codes,
+      packs.map((pack) => pack.countryCode),
+    );
     assert.deepEqual([...codes].sort(), [...REQUIRED_COUNTRY_CODES].sort());
     assert.equal(new Set(codes).size, codes.length);
+    assert.equal(codes.length, 38);
   });
 
-  it("fills the Netherlands with cited emergency, crisis, and caregiver lines", () => {
+  it("keeps the research confidence split", () => {
+    const count = (confidence: string) =>
+      COUNTRIES.filter((country) => country.confidence === confidence).length;
+    assert.equal(count("high"), 20);
+    assert.equal(count("medium"), 3);
+    assert.equal(count("needs_review"), 15);
+    assert.deepEqual(
+      COUNTRIES.filter((country) => country.confidence === "medium")
+        .map((country) => country.code)
+        .sort(),
+      ["CL", "PE", "SE"],
+    );
+  });
+
+  it("fills the Netherlands from the research pack", () => {
     const nl = getCountry("NL");
     assert.ok(nl);
+    assert.equal(nl.confidence, "high");
     assert.equal(nl.needsReview, false);
     assert.equal(nl.emergencyNumber, "112");
-    assert.ok(nl.crisisLines.some((line) => line.phone === "113"));
-    assert.ok(nl.crisisLines.some((line) => line.phone === "0800-2000"));
+    assert.deepEqual(
+      nl.crisisLines.map((line) => line.phone),
+      ["113", "088 0767 000"],
+    );
     assert.ok(nl.caregiverSupport.some((line) => line.name.includes("Mantelzorg")));
-    assert.ok(nl.sources.length >= 8);
+    assert.ok(nl.caregiverSupport.some((line) => line.name.includes("Balans")));
     assert.equal(nl.nameEs, "Países Bajos");
+    assert.equal(
+      nl.crisisLines.some((line) => line.phone.includes("0800-2000")),
+      false,
+    );
   });
 
-  it("only keeps phone numbers that have an https source", () => {
+  it("ships only phones that the research file already sourced", () => {
     for (const country of COUNTRIES) {
+      const pack = packs.find((entry) => entry.countryCode === country.code);
+      assert.ok(pack, country.code);
       assert.equal(country.disclaimerKey, "help.disclaimer");
+      assert.equal(country.needsReview, pack.confidence === "needs_review");
+      assert.ok(country.nameEs, country.code);
+      assert.equal(country.emergencyNumber, pack.emergencyDial);
+
       if (country.needsReview) {
-        assert.ok(country.reviewNoteEn && country.reviewNoteEs, country.code);
+        assert.deepEqual(country.crisisLines, [], country.code);
       }
-      if (country.emergencyNumber) {
-        assert.ok(
-          country.emergencyServices.some((service) => service.number === country.emergencyNumber),
-          country.code,
-        );
+
+      assert.deepEqual(
+        country.crisisLines.map((line) => line.phone),
+        pack.crisisLines.map((line) => line.phone),
+        country.code,
+      );
+
+      for (const line of country.crisisLines) {
+        assert.ok(line.phone);
+        assert.ok(safeHttpsUrl(line.source), `${country.code} ${line.name}`);
+        assert.ok(telHref(line.phone), `${country.code} ${line.phone}`);
+        assert.ok(line.descriptionEn);
       }
-      for (const service of country.emergencyServices) {
-        assert.ok(telHref(service.number), `${country.code} ${service.number}`);
-        assert.ok(safeHttpsUrl(service.source), `${country.code} emergency source`);
-      }
-      for (const line of [...country.crisisLines, ...country.caregiverSupport]) {
+      for (const line of country.caregiverSupport) {
+        assert.equal(line.phone, undefined, `${country.code} ${line.name}`);
         assert.ok(safeHttpsUrl(line.source), `${country.code} ${line.name}`);
         if (line.url) assert.ok(safeHttpsUrl(line.url), `${country.code} ${line.name} url`);
-        if (line.phone) assert.ok(telHref(line.phone), `${country.code} ${line.phone}`);
-        assert.ok(line.descriptionEn && line.descriptionEs);
+        assert.ok(line.descriptionEn);
       }
       for (const source of country.sources) {
         assert.ok(safeHttpsUrl(source.url), source.url);
       }
-      if (country.emergencyServices.length === 0) {
-        assert.equal(country.needsReview, true, country.code);
-      }
     }
   });
 
-  it("uses 112 for EU members and does not invent a single number for Norway", () => {
-    for (const code of ["BE", "DE", "FR", "ES", "IT", "PT", "AT", "SE", "DK", "FI", "PL"]) {
+  it("keeps emergency dials from the pack, including split-system primaries", () => {
+    for (const code of ["BE", "DE", "FR", "ES", "IT", "PT", "AT", "SE", "DK", "FI", "PL", "IS"]) {
       assert.equal(getCountry(code)?.emergencyNumber, "112", code);
     }
-    const norway = getCountry("NO");
-    assert.equal(norway?.emergencyNumber, undefined);
-    assert.deepEqual(norway?.emergencyServices.map((service) => service.number).sort(), [
-      "110",
-      "112",
-      "113",
-    ]);
+    assert.equal(getCountry("NO")?.emergencyNumber, "112");
+    assert.equal(getCountry("GB")?.emergencyNumber, "999");
+    assert.equal(getCountry("US")?.emergencyNumber, "911");
+    assert.equal(getCountry("CL")?.emergencyNumber, "131");
+    assert.equal(getCountry("BR")?.emergencyNumber, "192");
+    assert.equal(getCountry("PE")?.emergencyNumber, "105");
+    assert.equal(telHref("*4141"), "tel:*4141");
   });
 
   it("pins the Netherlands first in the picker", () => {
@@ -91,5 +135,6 @@ describe("detectCountry", () => {
     assert.equal(detectCountry("es-MX", "America/Lima"), "PE");
     assert.equal(detectCountry("fr", "UTC"), "FR");
     assert.equal(detectCountry("en", "UTC"), "NL");
+    assert.equal(detectCountry("is", "UTC"), "IS");
   });
 });
