@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, Library, PencilLine } from "lucide-react";
+import { CheckCircle2, Circle, Library, PencilLine, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -6,18 +6,25 @@ import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/I18nProvider";
 import { canEditPlan, canMarkDone } from "@/lib/calendar/permissions";
 import { toDateKey, useCalendarStore } from "@/lib/calendar/store";
+import type { DayStep, PlanStep } from "@/lib/calendar/types";
 import { cn } from "@/lib/utils";
 import { ScreenHeader } from "../ui-bits";
+import { ActivityPickerDialog } from "./ActivityPickerDialog";
+import { StepDetailDialog } from "./StepDetailDialog";
 import { WeekStrip } from "./WeekStrip";
 
 export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
   const { t } = useI18n();
   const cal = useCalendarStore();
   const [date, setDate] = useState(toDateKey(new Date()));
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [detailStep, setDetailStep] = useState<DayStep | null>(null);
+  const [replacingId, setReplacingId] = useState<string | null>(null);
   const child = cal.selectedChild;
   const role = cal.roleOnSelected;
   const plan = child ? cal.getDayPlan(child.id, date) : null;
   const isToday = date === toDateKey(new Date());
+  const canEdit = canEditPlan(role);
 
   if (!child) {
     return (
@@ -30,6 +37,17 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
     );
   }
 
+  const onPickStep = (step: PlanStep) => {
+    if (replacingId) {
+      cal.replaceDayStep(child.id, date, replacingId, step);
+      toast.success(t("calendar.today.stepUpdated"));
+      setReplacingId(null);
+    } else {
+      cal.addDayStep(child.id, date, step);
+      toast.success(t("calendar.today.stepAdded", { title: step.title }));
+    }
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader
@@ -41,11 +59,23 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
         <WeekStrip selectedDate={date} onSelect={setDate} />
 
         <div className="flex flex-wrap gap-2">
-          {canEditPlan(role) ? (
+          {canEdit ? (
             <>
               <Button type="button" size="sm" onClick={onOpenLibrary}>
                 <Library className="mr-1 size-4" />
                 {plan ? t("calendar.today.changePlan") : t("calendar.today.useFromLibrary")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setReplacingId(null);
+                  setPickerOpen(true);
+                }}
+              >
+                <Plus className="mr-1 size-4" />
+                {t("calendar.today.addActivity")}
               </Button>
               {plan?.tweaked ? (
                 <Button
@@ -65,14 +95,27 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
           ) : null}
         </div>
 
-        {!plan ? (
+        {!plan || plan.steps.length === 0 ? (
           <div className="rounded-2xl bg-card p-5 text-center ring-1 ring-border">
             <p className="text-sm font-semibold text-foreground">{t("calendar.today.emptyTitle")}</p>
             <p className="mt-1 text-xs text-muted-foreground">{t("calendar.today.emptyBody")}</p>
-            {canEditPlan(role) ? (
-              <Button type="button" className="mt-4" onClick={onOpenLibrary}>
-                {t("calendar.today.useFromLibrary")}
-              </Button>
+            {canEdit ? (
+              <div className="mt-4 flex flex-col gap-2">
+                <Button type="button" onClick={onOpenLibrary}>
+                  {t("calendar.today.useFromLibrary")}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setReplacingId(null);
+                    setPickerOpen(true);
+                  }}
+                >
+                  <Plus className="mr-1 size-4" />
+                  {t("calendar.today.addActivity")}
+                </Button>
+              </div>
             ) : (
               <p className="mt-3 text-xs text-muted-foreground">{t("calendar.today.helperEmpty")}</p>
             )}
@@ -82,36 +125,49 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
             <div className="flex items-baseline justify-between gap-2">
               <h3 className="font-display text-base font-semibold">{plan.name}</h3>
               <span className="text-[11px] font-semibold text-muted-foreground">
-                {plan.steps.filter((s) => s.done).length}/{plan.steps.length} {t("calendar.today.done")}
+                {plan.steps.filter((s) => s.done).length}/{plan.steps.length}{" "}
+                {t("calendar.today.done")}
               </span>
             </div>
             {plan.tweaked ? (
-              <p className="text-[11px] font-semibold text-warm-foreground">{t("calendar.today.tweaked")}</p>
+              <p className="text-[11px] font-semibold text-warm-foreground">
+                {t("calendar.today.tweaked")}
+              </p>
             ) : null}
             <ol className="space-y-2">
               {plan.steps.map((step, index) => (
                 <li key={step.id}>
-                  <button
-                    type="button"
-                    disabled={!canMarkDone(role)}
-                    onClick={() => cal.toggleStepDone(child.id, date, step.id)}
+                  <div
                     className={cn(
-                      "flex w-full items-start gap-3 rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-border transition-colors",
+                      "flex w-full items-start gap-2 rounded-2xl bg-card px-2 py-2 ring-1 ring-border",
                       step.done && "bg-success/10 ring-success/30",
-                      canMarkDone(role) && "hover:bg-muted/60",
                     )}
                   >
-                    <span className="mt-0.5 shrink-0 text-primary">
+                    <button
+                      type="button"
+                      disabled={!canMarkDone(role)}
+                      aria-label={t("calendar.stepDetail.markDone")}
+                      onClick={() => cal.toggleStepDone(child.id, date, step.id)}
+                      className={cn(
+                        "mt-1 shrink-0 rounded-lg p-1 text-primary",
+                        canMarkDone(role) && "hover:bg-muted/60",
+                      )}
+                    >
                       {step.done ? (
                         <CheckCircle2 className="size-5" />
                       ) : (
                         <Circle className="size-5 text-muted-foreground" />
                       )}
-                    </span>
-                    <span className="min-w-0 flex-1">
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDetailStep(step)}
+                      className="min-w-0 flex-1 rounded-xl px-1 py-1 text-left hover:bg-muted/40"
+                    >
                       <span className="block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                         {t("calendar.today.step", { n: index + 1 })}
                         {step.minutes ? ` · ${step.minutes}m` : ""}
+                        {step.activityId ? ` · ${t("calendar.today.fromCatalog")}` : ""}
                       </span>
                       <span
                         className={cn(
@@ -121,17 +177,61 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
                       >
                         {step.title}
                       </span>
-                      {step.notes ? (
-                        <span className="mt-0.5 block text-xs text-muted-foreground">{step.notes}</span>
+                      {step.description || step.notes ? (
+                        <span className="mt-0.5 block line-clamp-2 text-xs text-muted-foreground">
+                          {step.description || step.notes}
+                        </span>
                       ) : null}
-                    </span>
-                  </button>
+                    </button>
+                  </div>
                 </li>
               ))}
             </ol>
           </div>
         )}
       </div>
+
+      <ActivityPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onPick={onPickStep}
+        title={
+          replacingId ? t("calendar.picker.changeTitle") : t("calendar.picker.addToToday")
+        }
+      />
+
+      <StepDetailDialog
+        step={detailStep}
+        open={!!detailStep}
+        onOpenChange={(o) => !o && setDetailStep(null)}
+        canEdit={canEdit}
+        onToggleDone={
+          detailStep && canMarkDone(role)
+            ? () => {
+                cal.toggleStepDone(child.id, date, detailStep.id);
+                setDetailStep((prev) => (prev ? { ...prev, done: !prev.done } : null));
+              }
+            : undefined
+        }
+        onChangeActivity={
+          detailStep && canEdit
+            ? () => {
+                setReplacingId(detailStep.id);
+                setDetailStep(null);
+                setPickerOpen(true);
+              }
+            : undefined
+        }
+        onRemove={
+          detailStep && canEdit
+            ? () => {
+                cal.removeDayStep(child.id, date, detailStep.id);
+                setDetailStep(null);
+                toast.success(t("calendar.today.stepRemoved"));
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

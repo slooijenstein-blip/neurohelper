@@ -1,4 +1,4 @@
-import { Copy, MoreHorizontal, Pencil, Plus, Trash2, UserRoundSearch } from "lucide-react";
+import { Copy, MoreHorizontal, Pencil, Plus, Search, Trash2, UserRoundSearch } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -21,15 +21,10 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { canManageLibrary } from "@/lib/calendar/permissions";
 import { thisWeekDates, useCalendarStore } from "@/lib/calendar/store";
 import type { LibraryPlan, PlanStep } from "@/lib/calendar/types";
-import { nid } from "@/lib/calendar/types";
 import { ScreenHeader } from "../ui-bits";
-
-function emptySteps(): PlanStep[] {
-  return [
-    { id: nid("st"), title: "", notes: "", minutes: 10 },
-    { id: nid("st"), title: "", notes: "", minutes: 10 },
-  ];
-}
+import { ActivityPickerDialog } from "./ActivityPickerDialog";
+import { BrowseActivitiesPanel } from "./BrowseActivitiesPanel";
+import { StepDetailDialog } from "./StepDetailDialog";
 
 export function LibraryTab({
   applyMode,
@@ -46,10 +41,14 @@ export function LibraryTab({
   const masters = plans.filter((p) => p.childId === null);
   const childPlans = plans.filter((p) => p.childId != null);
 
+  const [browse, setBrowse] = useState(false);
   const [editor, setEditor] = useState<LibraryPlan | null>(null);
   const [creating, setCreating] = useState(false);
   const [draftName, setDraftName] = useState("");
-  const [draftSteps, setDraftSteps] = useState<PlanStep[]>(emptySteps());
+  const [draftSteps, setDraftSteps] = useState<PlanStep[]>([]);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [editStepIndex, setEditStepIndex] = useState<number | null>(null);
+  const [detailStep, setDetailStep] = useState<PlanStep | null>(null);
   const [applyTarget, setApplyTarget] = useState<LibraryPlan | null>(null);
   const [patientPicker, setPatientPicker] = useState<LibraryPlan | null>(null);
   const [patientQuery, setPatientQuery] = useState("");
@@ -62,11 +61,15 @@ export function LibraryTab({
     return cal.myChildren.filter((c) => !q || c.displayName.toLowerCase().includes(q));
   }, [cal.myChildren, patientQuery]);
 
+  if (browse) {
+    return <BrowseActivitiesPanel onBack={() => setBrowse(false)} />;
+  }
+
   const openCreate = () => {
     setCreating(true);
     setEditor(null);
     setDraftName("");
-    setDraftSteps(emptySteps());
+    setDraftSteps([]);
   };
 
   const openEdit = (plan: LibraryPlan) => {
@@ -77,9 +80,7 @@ export function LibraryTab({
   };
 
   const saveEditor = () => {
-    const steps = draftSteps
-      .map((s) => ({ ...s, title: s.title.trim() }))
-      .filter((s) => s.title);
+    const steps = draftSteps.filter((s) => s.title.trim());
     if (!steps.length) {
       toast.error(t("calendar.library.needSteps"));
       return;
@@ -91,7 +92,7 @@ export function LibraryTab({
       cal.createLibraryPlan(
         draftName,
         steps,
-        cal.activePerson.appRole === "therapist" && child ? null : child?.id ?? null,
+        cal.activePerson.appRole === "therapist" && child ? null : (child?.id ?? null),
       );
       toast.success(t("calendar.library.created"));
     }
@@ -113,6 +114,15 @@ export function LibraryTab({
     toast.success(t("calendar.library.applied", { name: plan.name }));
     setApplyTarget(null);
     onApplied?.();
+  };
+
+  const onPickStep = (step: PlanStep) => {
+    if (editStepIndex != null) {
+      setDraftSteps((prev) => prev.map((s, i) => (i === editStepIndex ? { ...step, id: s.id } : s)));
+      setEditStepIndex(null);
+    } else {
+      setDraftSteps((prev) => [...prev, step]);
+    }
   };
 
   const PlanCard = ({ plan, badge }: { plan: LibraryPlan; badge?: string }) => (
@@ -167,6 +177,7 @@ export function LibraryTab({
         {plan.steps.slice(0, 3).map((s) => (
           <li key={s.id} className="truncate text-xs text-muted-foreground">
             · {s.title}
+            {s.activityId ? ` (${t("calendar.today.fromCatalog")})` : ""}
           </li>
         ))}
         {plan.steps.length > 3 ? (
@@ -208,6 +219,11 @@ export function LibraryTab({
       />
 
       <div className="hide-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface px-5 py-4 md:max-w-2xl md:px-8">
+        <Button type="button" variant="outline" className="w-full" onClick={() => setBrowse(true)}>
+          <Search className="mr-1 size-4" />
+          {t("calendar.browse.open")}
+        </Button>
+
         {cal.activePerson.appRole === "therapist" ? (
           <>
             <section className="space-y-2">
@@ -226,7 +242,9 @@ export function LibraryTab({
                   {t("calendar.library.forPatient", { name: child.displayName })}
                 </h3>
                 {childPlans.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t("calendar.library.noPatientCopies")}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t("calendar.library.noPatientCopies")}
+                  </p>
                 ) : (
                   childPlans.map((p) => (
                     <PlanCard key={p.id} plan={p} badge={t("calendar.library.patientCopy")} />
@@ -260,7 +278,7 @@ export function LibraryTab({
             <DialogTitle>
               {editor ? t("calendar.library.editTitle") : t("calendar.library.createTitle")}
             </DialogTitle>
-            <DialogDescription>{t("calendar.library.editorHint")}</DialogDescription>
+            <DialogDescription>{t("calendar.library.editorHintCatalog")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Input
@@ -268,40 +286,70 @@ export function LibraryTab({
               onChange={(e) => setDraftName(e.target.value)}
               placeholder={t("calendar.library.namePlaceholder")}
             />
-            {draftSteps.map((step, idx) => (
-              <div key={step.id} className="space-y-1 rounded-xl bg-muted/50 p-2">
-                <Input
-                  value={step.title}
-                  onChange={(e) =>
-                    setDraftSteps((prev) =>
-                      prev.map((s, i) => (i === idx ? { ...s, title: e.target.value } : s)),
-                    )
-                  }
-                  placeholder={t("calendar.library.stepPlaceholder", { n: idx + 1 })}
-                />
-                <Input
-                  value={step.notes}
-                  onChange={(e) =>
-                    setDraftSteps((prev) =>
-                      prev.map((s, i) => (i === idx ? { ...s, notes: e.target.value } : s)),
-                    )
-                  }
-                  placeholder={t("calendar.library.notesPlaceholder")}
-                />
-              </div>
-            ))}
+            <div className="space-y-2">
+              {draftSteps.map((step, idx) => (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => setDetailStep(step)}
+                  className="w-full rounded-xl bg-muted/50 px-3 py-2 text-left"
+                >
+                  <p className="text-sm font-semibold">{step.title}</p>
+                  <p className="line-clamp-2 text-xs text-muted-foreground">
+                    {step.description || step.notes || t("calendar.library.noDetails")}
+                    {step.minutes ? ` · ${step.minutes}m` : ""}
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="text-[11px] font-semibold text-primary"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditStepIndex(idx);
+                        setPickerOpen(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.stopPropagation();
+                          setEditStepIndex(idx);
+                          setPickerOpen(true);
+                        }
+                      }}
+                    >
+                      {t("calendar.stepDetail.changeActivity")}
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="text-[11px] font-semibold text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDraftSteps((prev) => prev.filter((_, i) => i !== idx));
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.stopPropagation();
+                          setDraftSteps((prev) => prev.filter((_, i) => i !== idx));
+                        }
+                      }}
+                    >
+                      {t("common.delete")}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() =>
-                setDraftSteps((prev) => [
-                  ...prev,
-                  { id: nid("st"), title: "", notes: "", minutes: 10 },
-                ])
-              }
+              onClick={() => {
+                setEditStepIndex(null);
+                setPickerOpen(true);
+              }}
             >
-              <Plus className="mr-1 size-4" /> {t("calendar.library.addStep")}
+              <Plus className="mr-1 size-4" /> {t("calendar.library.addFromCatalog")}
             </Button>
             <Button type="button" className="w-full" onClick={saveEditor}>
               {t("common.save")}
@@ -309,6 +357,34 @@ export function LibraryTab({
           </div>
         </DialogContent>
       </Dialog>
+
+      <ActivityPickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        onPick={onPickStep}
+        title={
+          editStepIndex != null
+            ? t("calendar.picker.changeTitle")
+            : t("calendar.picker.addToPlan")
+        }
+      />
+
+      <StepDetailDialog
+        step={detailStep}
+        open={!!detailStep}
+        onOpenChange={(o) => !o && setDetailStep(null)}
+        canEdit={canManage}
+        onChangeActivity={
+          detailStep
+            ? () => {
+                const idx = draftSteps.findIndex((s) => s.id === detailStep.id);
+                setEditStepIndex(idx >= 0 ? idx : null);
+                setDetailStep(null);
+                setPickerOpen(true);
+              }
+            : undefined
+        }
+      />
 
       <Dialog open={!!applyTarget} onOpenChange={(open) => !open && setApplyTarget(null)}>
         <DialogContent className="sm:max-w-md">

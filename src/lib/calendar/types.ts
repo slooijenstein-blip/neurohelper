@@ -20,8 +20,13 @@ export type InviteStatus = "pending" | "active";
 export type PlanStep = {
   id: string;
   title: string;
+  /** Short description copied from the activity catalog or custom notes. */
   notes: string;
   minutes: number;
+  /** When set, step is linked to `ACTIVITIES` for full details. */
+  activityId: string | null;
+  /** Longer detail blurb (from activity.description). */
+  description: string;
 };
 
 export type DayStep = PlanStep & {

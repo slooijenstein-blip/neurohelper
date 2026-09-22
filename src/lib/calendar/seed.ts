@@ -1,3 +1,5 @@
+import { planStepFromActivity, customPlanStep } from "./activity-steps.ts";
+import { ACTIVITIES } from "../activities-data.ts";
 import {
   nid,
   toDateKey,
@@ -17,13 +19,9 @@ const TAG_EARLY = "tag_early";
 const MASTER_CALM = "lib_weekday_calm";
 const MASTER_MORNING = "lib_morning_ready";
 
-function steps(items: Array<[string, number, string?]>): PlanStep[] {
-  return items.map(([title, minutes, notes]) => ({
-    id: nid("st"),
-    title,
-    minutes,
-    notes: notes ?? "",
-  }));
+function activityOrCustom(id: string, fallback: PlanStep): PlanStep {
+  const act = ACTIVITIES.find((a) => a.id === id);
+  return act ? planStepFromActivity(act) : fallback;
 }
 
 function dayStepsFrom(plan: LibraryPlan): DayStep[] {
@@ -38,19 +36,21 @@ export const DEMO_PERSON_IDS = {
 
 export function createSeedState(): CalendarState {
   const today = toDateKey(new Date());
-  const calmSteps = steps([
-    ["Arrive and settle", 5, "Shoes off, soft voice"],
-    ["Quiet sensory bin", 15, "Rice + scoops"],
-    ["Snack together", 10],
-    ["Picture book", 10],
-    ["Transition cue", 5, "Timer + next activity"],
-  ]);
-  const morningSteps = steps([
-    ["Wake stretch", 5],
-    ["Get dressed", 10, "Choice of two outfits"],
-    ["Breakfast", 15],
-    ["Bag pack", 5],
-  ]);
+
+  const calmSteps: PlanStep[] = [
+    customPlanStep("Arrive and settle", 5, "Shoes off, soft voice"),
+    activityOrCustom("sensory-rice-bin", customPlanStep("Quiet sensory bin", 15, "Rice + scoops")),
+    customPlanStep("Snack together", 10, ""),
+    activityOrCustom("story-time-props", customPlanStep("Picture book", 10, "")),
+    customPlanStep("Transition cue", 5, "Timer + next activity"),
+  ];
+
+  const morningSteps: PlanStep[] = [
+    activityOrCustom("deep-pressure-sandwich", customPlanStep("Wake stretch", 5, "")),
+    customPlanStep("Get dressed", 10, "Choice of two outfits"),
+    customPlanStep("Breakfast", 15, ""),
+    customPlanStep("Bag pack", 5, ""),
+  ];
 
   const masterCalm: LibraryPlan = {
     id: MASTER_CALM,
@@ -86,12 +86,12 @@ export function createSeedState(): CalendarState {
     id: "lib_sam_evening",
     ownerId: PARENT_ID,
     name: "Evening wind-down",
-    steps: steps([
-      ["Bath", 15],
-      ["Pajamas", 5],
-      ["Story", 10],
-      ["Lights dim", 5],
-    ]),
+    steps: [
+      customPlanStep("Bath", 15, ""),
+      customPlanStep("Pajamas", 5, ""),
+      activityOrCustom("story-time-props", customPlanStep("Story", 10, "")),
+      customPlanStep("Lights dim", 5, ""),
+    ],
     childId: null,
     sourceTemplateId: null,
     updatedAt: new Date().toISOString(),

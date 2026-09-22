@@ -10,6 +10,7 @@ import {
 
 import { canEditPlan, canInvite, inviteRolesFor, membershipOnChild } from "./permissions";
 import { createSeedState, DEMO_PERSON_IDS } from "./seed";
+import { normalizePlanStep } from "./activity-steps";
 import {
   addDays,
   nid,
@@ -59,6 +60,13 @@ type CalendarContextValue = {
   /** Therapist: copy master template onto a patient library (diverges independently). */
   useTemplateForPatient: (masterId: string, childId: string) => LibraryPlan | null;
   tweakDayStep: (childId: string, date: string, stepId: string, title: string) => void;
+  /** Add a step to a day plan (creates an empty named plan if none). */
+  addDayStep: (childId: string, date: string, step: PlanStep) => void;
+  /** Replace a day step (e.g. change activity). */
+  replaceDayStep: (childId: string, date: string, stepId: string, step: PlanStep) => void;
+  removeDayStep: (childId: string, date: string, stepId: string) => void;
+  /** Append a step onto an existing library plan. */
+  appendLibraryStep: (libraryPlanId: string, step: PlanStep) => void;
   saveDayBackToLibrary: (childId: string, date: string) => LibraryPlan | null;
   createInvite: (childId: string, email: string, role: "caregiver" | "helper", displayName: string) => Invite | null;
   resendInvite: (inviteId: string) => Invite | null;
@@ -90,7 +98,20 @@ function loadState(): CalendarState {
     if (!raw) return createSeedState();
     const parsed = JSON.parse(raw) as CalendarState;
     if (parsed?.v !== 1 || !Array.isArray(parsed.people)) return createSeedState();
-    return parsed;
+    return {
+      ...parsed,
+      libraryPlans: (parsed.libraryPlans ?? []).map((p) => ({
+        ...p,
+        steps: (p.steps ?? []).map((s) => normalizePlanStep(s)),
+      })),
+      dayPlans: (parsed.dayPlans ?? []).map((p) => ({
+        ...p,
+        steps: (p.steps ?? []).map((s) => ({
+          ...normalizePlanStep(s),
+          done: Boolean((s as DayStep).done),
+        })),
+      })),
+    };
   } catch {
     return createSeedState();
   }
@@ -105,11 +126,11 @@ function persist(state: CalendarState) {
 }
 
 function cloneSteps(steps: PlanStep[]): PlanStep[] {
-  return steps.map((s) => ({ ...s, id: nid("st") }));
+  return steps.map((s) => normalizePlanStep({ ...s, id: nid("st") }));
 }
 
 function toDaySteps(steps: PlanStep[]): DayStep[] {
-  return steps.map((s) => ({ ...s, id: nid("ds"), done: false }));
+  return steps.map((s) => ({ ...normalizePlanStep({ ...s, id: nid("ds") }), done: false }));
 }
 
 export function CalendarStoreProvider({ children }: { children: ReactNode }) {
@@ -376,6 +397,90 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
             updatedAt: new Date().toISOString(),
           };
         }),
+      }));
+    },
+    addDayStep: (childId, date, step) => {
+      const role = membershipOnChild(state.memberships, childId, activePerson.id)?.role ?? null;
+      if (!canEditPlan(role)) return;
+      const dayStep: DayStep = { ...normalizePlanStep(step), id: nid("ds"), done: false };
+      update((prev) => {
+        const existing = prev.dayPlans.find((p) => p.childId === childId && p.date === date);
+        if (existing) {
+          return {
+            ...prev,
+            dayPlans: prev.dayPlans.map((p) =>
+              p.id === existing.id
+                ? {
+                    ...p,
+                    steps: [...p.steps, dayStep],
+                    tweaked: true,
+                    updatedAt: new Date().toISOString(),
+                  }
+                : p,
+            ),
+          };
+        }
+        const created: DayPlan = {
+          id: nid("day"),
+          childId,
+          date,
+          name: "Today’s plan",
+          libraryPlanId: null,
+          steps: [dayStep],
+          tweaked: true,
+          updatedAt: new Date().toISOString(),
+        };
+        return { ...prev, dayPlans: [...prev.dayPlans, created] };
+      });
+    },
+    replaceDayStep: (childId, date, stepId, step) => {
+      const role = membershipOnChild(state.memberships, childId, activePerson.id)?.role ?? null;
+      if (!canEditPlan(role)) return;
+      update((prev) => ({
+        ...prev,
+        dayPlans: prev.dayPlans.map((plan) => {
+          if (plan.childId !== childId || plan.date !== date) return plan;
+          return {
+            ...plan,
+            tweaked: true,
+            steps: plan.steps.map((s) =>
+              s.id === stepId
+                ? { ...normalizePlanStep({ ...step, id: stepId }), done: s.done }
+                : s,
+            ),
+            updatedAt: new Date().toISOString(),
+          };
+        }),
+      }));
+    },
+    removeDayStep: (childId, date, stepId) => {
+      const role = membershipOnChild(state.memberships, childId, activePerson.id)?.role ?? null;
+      if (!canEditPlan(role)) return;
+      update((prev) => ({
+        ...prev,
+        dayPlans: prev.dayPlans.map((plan) => {
+          if (plan.childId !== childId || plan.date !== date) return plan;
+          return {
+            ...plan,
+            tweaked: true,
+            steps: plan.steps.filter((s) => s.id !== stepId),
+            updatedAt: new Date().toISOString(),
+          };
+        }),
+      }));
+    },
+    appendLibraryStep: (libraryPlanId, step) => {
+      update((prev) => ({
+        ...prev,
+        libraryPlans: prev.libraryPlans.map((p) =>
+          p.id === libraryPlanId
+            ? {
+                ...p,
+                steps: [...p.steps, normalizePlanStep({ ...step, id: nid("st") })],
+                updatedAt: new Date().toISOString(),
+              }
+            : p,
+        ),
       }));
     },
     saveDayBackToLibrary: (childId, date) => {

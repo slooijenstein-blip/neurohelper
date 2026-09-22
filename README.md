@@ -17,6 +17,14 @@ How Sam tests (one browser, role switcher):
 3. Profile → **Continue as Parent** → Today shows the plan → People → Invite with email `grandma@example.com` as **Helper**
 4. Profile → **Continue as Helper** (claims that pending invite) → Today → mark steps **Done**
 
+### How to add an activity (with details)
+
+1. **Today** → **Add activity** → pick from Activities (search) or Custom step → tap a step later to see materials / how-to.
+2. **Library** → Create / Edit plan → **Add activity or custom step** → same catalog picker with details.
+3. **Library** → **Browse activities (details)** → open any activity → **Add to today’s plan** or **Add to a Library plan…**
+
+Helpers only mark Done; they cannot add or edit.
+
 Clerk sign-in still works when `VITE_CLERK_PUBLISHABLE_KEY` is set. Prototype personas stay available so the preview is walkable without three accounts.
 
 ---
