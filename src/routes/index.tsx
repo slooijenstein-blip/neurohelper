@@ -1,23 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
 
-import { PhoneApp, type TabKey } from "@/components/app/PhoneApp";
+import { CalendarApp } from "@/components/app/calendar/CalendarApp";
 import { Toaster } from "@/components/ui/sonner";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Synlumae — Activities & routines for neurodiverse kids" },
+      { title: "Synlumae Calendar — Shared schedules for caregivers" },
       {
         name: "description",
         content:
-          "Discover activities, build daily schedules, track progress, and share routines with parents, teachers, therapists, and creators.",
+          "Today, Library, and People — shared day plans for parents, helpers, and therapists.",
       },
-      { property: "og:title", content: "Synlumae — Activities & routines for neurodiverse kids" },
+      { property: "og:title", content: "Synlumae Calendar — Shared schedules" },
       {
         property: "og:description",
         content:
-          "Discover activities, build daily schedules, track progress, and share routines with parents, teachers, therapists, and creators.",
+          "Clickable prototype: therapist caseload, caregiver Today/Library/People, helper mark-done.",
       },
       { property: "og:type", content: "website" },
       { property: "og:image", content: `${import.meta.env.BASE_URL}og-image.png` },
@@ -29,12 +28,10 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const [tab, setTab] = useState<TabKey>("activities");
-
   return (
     <>
       <main className="min-h-dvh bg-background">
-        <PhoneApp tab={tab} onTab={setTab} />
+        <CalendarApp />
       </main>
       <Toaster />
     </>

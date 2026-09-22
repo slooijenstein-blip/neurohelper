@@ -4,7 +4,35 @@ Activities, schedules, journey tracking, help, and a community feed for neurodiv
 
 Public brand: **Synlumae** (synlumae.com). GitHub repository is still `slooijenstein-blip/neurohelper`.
 
+## Calendar prototype (this branch)
+
+Shared-schedule IA for caregivers and therapists: **Today · Library · People** (therapist caseload first). Local demo store — clickable without Supabase. Optional Supabase env vars are documented in `.env.example`.
+
+**Do not merge to main** until Sam approves. Prefer the Vercel preview for the walkthrough.
+
+How Sam tests (one browser, role switcher):
+
+1. Open the preview → **Continue as Therapist**
+2. Patients → open **Alex** (or Add patient) → Library → apply a template to weekdays → People → invite a caregiver
+3. Profile → **Continue as Parent** → Today shows the plan → People → Invite with email `grandma@example.com` as **Helper**
+4. Profile → **Continue as Helper** (claims that pending invite) → Today → mark steps **Done**
+
+### How to add an activity (with details)
+
+1. **Today** → **Add activity** → pick from Activities (search) or Custom step → tap a step later to see materials / how-to.
+2. **Library** → Create / Edit plan → **Add activity or custom step** → same catalog picker with details.
+3. **Library** → **Browse activities (details)** → open any activity → **Add to today’s plan** or **Add to a Library plan…**
+
+In Library, tap a template name (or the chevron) to expand the steps in place. The ⋯ menu and **Apply to days…** stay on the row. Tap a step to open its details.
+
+Helpers only mark Done; they cannot add or edit.
+
+Clerk sign-in still works when `VITE_CLERK_PUBLISHABLE_KEY` is set. Prototype personas stay available so the preview is walkable without three accounts.
+
+---
+
 ## Run locally
+
 
 ```sh
 npm i
