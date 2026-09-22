@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import { useI18n } from "@/i18n/I18nProvider";
 import { ROLE_MESSAGE_KEY } from "@/i18n/roles";
-import type { AppLocale } from "@/i18n/locales";
+import { isAppLocale, type AppLocale } from "@/i18n/locales";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -31,7 +31,7 @@ const selectClass =
 
 export function ProfileTab() {
   const { state, update } = useAppStore();
-  const { t, locale, setLocale } = useI18n();
+  const { t } = useI18n();
   const profile = state.profile;
 
   return (
@@ -39,21 +39,6 @@ export function ProfileTab() {
       <ScreenHeader title={t("profile.title")} subtitle={t("profile.subtitle")} />
 
       <div className="hide-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface px-5 py-4 md:max-w-2xl md:px-8">
-        <div className="soft-card space-y-2 p-4">
-          <label className={fieldLabelClass} htmlFor="app-language">
-            {t("language.label")}
-          </label>
-          <select
-            id="app-language"
-            className={selectClass}
-            value={locale}
-            onChange={(event) => setLocale(event.target.value as AppLocale)}
-          >
-            <option value="en">{t("language.en")}</option>
-            <option value="es">{t("language.es")}</option>
-          </select>
-          <p className="text-[11px] leading-relaxed text-muted-foreground">{t("language.help")}</p>
-        </div>
         {isClerkConfigured() ? (
           <ClerkBackedIdentity profile={profile} />
         ) : (
@@ -178,9 +163,10 @@ function CaregiverIdentityCard({
   persistNameToClerk?: (name: string) => Promise<void>;
 }) {
   const { update } = useAppStore();
-  const { t } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [localeWhenOpened, setLocaleWhenOpened] = useState<AppLocale>(locale);
   const [draft, setDraft] = useState<CaregiverProfileEdits>({
     name: "",
     role: "Parent",
@@ -191,6 +177,7 @@ function CaregiverIdentityCard({
   if (!profile) return null;
 
   const startEdit = () => {
+    setLocaleWhenOpened(locale);
     setDraft({
       name: profile.name,
       role: profile.role,
@@ -201,6 +188,7 @@ function CaregiverIdentityCard({
   };
 
   const cancelEdit = () => {
+    setLocale(localeWhenOpened);
     setEditing(false);
   };
 
@@ -211,12 +199,20 @@ function CaregiverIdentityCard({
       return;
     }
 
-    const next = applyCaregiverProfileEdits(profile, { ...draft, name });
-    update((prev) => ({ ...prev, profile: next }));
+    let savedName = name;
+    update((prev) => {
+      if (!prev.profile) return prev;
+      const next = {
+        ...applyCaregiverProfileEdits(prev.profile, { ...draft, name }),
+        locale,
+      };
+      savedName = next.name;
+      return { ...prev, profile: next };
+    });
     setSaving(true);
     try {
       if (persistNameToClerk) {
-        await persistNameToClerk(next.name);
+        await persistNameToClerk(savedName);
       }
       toast.success(t("profile.saved"));
       setEditing(false);
@@ -270,6 +266,26 @@ function CaregiverIdentityCard({
         void save();
       }}
     >
+      <div>
+        <label className={fieldLabelClass} htmlFor="app-language">
+          {t("language.label")}
+        </label>
+        <select
+          id="app-language"
+          className={selectClass}
+          value={locale}
+          onChange={(event) => {
+            const next = event.target.value;
+            if (isAppLocale(next)) setLocale(next);
+          }}
+        >
+          <option value="en">{t("language.en")}</option>
+          <option value="es">{t("language.es")}</option>
+        </select>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          {t("language.help")}
+        </p>
+      </div>
       <div>
         <label className={fieldLabelClass} htmlFor="caregiver-name">
           {t("profile.displayName")}
