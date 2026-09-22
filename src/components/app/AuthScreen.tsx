@@ -1,10 +1,11 @@
 import { SignIn, SignUp, useAuth } from "@clerk/react";
-import { Link, Navigate } from "@tanstack/react-router";
+import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { LogIn } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/I18nProvider";
+import { DEMO_PERSON_IDS, useCalendarStore } from "@/lib/calendar/store";
 import { useAppStore } from "@/lib/app-store";
 import { isClerkConfigured } from "@/lib/clerk";
 import { withBasePath } from "@/lib/paths";
@@ -34,6 +35,44 @@ function DevDemoButton() {
     <Button variant="outline" className="w-full" onClick={enterDevDemo}>
       <LogIn className="mr-1 size-4" /> {t("auth.devDemo")}
     </Button>
+  );
+}
+
+function PrototypeDemoButtons() {
+  const { enterPrototypeDemo } = useAppStore();
+  const cal = useCalendarStore();
+  const { t } = useI18n();
+  const navigate = useNavigate();
+
+  const enter = (personId: string) => {
+    cal.switchPersona(personId);
+    enterPrototypeDemo();
+    navigate({ to: "/" });
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-center text-[11px] font-semibold text-muted-foreground">
+        {t("calendar.prototype.authHint")}
+      </p>
+      <Button
+        variant="default"
+        className="w-full"
+        onClick={() => enter(DEMO_PERSON_IDS.therapist)}
+      >
+        {t("calendar.prototype.as.therapist")}
+      </Button>
+      <Button
+        variant="outline"
+        className="w-full"
+        onClick={() => enter(DEMO_PERSON_IDS.caregiver)}
+      >
+        {t("calendar.prototype.as.caregiver")}
+      </Button>
+      <Button variant="outline" className="w-full" onClick={() => enter(DEMO_PERSON_IDS.helper)}>
+        {t("calendar.prototype.as.helper")}
+      </Button>
+    </div>
   );
 }
 
@@ -121,6 +160,7 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
       )}
 
       <div className="mt-6 space-y-2">
+        <PrototypeDemoButtons />
         <DevDemoButton />
         {mode === "sign-in" ? (
           <p className="text-center text-xs text-muted-foreground">
@@ -143,8 +183,8 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
 }
 
 export function SignedInRedirect({ children }: { children: ReactNode }) {
-  const { devDemo } = useAppStore();
-  if (import.meta.env.DEV && devDemo) return <Navigate to="/" />;
+  const { devDemo, prototypeDemo } = useAppStore();
+  if ((import.meta.env.DEV && devDemo) || prototypeDemo) return <Navigate to="/" />;
   if (!isClerkConfigured()) return <>{children}</>;
   return <SignedInRedirectInner>{children}</SignedInRedirectInner>;
 }

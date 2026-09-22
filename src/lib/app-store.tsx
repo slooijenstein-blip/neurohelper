@@ -190,6 +190,8 @@ export type AppState = {
 
 const STORAGE_KEY = "motor-skill-buddy-v1";
 const DEV_DEMO_KEY = "synlumae-dev-demo";
+/** Calendar prototype walkthrough — allowed on preview builds (not only DEV). */
+const PROTOTYPE_DEMO_KEY = "synlumae-calendar-prototype-demo";
 
 const MY_ID = "me";
 
@@ -709,11 +711,15 @@ type Ctx = {
   state: AppState;
   hydrated: boolean;
   devDemo: boolean;
+  /** Clickable calendar prototype without a Clerk session. */
+  prototypeDemo: boolean;
   update: (fn: (prev: AppState) => AppState) => void;
   logout: () => void;
   login: (profile: Profile) => void;
   enterDevDemo: () => void;
   exitDevDemo: () => void;
+  enterPrototypeDemo: () => void;
+  exitPrototypeDemo: () => void;
   tryTemplate: (templateId: string) => void;
   toggleTemplateLike: (templateId: string) => void;
   rateTemplate: (templateId: string, stars: number) => void;
@@ -739,6 +745,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(seed);
   const [hydrated, setHydrated] = useState(false);
   const [devDemo, setDevDemo] = useState(false);
+  const [prototypeDemo, setPrototypeDemo] = useState(false);
 
   useEffect(() => {
     try {
@@ -755,6 +762,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           dayPlans: parsed.dayPlans ?? prev.dayPlans,
           following: parsed.following ?? prev.following,
           profile: parsed.profile ?? prev.profile,
+        }));
+      }
+
+      if (window.sessionStorage.getItem(PROTOTYPE_DEMO_KEY) === "1") {
+        setPrototypeDemo(true);
+        setState((prev) => ({
+          ...prev,
+          profile: prev.profile ?? myProfile,
+          loggedOut: false,
         }));
       }
 
@@ -810,10 +826,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     try {
       window.sessionStorage.removeItem(DEV_DEMO_KEY);
+      window.sessionStorage.removeItem(PROTOTYPE_DEMO_KEY);
     } catch {
       /* ignore */
     }
     setDevDemo(false);
+    setPrototypeDemo(false);
     update((prev) => ({ ...prev, profile: null, loggedOut: true }));
   }, [update]);
 
@@ -850,6 +868,29 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       /* ignore */
     }
     setDevDemo(false);
+  }, []);
+
+  const enterPrototypeDemo = useCallback(() => {
+    try {
+      window.sessionStorage.setItem(PROTOTYPE_DEMO_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+    setPrototypeDemo(true);
+    update((prev) => ({
+      ...prev,
+      profile: prev.profile ?? myProfile,
+      loggedOut: false,
+    }));
+  }, [update]);
+
+  const exitPrototypeDemo = useCallback(() => {
+    try {
+      window.sessionStorage.removeItem(PROTOTYPE_DEMO_KEY);
+    } catch {
+      /* ignore */
+    }
+    setPrototypeDemo(false);
   }, []);
 
   const tryTemplate = useCallback(
@@ -957,11 +998,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       state,
       hydrated,
       devDemo,
+      prototypeDemo,
       update,
       logout,
       login,
       enterDevDemo,
       exitDevDemo,
+      enterPrototypeDemo,
+      exitPrototypeDemo,
       tryTemplate,
       toggleTemplateLike,
       rateTemplate,
@@ -975,11 +1019,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       state,
       hydrated,
       devDemo,
+      prototypeDemo,
       update,
       logout,
       login,
       enterDevDemo,
       exitDevDemo,
+      enterPrototypeDemo,
+      exitPrototypeDemo,
       tryTemplate,
       toggleTemplateLike,
       rateTemplate,

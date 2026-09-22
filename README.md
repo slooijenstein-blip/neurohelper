@@ -4,7 +4,25 @@ Activities, schedules, journey tracking, help, and a community feed for neurodiv
 
 Public brand: **Synlumae** (synlumae.com). GitHub repository is still `slooijenstein-blip/neurohelper`.
 
+## Calendar prototype (this branch)
+
+Shared-schedule IA for caregivers and therapists: **Today · Library · People** (therapist caseload first). Local demo store — clickable without Supabase. Optional Supabase env vars are documented in `.env.example`.
+
+**Do not merge to main** until Sam approves. Prefer the Vercel preview for the walkthrough.
+
+How Sam tests (one browser, role switcher):
+
+1. Open the preview → **Continue as Therapist**
+2. Patients → open **Alex** (or Add patient) → Library → apply a template to weekdays → People → invite a caregiver
+3. Profile → **Continue as Parent** → Today shows the plan → People → invite Grandma as Helper → copy link / accept
+4. Profile → **Continue as Helper** → Today → mark steps **Done**
+
+Clerk sign-in still works when `VITE_CLERK_PUBLISHABLE_KEY` is set. Prototype personas stay available so the preview is walkable without three accounts.
+
+---
+
 ## Run locally
+
 
 ```sh
 npm i
