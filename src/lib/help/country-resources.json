@@ -55,42 +55,6 @@
     "lastChecked": "2026-09-22"
   },
   {
-    "countryCode": "AR",
-    "countryName": "Argentina",
-    "emergencyDial": "911",
-    "crisisLines": [
-      {
-        "name": "Línea de prevención del suicidio / Centro de Asistencia al Suicida",
-        "phone": "135",
-        "notes": "Listed on argentina.gob.ar emergencias as suicide-prevention line. Centro de Asistencia al Suicida also lists 135 (free BA/GBA), (011) 5275-1135, and 0800 345 1435 nationwide (https://www.asistenciaalsuicida.org.ar/preguntas). Coverage/hours may vary — confirm.",
-        "sourceUrl": "https://www.argentina.gob.ar/tema/emergencias"
-      }
-    ],
-    "caregiverOrgs": [],
-    "confidence": "high",
-    "uncertaintyNotes": "Government emergencias page lists 135. Centro de Asistencia al Suicida FAQ (https://www.asistenciaalsuicida.org.ar/preguntas) also lists (011) 5275-1135 and 0800 345 1435 for callers outside BA/GBA, and notes staffing may not cover full 24/7. Display 135 as primary; flag regional reach.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "AT",
-    "countryName": "Austria",
-    "emergencyDial": "112",
-    "crisisLines": [
-      {
-        "name": "Telefonseelsorge Österreich",
-        "phone": "142",
-        "notes": "24/7 free confidential crisis/listening hotline.",
-        "sourceUrl": "https://www.telefonseelsorge.at/"
-      }
-    ],
-    "caregiverOrgs": [],
-    "confidence": "high",
-    "uncertaintyNotes": "Caregiver-specific national autism org not verified in this pass — add later.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
     "countryCode": "BE",
     "countryName": "Belgium",
     "emergencyDial": "112",
@@ -122,161 +86,6 @@
     "lastChecked": "2026-09-22"
   },
   {
-    "countryCode": "BG",
-    "countryName": "Bulgaria",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "BR",
-    "countryName": "Brazil",
-    "emergencyDial": "192",
-    "crisisLines": [
-      {
-        "name": "CVV — Centro de Valorização da Vida",
-        "phone": "188",
-        "notes": "National emotional support / suicide prevention; free from fixed/mobile nationwide (per CVV).",
-        "sourceUrl": "https://www.cvv.org.br/informacoes-sobre-o-atendimento-pelo-numero-188/"
-      }
-    ],
-    "caregiverOrgs": [],
-    "confidence": "high",
-    "uncertaintyNotes": "emergencyDial 192 = SAMU medical (https://www.gov.br/saude/pt-br/composicao/saes/samu-192/samu-192). Police 190 and fire 193 are separate — show in UI notes.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "CA",
-    "countryName": "Canada",
-    "emergencyDial": "911",
-    "crisisLines": [
-      {
-        "name": "9-8-8 Suicide Crisis Helpline",
-        "phone": "988",
-        "notes": "Call or text 9-8-8; 24/7. If safety at immediate risk call 9-1-1.",
-        "sourceUrl": "https://988.ca/"
-      }
-    ],
-    "caregiverOrgs": [
-      {
-        "name": "Autism Canada",
-        "url": "https://www.autismcanada.org/",
-        "focus": "National autism resources, education, and support",
-        "sourceUrl": "https://www.autismcanada.org/"
-      }
-    ],
-    "confidence": "high",
-    "uncertaintyNotes": "",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "CH",
-    "countryName": "Switzerland",
-    "emergencyDial": "112",
-    "crisisLines": [
-      {
-        "name": "Die Dargebotene Hand / La Main Tendue / Telefono Amico (143)",
-        "phone": "143",
-        "notes": "24/7 emotional support in DE/FR/IT by region (call 143). English line: 0800 143 000 daily 18:00–23:00 (Switzerland & Liechtenstein).",
-        "sourceUrl": "https://www.143.ch/en/a-conversation-often-helps/"
-      }
-    ],
-    "caregiverOrgs": [],
-    "confidence": "high",
-    "uncertaintyNotes": "Switzerland also uses 144 for medical emergency ambulance; 112 works for general emergency. Include 144 in UI notes if space.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "CL",
-    "countryName": "Chile",
-    "emergencyDial": "131",
-    "crisisLines": [
-      {
-        "name": "Línea *4141 — prevención del suicidio (Minsal)",
-        "phone": "*4141",
-        "notes": "Ministry of Health suicide prevention line; free; psychologists; 24/7 from mobile. Dial *4141.",
-        "sourceUrl": "https://www.minsal.cl/linea-de-atencion-4141-no-estas-solo-no-estas-sola/"
-      }
-    ],
-    "caregiverOrgs": [],
-    "confidence": "medium",
-    "uncertaintyNotes": "Chile has no single nationwide 911 equivalent in this pack: 131 ambulance, 132 fire, 133 Carabineros (police). emergencyDial set to 131 (medical). Platform should show all three in UI notes. *4141 verified on Minsal page.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "CO",
-    "countryName": "Colombia",
-    "emergencyDial": "123",
-    "crisisLines": [
-      {
-        "name": "Línea 106 — salud mental (Minsalud)",
-        "phone": "106",
-        "notes": "National mental health orientation; free, confidential, 24/7. Territorial lines also exist.",
-        "sourceUrl": "https://www.minsalud.gov.co/salud/publica/salud-mental/Paginas/linea-106.aspx"
-      }
-    ],
-    "caregiverOrgs": [],
-    "confidence": "high",
-    "uncertaintyNotes": "123 is widely used as unified emergency (e.g. Bogotá); confirm national consistency for non-Bogotá locales in QA.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "CY",
-    "countryName": "Cyprus",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "CZ",
-    "countryName": "Czechia",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "DE",
-    "countryName": "Germany",
-    "emergencyDial": "112",
-    "crisisLines": [
-      {
-        "name": "TelefonSeelsorge",
-        "phone": "0800 111 0 111",
-        "notes": "24/7 free anonymous crisis/listening. Also 0800 111 0 222 or 116 123.",
-        "sourceUrl": "https://www.telefonseelsorge.de/telefon/"
-      }
-    ],
-    "caregiverOrgs": [
-      {
-        "name": "Autismus Deutschland e.V.",
-        "url": "https://www.autismus.de/",
-        "focus": "National autism association — information and regional support directory",
-        "sourceUrl": "https://www.autismus.de/"
-      }
-    ],
-    "confidence": "high",
-    "uncertaintyNotes": "Multiple free numbers listed on official TelefonSeelsorge page; 0800 111 0 111 is primary listing.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
     "countryCode": "DK",
     "countryName": "Denmark",
     "emergencyDial": "112",
@@ -291,42 +100,6 @@
     "caregiverOrgs": [],
     "confidence": "high",
     "uncertaintyNotes": "Not 24/7 continuous — closed 05:00–09:00; UI should show hours.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "EE",
-    "countryName": "Estonia",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "ES",
-    "countryName": "Spain",
-    "emergencyDial": "112",
-    "crisisLines": [
-      {
-        "name": "Línea 024 — atención a la conducta suicida",
-        "phone": "024",
-        "notes": "Ministry of Health national suicide behaviour helpline; free, confidential, 24/7. Not a substitute for 112.",
-        "sourceUrl": "https://www.mscbs.gob.es/en/linea024/home.htm"
-      }
-    ],
-    "caregiverOrgs": [
-      {
-        "name": "Confederación Autismo España",
-        "url": "https://autismo.org.es/",
-        "focus": "National autism confederation — family and advocacy resources",
-        "sourceUrl": "https://autismo.org.es/"
-      }
-    ],
-    "confidence": "high",
-    "uncertaintyNotes": "",
     "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
     "lastChecked": "2026-09-22"
   },
@@ -374,66 +147,27 @@
     "lastChecked": "2026-09-22"
   },
   {
-    "countryCode": "GB",
-    "countryName": "United Kingdom",
-    "emergencyDial": "999",
+    "countryCode": "DE",
+    "countryName": "Germany",
+    "emergencyDial": "112",
     "crisisLines": [
       {
-        "name": "Samaritans",
-        "phone": "116 123",
-        "notes": "Free 24/7 emotional support from any phone.",
-        "sourceUrl": "https://www.samaritans.org/how-we-can-help/contact-samaritan/"
+        "name": "TelefonSeelsorge",
+        "phone": "0800 111 0 111",
+        "notes": "24/7 free anonymous crisis/listening. Also 0800 111 0 222 or 116 123.",
+        "sourceUrl": "https://www.telefonseelsorge.de/telefon/"
       }
     ],
     "caregiverOrgs": [
       {
-        "name": "National Autistic Society",
-        "url": "https://www.autism.org.uk/",
-        "focus": "Autism advice, community, and parent/carer support",
-        "sourceUrl": "https://www.autism.org.uk/what-we-do"
-      },
-      {
-        "name": "Carers UK",
-        "url": "https://www.carersuk.org/",
-        "focus": "Information and advocacy for unpaid carers",
-        "sourceUrl": "https://www.carersuk.org/about-us/"
+        "name": "Autismus Deutschland e.V.",
+        "url": "https://www.autismus.de/",
+        "focus": "National autism association — information and regional support directory",
+        "sourceUrl": "https://www.autismus.de/"
       }
     ],
     "confidence": "high",
-    "uncertaintyNotes": "112 also works in UK for emergency; primary public messaging is 999. NHS 111 is health advice, not suicide crisis — not listed as crisis line.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "GR",
-    "countryName": "Greece",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "HR",
-    "countryName": "Croatia",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "HU",
-    "countryName": "Hungary",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
+    "uncertaintyNotes": "Multiple free numbers listed on official TelefonSeelsorge page; 0800 111 0 111 is primary listing.",
     "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
     "lastChecked": "2026-09-22"
   },
@@ -463,17 +197,6 @@
     "lastChecked": "2026-09-22"
   },
   {
-    "countryCode": "IS",
-    "countryName": "Iceland",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
     "countryCode": "IT",
     "countryName": "Italy",
     "emergencyDial": "112",
@@ -499,50 +222,6 @@
     "lastChecked": "2026-09-22"
   },
   {
-    "countryCode": "LT",
-    "countryName": "Lithuania",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "LU",
-    "countryName": "Luxembourg",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "LV",
-    "countryName": "Latvia",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "MT",
-    "countryName": "Malta",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
     "countryCode": "NO",
     "countryName": "Norway",
     "emergencyDial": "112",
@@ -557,24 +236,6 @@
     "caregiverOrgs": [],
     "confidence": "high",
     "uncertaintyNotes": "",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "PE",
-    "countryName": "Peru",
-    "emergencyDial": "105",
-    "crisisLines": [
-      {
-        "name": "Línea 113 Salud — opción 5 (salud mental)",
-        "phone": "113",
-        "notes": "Minsa Línea 113 Salud; select option 5 for mental health / psychology. Free 24/7 national health orientation line.",
-        "sourceUrl": "https://www.gob.pe/555"
-      }
-    ],
-    "caregiverOrgs": [],
-    "confidence": "medium",
-    "uncertaintyNotes": "113 is a multi-option health line, not a dedicated suicide-only number. emergencyDial 105 = national police (common listing); Peru has also discussed unified 911 — verify current emergency short codes before production. Marked medium.",
     "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
     "lastChecked": "2026-09-22"
   },
@@ -621,13 +282,27 @@
     "lastChecked": "2026-09-22"
   },
   {
-    "countryCode": "RO",
-    "countryName": "Romania",
+    "countryCode": "ES",
+    "countryName": "Spain",
     "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
+    "crisisLines": [
+      {
+        "name": "Línea 024 — atención a la conducta suicida",
+        "phone": "024",
+        "notes": "Ministry of Health national suicide behaviour helpline; free, confidential, 24/7. Not a substitute for 112.",
+        "sourceUrl": "https://www.mscbs.gob.es/en/linea024/home.htm"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "Confederación Autismo España",
+        "url": "https://autismo.org.es/",
+        "focus": "National autism confederation — family and advocacy resources",
+        "sourceUrl": "https://autismo.org.es/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "",
     "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
     "lastChecked": "2026-09-22"
   },
@@ -650,24 +325,33 @@
     "lastChecked": "2026-09-22"
   },
   {
-    "countryCode": "SI",
-    "countryName": "Slovenia",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
-    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
-    "lastChecked": "2026-09-22"
-  },
-  {
-    "countryCode": "SK",
-    "countryName": "Slovakia",
-    "emergencyDial": "112",
-    "crisisLines": [],
-    "caregiverOrgs": [],
-    "confidence": "needs_review",
-    "uncertaintyNotes": "Emergency 112 is the EU single emergency number (also used in Iceland for emergency). No crisis-line phone verified from a primary official page in this research pass. Do not invent numbers. Use https://findahelpline.com/ (IASP-supported) and verify on the national org/.gov page before adding phones.",
+    "countryCode": "GB",
+    "countryName": "United Kingdom",
+    "emergencyDial": "999",
+    "crisisLines": [
+      {
+        "name": "Samaritans",
+        "phone": "116 123",
+        "notes": "Free 24/7 emotional support from any phone.",
+        "sourceUrl": "https://www.samaritans.org/how-we-can-help/contact-samaritan/"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "National Autistic Society",
+        "url": "https://www.autism.org.uk/",
+        "focus": "Autism advice, community, and parent/carer support",
+        "sourceUrl": "https://www.autism.org.uk/what-we-do"
+      },
+      {
+        "name": "Carers UK",
+        "url": "https://www.carersuk.org/",
+        "focus": "Information and advocacy for unpaid carers",
+        "sourceUrl": "https://www.carersuk.org/about-us/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "112 also works in UK for emergency; primary public messaging is 999. NHS 111 is health advice, not suicide crisis — not listed as crisis line.",
     "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
     "lastChecked": "2026-09-22"
   },
@@ -699,6 +383,121 @@
     ],
     "confidence": "high",
     "uncertaintyNotes": "",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "CA",
+    "countryName": "Canada",
+    "emergencyDial": "911",
+    "crisisLines": [
+      {
+        "name": "9-8-8 Suicide Crisis Helpline",
+        "phone": "988",
+        "notes": "Call or text 9-8-8; 24/7. If safety at immediate risk call 9-1-1.",
+        "sourceUrl": "https://988.ca/"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "Autism Canada",
+        "url": "https://www.autismcanada.org/",
+        "focus": "National autism resources, education, and support",
+        "sourceUrl": "https://www.autismcanada.org/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "AR",
+    "countryName": "Argentina",
+    "emergencyDial": "911",
+    "crisisLines": [
+      {
+        "name": "Línea de prevención del suicidio / Centro de Asistencia al Suicida",
+        "phone": "135",
+        "notes": "Listed on argentina.gob.ar emergencias as suicide-prevention line. Centro de Asistencia al Suicida also lists 135 (free BA/GBA), (011) 5275-1135, and 0800 345 1435 nationwide (https://www.asistenciaalsuicida.org.ar/preguntas). Coverage/hours may vary — confirm.",
+        "sourceUrl": "https://www.argentina.gob.ar/tema/emergencias"
+      }
+    ],
+    "caregiverOrgs": [],
+    "confidence": "high",
+    "uncertaintyNotes": "Government emergencias page lists 135. Centro de Asistencia al Suicida FAQ (https://www.asistenciaalsuicida.org.ar/preguntas) also lists (011) 5275-1135 and 0800 345 1435 for callers outside BA/GBA, and notes staffing may not cover full 24/7. Display 135 as primary; flag regional reach.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "BR",
+    "countryName": "Brazil",
+    "emergencyDial": "192",
+    "crisisLines": [
+      {
+        "name": "CVV — Centro de Valorização da Vida",
+        "phone": "188",
+        "notes": "National emotional support / suicide prevention; free from fixed/mobile nationwide (per CVV).",
+        "sourceUrl": "https://www.cvv.org.br/informacoes-sobre-o-atendimento-pelo-numero-188/"
+      }
+    ],
+    "caregiverOrgs": [],
+    "confidence": "high",
+    "uncertaintyNotes": "emergencyDial 192 = SAMU medical (https://www.gov.br/saude/pt-br/composicao/saes/samu-192/samu-192). Police 190 and fire 193 are separate — show in UI notes.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "CL",
+    "countryName": "Chile",
+    "emergencyDial": "131",
+    "crisisLines": [
+      {
+        "name": "Línea *4141 — prevención del suicidio (Minsal)",
+        "phone": "*4141",
+        "notes": "Ministry of Health suicide prevention line; free; psychologists; 24/7 from mobile. Dial *4141.",
+        "sourceUrl": "https://www.minsal.cl/linea-de-atencion-4141-no-estas-solo-no-estas-sola/"
+      }
+    ],
+    "caregiverOrgs": [],
+    "confidence": "medium",
+    "uncertaintyNotes": "Chile has no single nationwide 911 equivalent in this pack: 131 ambulance, 132 fire, 133 Carabineros (police). emergencyDial set to 131 (medical). Platform should show all three in UI notes. *4141 verified on Minsal page.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "CO",
+    "countryName": "Colombia",
+    "emergencyDial": "123",
+    "crisisLines": [
+      {
+        "name": "Línea 106 — salud mental (Minsalud)",
+        "phone": "106",
+        "notes": "National mental health orientation; free, confidential, 24/7. Territorial lines also exist.",
+        "sourceUrl": "https://www.minsalud.gov.co/salud/publica/salud-mental/Paginas/linea-106.aspx"
+      }
+    ],
+    "caregiverOrgs": [],
+    "confidence": "high",
+    "uncertaintyNotes": "123 is widely used as unified emergency (e.g. Bogotá); confirm national consistency for non-Bogotá locales in QA.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "PE",
+    "countryName": "Peru",
+    "emergencyDial": "105",
+    "crisisLines": [
+      {
+        "name": "Línea 113 Salud — opción 5 (salud mental)",
+        "phone": "113",
+        "notes": "Minsa Línea 113 Salud; select option 5 for mental health / psychology. Free 24/7 national health orientation line.",
+        "sourceUrl": "https://www.gob.pe/555"
+      }
+    ],
+    "caregiverOrgs": [],
+    "confidence": "medium",
+    "uncertaintyNotes": "113 is a multi-option health line, not a dedicated suicide-only number. emergencyDial 105 = national police (common listing); Peru has also discussed unified 911 — verify current emergency short codes before production. Marked medium.",
     "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
     "lastChecked": "2026-09-22"
   }

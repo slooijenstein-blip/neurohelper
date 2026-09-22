@@ -26,15 +26,41 @@ describe("country help directory", () => {
     );
     assert.deepEqual([...codes].sort(), [...REQUIRED_COUNTRY_CODES].sort());
     assert.equal(new Set(codes).size, codes.length);
-    assert.equal(codes.length, 38);
+    assert.equal(codes.length, 21);
+    assert.deepEqual([...codes].sort(), [
+      "AR",
+      "BE",
+      "BR",
+      "CA",
+      "CL",
+      "CO",
+      "DE",
+      "DK",
+      "ES",
+      "FI",
+      "FR",
+      "GB",
+      "IE",
+      "IT",
+      "NL",
+      "NO",
+      "PE",
+      "PL",
+      "PT",
+      "SE",
+      "US",
+    ]);
+    for (const dropped of ["AT", "BG", "CH", "CY", "CZ", "EE", "GR", "HR", "HU", "IS", "LU"]) {
+      assert.equal(getCountry(dropped), undefined, dropped);
+    }
   });
 
   it("keeps the research confidence split", () => {
     const count = (confidence: string) =>
       COUNTRIES.filter((country) => country.confidence === confidence).length;
-    assert.equal(count("high"), 20);
+    assert.equal(count("high"), 18);
     assert.equal(count("medium"), 3);
-    assert.equal(count("needs_review"), 15);
+    assert.equal(count("needs_review"), 0);
     assert.deepEqual(
       COUNTRIES.filter((country) => country.confidence === "medium")
         .map((country) => country.code)
@@ -100,7 +126,7 @@ describe("country help directory", () => {
   });
 
   it("keeps emergency dials from the pack, including split-system primaries", () => {
-    for (const code of ["BE", "DE", "FR", "ES", "IT", "PT", "AT", "SE", "DK", "FI", "PL", "IS"]) {
+    for (const code of ["BE", "DE", "FR", "ES", "IT", "PT", "SE", "DK", "FI", "PL", "IE"]) {
       assert.equal(getCountry(code)?.emergencyNumber, "112", code);
     }
     assert.equal(getCountry("NO")?.emergencyNumber, "112");
@@ -135,6 +161,7 @@ describe("detectCountry", () => {
     assert.equal(detectCountry("es-MX", "America/Lima"), "PE");
     assert.equal(detectCountry("fr", "UTC"), "FR");
     assert.equal(detectCountry("en", "UTC"), "NL");
-    assert.equal(detectCountry("is", "UTC"), "IS");
+    assert.equal(detectCountry("en", "Europe/Vienna"), "NL");
+    assert.equal(resolveHelpCountry({ stored: "BG", browserLocale: "en-US" }), "US");
   });
 });
