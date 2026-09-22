@@ -37,15 +37,14 @@ const TIMEZONE_COUNTRY: Record<string, string> = {
   "America/Winnipeg": "CA",
   "America/Halifax": "CA",
   "America/St_Johns": "CA",
-  "America/Argentina/Buenos_Aires": "AR",
-  "America/Argentina/Cordoba": "AR",
-  "America/Santiago": "CL",
-  "America/Bogota": "CO",
-  "America/Sao_Paulo": "BR",
-  "America/Manaus": "BR",
-  "America/Fortaleza": "BR",
-  "America/Recife": "BR",
-  "America/Lima": "PE",
+  "America/Mexico_City": "MX",
+  "America/Cancun": "MX",
+  "America/Merida": "MX",
+  "America/Monterrey": "MX",
+  "America/Mazatlan": "MX",
+  "America/Tijuana": "MX",
+  "America/Chihuahua": "MX",
+  "America/Hermosillo": "MX",
 };
 
 const LANGUAGE_COUNTRY: Record<string, string> = {

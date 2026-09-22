@@ -26,14 +26,10 @@ describe("country help directory", () => {
     );
     assert.deepEqual([...codes].sort(), [...REQUIRED_COUNTRY_CODES].sort());
     assert.equal(new Set(codes).size, codes.length);
-    assert.equal(codes.length, 21);
+    assert.equal(codes.length, 17);
     assert.deepEqual([...codes].sort(), [
-      "AR",
       "BE",
-      "BR",
       "CA",
-      "CL",
-      "CO",
       "DE",
       "DK",
       "ES",
@@ -42,15 +38,15 @@ describe("country help directory", () => {
       "GB",
       "IE",
       "IT",
+      "MX",
       "NL",
       "NO",
-      "PE",
       "PL",
       "PT",
       "SE",
       "US",
     ]);
-    for (const dropped of ["AT", "BG", "CH", "CY", "CZ", "EE", "GR", "HR", "HU", "IS", "LU"]) {
+    for (const dropped of ["AR", "AT", "BR", "CL", "CO", "PE"]) {
       assert.equal(getCountry(dropped), undefined, dropped);
     }
   });
@@ -58,14 +54,12 @@ describe("country help directory", () => {
   it("keeps the research confidence split", () => {
     const count = (confidence: string) =>
       COUNTRIES.filter((country) => country.confidence === confidence).length;
-    assert.equal(count("high"), 18);
-    assert.equal(count("medium"), 3);
+    assert.equal(count("high"), 16);
+    assert.equal(count("medium"), 1);
     assert.equal(count("needs_review"), 0);
     assert.deepEqual(
-      COUNTRIES.filter((country) => country.confidence === "medium")
-        .map((country) => country.code)
-        .sort(),
-      ["CL", "PE", "SE"],
+      COUNTRIES.filter((country) => country.confidence === "medium").map((country) => country.code),
+      ["SE"],
     );
   });
 
@@ -132,10 +126,15 @@ describe("country help directory", () => {
     assert.equal(getCountry("NO")?.emergencyNumber, "112");
     assert.equal(getCountry("GB")?.emergencyNumber, "999");
     assert.equal(getCountry("US")?.emergencyNumber, "911");
-    assert.equal(getCountry("CL")?.emergencyNumber, "131");
-    assert.equal(getCountry("BR")?.emergencyNumber, "192");
-    assert.equal(getCountry("PE")?.emergencyNumber, "105");
-    assert.equal(telHref("*4141"), "tel:*4141");
+    const mexico = getCountry("MX");
+    assert.equal(mexico?.confidence, "high");
+    assert.equal(mexico?.emergencyNumber, "911");
+    assert.equal(mexico?.nameEs, "México");
+    assert.deepEqual(
+      mexico?.crisisLines.map((line) => line.phone),
+      ["800 911 2000", "55 5259 8121"],
+    );
+    assert.ok(mexico?.crisisLines.every((line) => line.source.startsWith("https://")));
   });
 
   it("pins the Netherlands first in the picker", () => {
@@ -158,7 +157,9 @@ describe("detectCountry", () => {
     assert.equal(resolveHelpCountry({ stored: "gb", browserLocale: "en-US" }), "GB");
     assert.equal(detectCountry("en-GB", "America/New_York"), "GB");
     assert.equal(detectCountry("en", "Europe/Amsterdam"), "NL");
-    assert.equal(detectCountry("es-MX", "America/Lima"), "PE");
+    assert.equal(detectCountry("es-MX", "America/Lima"), "MX");
+    assert.equal(detectCountry("es", "America/Mexico_City"), "MX");
+    assert.equal(detectCountry("en", "America/Santiago"), "NL");
     assert.equal(detectCountry("fr", "UTC"), "FR");
     assert.equal(detectCountry("en", "UTC"), "NL");
     assert.equal(detectCountry("en", "Europe/Vienna"), "NL");

@@ -1,4 +1,4 @@
-/** Castilian names for the 21 country packs. The research JSON only stores English names. */
+/** Castilian names for the 17 country packs. The research JSON only stores English names. */
 export const NAME_ES: Record<string, string> = {
   NL: "Países Bajos",
   BE: "Bélgica",
@@ -16,9 +16,5 @@ export const NAME_ES: Record<string, string> = {
   IE: "Irlanda",
   US: "Estados Unidos",
   CA: "Canadá",
-  AR: "Argentina",
-  CL: "Chile",
-  CO: "Colombia",
-  BR: "Brasil",
-  PE: "Perú",
+  MX: "México",
 };
