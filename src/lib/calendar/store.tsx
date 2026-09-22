@@ -97,7 +97,7 @@ function loadState(): CalendarState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return createSeedState();
     const parsed = JSON.parse(raw) as CalendarState;
-    if (parsed?.v !== 1 || !Array.isArray(parsed.people)) return createSeedState();
+    if (parsed?.v !== 2 || !Array.isArray(parsed.people)) return createSeedState();
     return {
       ...parsed,
       libraryPlans: (parsed.libraryPlans ?? []).map((p) => ({

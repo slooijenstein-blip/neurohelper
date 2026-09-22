@@ -1,4 +1,4 @@
-import { planStepFromActivity, customPlanStep } from "./activity-steps.ts";
+import { planStepFromActivity } from "./activity-steps.ts";
 import { ACTIVITIES } from "../activities-data.ts";
 import {
   nid,
@@ -17,15 +17,39 @@ const CHILD_JORDAN = "child_jordan";
 const TAG_SCHOOL = "tag_school_age";
 const TAG_EARLY = "tag_early";
 const MASTER_CALM = "lib_weekday_calm";
-const MASTER_MORNING = "lib_morning_ready";
 
-function activityOrCustom(id: string, fallback: PlanStep): PlanStep {
-  const act = ACTIVITIES.find((a) => a.id === id);
-  return act ? planStepFromActivity(act) : fallback;
+/** Every seed step is a real catalog activity — no custom free-text rows. */
+export function stepsFromCatalog(ids: readonly string[]): PlanStep[] {
+  return ids.map((id) => {
+    const activity = ACTIVITIES.find((item) => item.id === id);
+    if (!activity) throw new Error(`Seed activity missing from catalog: ${id}`);
+    return planStepFromActivity(activity);
+  });
+}
+
+function cloneSteps(steps: PlanStep[]): PlanStep[] {
+  return steps.map((step) => ({ ...step, id: nid("st") }));
 }
 
 function dayStepsFrom(plan: LibraryPlan): DayStep[] {
-  return plan.steps.map((s) => ({ ...s, id: nid("ds"), done: false }));
+  return plan.steps.map((step) => ({ ...step, id: nid("ds"), done: false }));
+}
+
+function master(
+  id: string,
+  name: string,
+  activityIds: readonly string[],
+  ownerId: string,
+): LibraryPlan {
+  return {
+    id,
+    ownerId,
+    name,
+    steps: stepsFromCatalog(activityIds),
+    childId: null,
+    sourceTemplateId: null,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 export const DEMO_PERSON_IDS = {
@@ -34,71 +58,106 @@ export const DEMO_PERSON_IDS = {
   helper: HELPER_ID,
 } as const;
 
+/** Therapist My templates — names stay in English; chrome is translated separately. */
+export const THERAPIST_TEMPLATE_ACTIVITIES = {
+  "Weekday afternoon calm hour": [
+    "calming-glitter-bottle",
+    "sensory-rice-bin",
+    "deep-pressure-sandwich",
+    "story-time-props",
+    "yoga-poses",
+  ],
+  "Morning ready routine": [
+    "hand-washing",
+    "brushing-hair",
+    "dressing-race",
+    "shoe-lacing",
+    "setting-table",
+  ],
+  "Sensory and movement break": [
+    "animal-walks",
+    "obstacle-course",
+    "textured-walk",
+    "dancing-freeze",
+    "balloon-tap",
+  ],
+  "Homework wind-down": [
+    "puzzle-time",
+    "story-sequencing",
+    "rhyming-match",
+    "calming-glitter-bottle",
+    "yoga-poses",
+  ],
+  "Fine motor practice": [
+    "stringing-beads",
+    "playdough-pinch",
+    "clothespin-drop",
+    "sticker-peel",
+    "cutting-practice",
+  ],
+} as const;
+
+export const PARENT_EVENING_ACTIVITIES = [
+  "hand-washing",
+  "brushing-hair",
+  "story-time-props",
+  "sensory-bottle",
+  "yoga-poses",
+] as const;
+
 export function createSeedState(): CalendarState {
   const today = toDateKey(new Date());
 
-  const calmSteps: PlanStep[] = [
-    customPlanStep("Arrive and settle", 5, "Shoes off, soft voice"),
-    activityOrCustom("sensory-rice-bin", customPlanStep("Quiet sensory bin", 15, "Rice + scoops")),
-    customPlanStep("Snack together", 10, ""),
-    activityOrCustom("story-time-props", customPlanStep("Picture book", 10, "")),
-    customPlanStep("Transition cue", 5, "Timer + next activity"),
-  ];
-
-  const morningSteps: PlanStep[] = [
-    activityOrCustom("deep-pressure-sandwich", customPlanStep("Wake stretch", 5, "")),
-    customPlanStep("Get dressed", 10, "Choice of two outfits"),
-    customPlanStep("Breakfast", 15, ""),
-    customPlanStep("Bag pack", 5, ""),
-  ];
-
-  const masterCalm: LibraryPlan = {
-    id: MASTER_CALM,
-    ownerId: THERAPIST_ID,
-    name: "Weekday afternoon calm hour",
-    steps: calmSteps,
-    childId: null,
-    sourceTemplateId: null,
-    updatedAt: new Date().toISOString(),
-  };
-
-  const masterMorning: LibraryPlan = {
-    id: MASTER_MORNING,
-    ownerId: THERAPIST_ID,
-    name: "Morning ready routine",
-    steps: morningSteps,
-    childId: null,
-    sourceTemplateId: null,
-    updatedAt: new Date().toISOString(),
-  };
+  const calm = master(
+    MASTER_CALM,
+    "Weekday afternoon calm hour",
+    THERAPIST_TEMPLATE_ACTIVITIES["Weekday afternoon calm hour"],
+    THERAPIST_ID,
+  );
+  const morning = master(
+    "lib_morning_ready",
+    "Morning ready routine",
+    THERAPIST_TEMPLATE_ACTIVITIES["Morning ready routine"],
+    THERAPIST_ID,
+  );
+  const movement = master(
+    "lib_sensory_movement",
+    "Sensory and movement break",
+    THERAPIST_TEMPLATE_ACTIVITIES["Sensory and movement break"],
+    THERAPIST_ID,
+  );
+  const homework = master(
+    "lib_homework_winddown",
+    "Homework wind-down",
+    THERAPIST_TEMPLATE_ACTIVITIES["Homework wind-down"],
+    THERAPIST_ID,
+  );
+  const fineMotor = master(
+    "lib_fine_motor",
+    "Fine motor practice",
+    THERAPIST_TEMPLATE_ACTIVITIES["Fine motor practice"],
+    THERAPIST_ID,
+  );
 
   const alexCopy: LibraryPlan = {
     id: "lib_alex_calm",
     ownerId: THERAPIST_ID,
-    name: "Weekday afternoon calm hour",
-    steps: calmSteps.map((s) => ({ ...s, id: nid("st") })),
+    name: calm.name,
+    steps: cloneSteps(calm.steps),
     childId: CHILD_ALEX,
     sourceTemplateId: MASTER_CALM,
     updatedAt: new Date().toISOString(),
   };
 
-  const parentPlan: LibraryPlan = {
-    id: "lib_sam_evening",
-    ownerId: PARENT_ID,
-    name: "Evening wind-down",
-    steps: [
-      customPlanStep("Bath", 15, ""),
-      customPlanStep("Pajamas", 5, ""),
-      activityOrCustom("story-time-props", customPlanStep("Story", 10, "")),
-      customPlanStep("Lights dim", 5, ""),
-    ],
-    childId: null,
-    sourceTemplateId: null,
-    updatedAt: new Date().toISOString(),
-  };
+  const parentEvening = master(
+    "lib_sam_evening",
+    "Evening wind-down",
+    PARENT_EVENING_ACTIVITIES,
+    PARENT_ID,
+  );
 
   return {
-    v: 1,
+    v: 2,
     activePersonId: THERAPIST_ID,
     people: [
       {
@@ -160,7 +219,7 @@ export function createSeedState(): CalendarState {
       },
     ],
     invites: [],
-    libraryPlans: [masterCalm, masterMorning, alexCopy, parentPlan],
+    libraryPlans: [calm, morning, movement, homework, fineMotor, alexCopy, parentEvening],
     dayPlans: [
       {
         id: "day_alex_today",

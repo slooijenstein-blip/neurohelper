@@ -109,7 +109,8 @@ export type Invite = {
 };
 
 export type CalendarState = {
-  v: 1;
+  /** Bump when demo seed shape changes so a stale local copy reloads. */
+  v: 2;
   people: Person[];
   /** Active viewing persona for the prototype walkthrough. */
   activePersonId: string;
