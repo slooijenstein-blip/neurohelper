@@ -1,5 +1,6 @@
 import { ArrowLeft, Clock, Heart } from "lucide-react";
 
+import { useI18n } from "@/i18n/I18nProvider";
 import { useAppStore } from "@/lib/app-store";
 import { ScreenHeader, ProfileAvatar, RoleTag } from "./ui-bits";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ export function ArticleView({
   onProfile: (authorId: string) => void;
 }) {
   const { state, update } = useAppStore();
+  const { t } = useI18n();
   const article = state.articles.find((a) => a.id === id);
   if (!article) return null;
 
@@ -25,23 +27,21 @@ export function ArticleView({
     update((prev) => ({
       ...prev,
       articles: prev.articles.map((a) =>
-        a.id === article.id
-          ? { ...a, liked: !a.liked, likes: a.likes + (a.liked ? -1 : 1) }
-          : a,
+        a.id === article.id ? { ...a, liked: !a.liked, likes: a.likes + (a.liked ? -1 : 1) } : a,
       ),
     }));
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader
-        title="Article"
+        title={t("article.title")}
         right={
           <button
             type="button"
             onClick={onBack}
             className="flex items-center gap-1 text-xs font-semibold text-muted-foreground"
           >
-            <ArrowLeft className="size-4" /> Back
+            <ArrowLeft className="size-4" /> {t("common.back")}
           </button>
         }
       />

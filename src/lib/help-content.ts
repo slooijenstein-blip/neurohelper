@@ -30,7 +30,7 @@ export const HELP_BANNER =
   "This is general caregiver education, not medical advice.";
 
 export const HELP_EMERGENCY_DISCLAIMER =
-  "If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away (e.g. 112 in the EU / Netherlands, 911 in the US, 999 in the UK). NeuroHelper does not provide emergency services or clinical care.";
+  "Help is not a substitute for emergency services. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away (for example 112 in the EU and the Netherlands, 911 in the US and Canada, 999 or 112 in the UK). Synlumae does not provide emergency services or clinical care.";
 
 export const HELP_CLINICIAN_CHIP = "Review with your child’s professionals.";
 
