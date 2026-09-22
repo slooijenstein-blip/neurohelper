@@ -16,6 +16,7 @@ dist-ssr
 .nitro
 .vercel
 *.local
+.data
 
 # Env files with secrets (keep .env.example)
 .env

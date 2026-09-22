@@ -14,6 +14,7 @@ export const es: DeepString<Messages> = {
   nav: {
     label: "Principal",
     activities: "Actividades",
+    children: "Niños",
     schedule: "Horario",
     journey: "Camino",
     community: "Comunidad",
@@ -73,12 +74,12 @@ export const es: DeepString<Messages> = {
   },
   profile: {
     title: "Perfil",
-    subtitle: "Tu identidad — los datos del niño o la niña se quedan en este dispositivo",
+    subtitle: "Tu cuenta — los niños están en Niños",
     addFirstName: "Añade un nombre",
     yearsOld: "{{age}} años",
     storedOnDevice: "Solo se guarda en este dispositivo",
     childNote:
-      "Opcional. Usa solo el nombre de pila. Synlumae no guarda datos del niño o la niña en tu cuenta de Clerk.",
+      "Apodo opcional solo en este dispositivo. Los planes compartidos usan la pestaña Niños (nombre de pila y franja de edad). Synlumae no guarda diagnósticos médicos.",
     childFirstName: "Nombre del niño o la niña",
     childPlaceholder: "Nombre (solo en este dispositivo)",
     age: "Edad",
@@ -125,6 +126,10 @@ export const es: DeepString<Messages> = {
   schedule: {
     title: "Horario",
     subtitle: "Arma una rutina paso a paso",
+    sharedSubtitle: "Un plan del día compartido para un niño o una niña",
+    day: "Día",
+    templates: "Plantillas",
+    deviceRoutine: "Rutina personal en este dispositivo.",
     today: "Hoy",
     calendar: "Calendario",
     addToCalendar: "Añadir la rutina de hoy a Google Calendar",
