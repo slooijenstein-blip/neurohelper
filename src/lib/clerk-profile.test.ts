@@ -111,6 +111,29 @@ describe("profileFromClerkUser", () => {
     assert.deepEqual(next.socials, {});
   });
 
+  it("keeps a controlled Pro flag for the same Clerk user", () => {
+    const next = profileFromClerkUser(
+      clerkUser(),
+      localProfile({ isPro: true, role: "Therapist" }),
+    );
+    assert.equal(next.isPro, true);
+    assert.equal(next.role, "Therapist");
+  });
+
+  it("does not grant Pro to the legacy demo profile", () => {
+    const next = profileFromClerkUser(clerkUser(), {
+      id: "me",
+      name: "Sam",
+      role: "Parent",
+      location: "Amsterdam",
+      bio: DEMO_BIO,
+      socials: {},
+      color: "bg-primary",
+      isPro: true,
+    });
+    assert.equal(next.isPro, undefined);
+  });
+
   it("fills name from Clerk when the bound profile has a blank name", () => {
     const next = profileFromClerkUser(clerkUser(), localProfile({ name: "   " }));
     assert.equal(next.name, "Sam Looijenstein");

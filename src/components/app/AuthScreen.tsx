@@ -1,11 +1,11 @@
 import { SignIn, SignUp, useAuth } from "@clerk/react";
-import { Link, Navigate } from "@tanstack/react-router";
+import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { LogIn } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useAppStore } from "@/lib/app-store";
+import { useAppStore, type DemoPersona } from "@/lib/app-store";
 import { isClerkConfigured } from "@/lib/clerk";
 import { withBasePath } from "@/lib/paths";
 
@@ -21,6 +21,41 @@ export function AuthLoading() {
           <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PersonaDemoButtons() {
+  const { enterPrototypeDemo } = useAppStore();
+  const { t } = useI18n();
+  const navigate = useNavigate();
+
+  const enter = (persona: DemoPersona) => {
+    enterPrototypeDemo(persona);
+    void navigate({ to: "/" });
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-center text-[11px] font-semibold text-muted-foreground">
+        {t("auth.demoHint")}
+      </p>
+      <Button
+        variant="default"
+        className="w-full"
+        data-testid="continue-pro"
+        onClick={() => enter("pro")}
+      >
+        {t("auth.continuePro")}
+      </Button>
+      <Button
+        variant="outline"
+        className="w-full"
+        data-testid="continue-parent"
+        onClick={() => enter("parent")}
+      >
+        {t("auth.continueParent")}
+      </Button>
     </div>
   );
 }
@@ -121,6 +156,7 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
       )}
 
       <div className="mt-6 space-y-2">
+        <PersonaDemoButtons />
         <DevDemoButton />
         {mode === "sign-in" ? (
           <p className="text-center text-xs text-muted-foreground">
@@ -143,8 +179,8 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
 }
 
 export function SignedInRedirect({ children }: { children: ReactNode }) {
-  const { devDemo } = useAppStore();
-  if (import.meta.env.DEV && devDemo) return <Navigate to="/" />;
+  const { devDemo, prototypeDemo } = useAppStore();
+  if (prototypeDemo || (import.meta.env.DEV && devDemo)) return <Navigate to="/" />;
   if (!isClerkConfigured()) return <>{children}</>;
   return <SignedInRedirectInner>{children}</SignedInRedirectInner>;
 }

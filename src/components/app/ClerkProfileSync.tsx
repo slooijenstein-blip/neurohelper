@@ -11,9 +11,10 @@ import {
 
 function ClerkProfileSyncInner() {
   const { isLoaded, user } = useUser();
-  const { state, update, exitDevDemo, hydrated, devDemo } = useAppStore();
+  const { state, update, exitDevDemo, hydrated, devDemo, prototypeDemo } = useAppStore();
 
   useEffect(() => {
+    if (prototypeDemo) return;
     if (!isLoaded || !user || !hydrated) return;
 
     const plan = planClerkProfileSync({
@@ -36,7 +37,17 @@ function ClerkProfileSyncInner() {
       observations: sameUser ? prev.observations : wasDemo ? [] : prev.observations,
       completedCount: sameUser ? prev.completedCount : wasDemo ? 0 : prev.completedCount,
     }));
-  }, [devDemo, exitDevDemo, hydrated, isLoaded, state.loggedOut, state.profile, update, user]);
+  }, [
+    devDemo,
+    exitDevDemo,
+    hydrated,
+    isLoaded,
+    prototypeDemo,
+    state.loggedOut,
+    state.profile,
+    update,
+    user,
+  ]);
 
   return null;
 }

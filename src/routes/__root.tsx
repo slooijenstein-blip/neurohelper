@@ -14,7 +14,9 @@ import { ClerkProfileSync } from "@/components/app/ClerkProfileSync";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { LOCALE_STORAGE_KEY, resolveLocale } from "@/i18n/locales";
 import { translate } from "@/i18n/translate";
+import { DemoPersonaSync } from "@/components/app/DemoPersonaSync";
 import { AppStoreProvider } from "@/lib/app-store";
+import { CalendarStoreProvider } from "@/lib/calendar/store";
 
 import appCss from "../styles.css?url";
 
@@ -173,11 +175,14 @@ function RootComponent() {
     <ClerkAppProvider>
       <QueryClientProvider client={queryClient}>
         <AppStoreProvider>
-          <I18nProvider>
-            <ClerkProfileSync />
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-          </I18nProvider>
+          <CalendarStoreProvider>
+            <I18nProvider>
+              <ClerkProfileSync />
+              <DemoPersonaSync />
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+            </I18nProvider>
+          </CalendarStoreProvider>
         </AppStoreProvider>
       </QueryClientProvider>
     </ClerkAppProvider>
