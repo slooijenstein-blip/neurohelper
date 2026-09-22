@@ -1,3 +1,5 @@
+import { useI18n } from "@/i18n/I18nProvider";
+import { ROLE_MESSAGE_KEY } from "@/i18n/roles";
 import { cn } from "@/lib/utils";
 import { formatActivityDuration, skillTone, type Skill } from "@/lib/activities-data";
 import { roleTone, type Role, type Socials } from "@/lib/app-store";
@@ -12,7 +14,13 @@ export function AgeTag({ children }: { children: ReactNode }) {
   return <span className="tag-base bg-secondary text-secondary-foreground">{children}</span>;
 }
 
-export function DurationTag({ minMinutes, maxMinutes }: { minMinutes: number; maxMinutes: number }) {
+export function DurationTag({
+  minMinutes,
+  maxMinutes,
+}: {
+  minMinutes: number;
+  maxMinutes: number;
+}) {
   return (
     <span className="tag-base gap-1 bg-muted text-muted-foreground">
       <Clock className="size-3" />
@@ -22,7 +30,8 @@ export function DurationTag({ minMinutes, maxMinutes }: { minMinutes: number; ma
 }
 
 export function RoleTag({ role }: { role: Role }) {
-  return <span className={cn("tag-base", roleTone[role])}>{role}</span>;
+  const { t } = useI18n();
+  return <span className={cn("tag-base", roleTone[role])}>{t(ROLE_MESSAGE_KEY[role])}</span>;
 }
 
 export function ScreenHeader({
@@ -46,6 +55,7 @@ export function ScreenHeader({
 }
 
 export function Stars({ value, onChange }: { value: number; onChange?: (v: number) => void }) {
+  const { t } = useI18n();
   return (
     <div className="flex gap-0.5">
       {[1, 2, 3, 4, 5].map((n) => (
@@ -59,7 +69,7 @@ export function Stars({ value, onChange }: { value: number; onChange?: (v: numbe
             n <= value ? "text-warm" : "text-border",
             onChange && "cursor-pointer",
           )}
-          aria-label={`${n} stars`}
+          aria-label={t("journey.stars", { count: n })}
         >
           ★
         </button>
@@ -92,13 +102,7 @@ export function ProfileAvatar({
   );
 }
 
-export function SocialBar({
-  socials,
-  className,
-}: {
-  socials: Socials;
-  className?: string;
-}) {
+export function SocialBar({ socials, className }: { socials: Socials; className?: string }) {
   const entries = [
     { key: "tiktok", icon: Music2, label: "TikTok" },
     { key: "instagram", icon: Instagram, label: "Instagram" },

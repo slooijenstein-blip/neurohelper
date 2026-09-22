@@ -2,7 +2,14 @@ import { useMemo, useState } from "react";
 import { Clock, Filter, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { ACTIVITIES, SKILLS, formatActivityDuration, type Activity, type Skill } from "@/lib/activities-data";
+import { useI18n } from "@/i18n/I18nProvider";
+import {
+  ACTIVITIES,
+  SKILLS,
+  formatActivityDuration,
+  type Activity,
+  type Skill,
+} from "@/lib/activities-data";
 import { useAppStore, uid } from "@/lib/app-store";
 import { AgeTag, DurationTag, ScreenHeader, SkillTag } from "./ui-bits";
 import { Button } from "@/components/ui/button";
@@ -19,6 +26,7 @@ import { cn } from "@/lib/utils";
 
 export function ActivitiesTab() {
   const { update } = useAppStore();
+  const { t } = useI18n();
   const [range, setRange] = useState<number[]>([1, 10]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [query, setQuery] = useState("");
@@ -56,12 +64,15 @@ export function ActivitiesTab() {
         },
       ],
     }));
-    toast.success(`${a.title} added to today's schedule`);
+    toast.success(t("activities.added", { title: a.title }));
   };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <ScreenHeader title="Activity Library" subtitle={`${results.length} activities`} />
+      <ScreenHeader
+        title={t("activities.title")}
+        subtitle={t("activities.count", { count: results.length })}
+      />
 
       <div className="space-y-3 border-b border-border bg-surface px-5 py-3 md:px-8">
         <div className="relative">
@@ -69,7 +80,7 @@ export function ActivitiesTab() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search activities"
+            placeholder={t("activities.search")}
             className="h-9 rounded-full bg-card pl-9 text-sm"
           />
         </div>
@@ -152,7 +163,9 @@ export function ActivitiesTab() {
             >
               {a.title}
             </button>
-            <p className="mt-1 flex-1 text-xs leading-relaxed text-muted-foreground">{a.description}</p>
+            <p className="mt-1 flex-1 text-xs leading-relaxed text-muted-foreground">
+              {a.description}
+            </p>
             <div className="mt-3 flex items-center justify-between gap-2">
               <div className="flex gap-1.5">
                 <AgeTag>
@@ -181,25 +194,25 @@ export function ActivitiesTab() {
           </DialogHeader>
           {detail ? (
             <div className="space-y-4 text-sm">
-            <div className="flex flex-wrap gap-1.5">
-              <AgeTag>
-                Age: {detail.minAge}-{detail.maxAge}
-              </AgeTag>
-              <SkillTag skill={detail.skill} />
-              <DurationTag minMinutes={detail.minMinutes} maxMinutes={detail.maxMinutes} />
-            </div>
-            <div>
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                Duration
-              </p>
-              <p className="text-muted-foreground">
-                {formatActivityDuration(detail.minMinutes, detail.maxMinutes)}
-              </p>
-            </div>
-            <div>
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                What you need
-              </p>
+              <div className="flex flex-wrap gap-1.5">
+                <AgeTag>
+                  Age: {detail.minAge}-{detail.maxAge}
+                </AgeTag>
+                <SkillTag skill={detail.skill} />
+                <DurationTag minMinutes={detail.minMinutes} maxMinutes={detail.maxMinutes} />
+              </div>
+              <div>
+                <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  Duration
+                </p>
+                <p className="text-muted-foreground">
+                  {formatActivityDuration(detail.minMinutes, detail.maxMinutes)}
+                </p>
+              </div>
+              <div>
+                <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                  What you need
+                </p>
                 <ul className="list-inside list-disc text-muted-foreground">
                   {detail.materials.map((m) => (
                     <li key={m}>{m}</li>

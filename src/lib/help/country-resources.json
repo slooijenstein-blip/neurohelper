@@ -1,0 +1,445 @@
+[
+  {
+    "countryCode": "NL",
+    "countryName": "Netherlands",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "113 Zelfmoordpreventie",
+        "phone": "113",
+        "notes": "National suicide prevention; free 24/7 from within NL. Also 0800-0113. Chat at 113.nl. English often available. Not reachable by phone from abroad — use chat.",
+        "sourceUrl": "https://www.113.nl/english"
+      },
+      {
+        "name": "De Luisterlijn",
+        "phone": "088 0767 000",
+        "notes": "24/7 anonymous listening line (emotional support). Not a clinical emergency service.",
+        "sourceUrl": "https://www.deluisterlijn.nl/"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "MantelzorgNL (Mantelzorglijn)",
+        "url": "https://www.mantelzorg.nl/",
+        "focus": "Informal caregiver (mantelzorger) support and advice; Mantelzorglijn 030 760 60 55 (weekdays)",
+        "sourceUrl": "https://www.mantelzorg.nl/"
+      },
+      {
+        "name": "Nederlandse Vereniging voor Autisme (NVA)",
+        "url": "https://www.autisme.nl/",
+        "focus": "Autism information, community, and advocacy for people with autism and families",
+        "sourceUrl": "https://www.autisme.nl/"
+      },
+      {
+        "name": "Balans",
+        "url": "https://balansdigitaal.nl/",
+        "focus": "Parent association for learning, behaviour, and developmental support needs; advice line 030 225 50 50 (limited weekday hours)",
+        "sourceUrl": "https://balansdigitaal.nl/"
+      },
+      {
+        "name": "Impuls & Woortblind",
+        "url": "https://www.impulsenwoortblind.nl/",
+        "focus": "ADHD, ADD, dyslexia, dyscalculia — peer association and advocacy",
+        "sourceUrl": "https://www.impulsenwoortblind.nl/"
+      },
+      {
+        "name": "Regelhulp (Ministry of VWS)",
+        "url": "https://www.regelhulp.nl/onderwerpen/autisme/ondersteuning-bij-autisme",
+        "focus": "Government guidance on autism-related care and support pathways (e.g. Wmo)",
+        "sourceUrl": "https://www.regelhulp.nl/onderwerpen/autisme/ondersteuning-bij-autisme"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "De Luisterlijn previously widely listed as 0900-0767; official site now states 088 0767 000 (verified 2026-09-22).",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "BE",
+    "countryName": "Belgium",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "Zelfmoordlijn 1813 (Dutch-speaking)",
+        "phone": "1813",
+        "notes": "24/7 free anonymous suicide prevention (Flanders / Dutch). Chat also available on site.",
+        "sourceUrl": "https://www.zelfmoord1813.be/ik-heb-hulp-nodig/bellen-met-de-zelfmoordlijn"
+      },
+      {
+        "name": "Centre de Prévention du Suicide (French-speaking)",
+        "phone": "0800 32 123",
+        "notes": "24/7 free anonymous listening line for suicidal distress in French-speaking Belgium. Not a substitute for 112.",
+        "sourceUrl": "https://www.preventionsuicide.be/la-ligne-decoute-0800-32-123"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "Autisme Vlaanderen / national autism networks (via Autism-Europe)",
+        "url": "https://www.autismeurope.org/",
+        "focus": "European autism federation directory — use to locate Belgian member orgs",
+        "sourceUrl": "https://www.autismeurope.org/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "Belgium is language-split: use 1813 for Dutch, 0800 32 123 for French. German-speaking community crisis line not separately verified here.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "ES",
+    "countryName": "Spain",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "Línea 024 — atención a la conducta suicida",
+        "phone": "024",
+        "notes": "Ministry of Health national suicide behaviour helpline; free, confidential, 24/7. Not a substitute for 112.",
+        "sourceUrl": "https://www.mscbs.gob.es/en/linea024/home.htm"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "Confederación Autismo España",
+        "url": "https://autismo.org.es/",
+        "focus": "National autism confederation — family and advocacy resources",
+        "sourceUrl": "https://autismo.org.es/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "FR",
+    "countryName": "France",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "3114 — Numéro national de prévention du suicide",
+        "phone": "3114",
+        "notes": "National suicide prevention; free 24/7; staffed by trained health professionals. Ministry of Health–backed.",
+        "sourceUrl": "https://3114.fr/"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "Autisme France",
+        "url": "https://www.autisme-france.fr/",
+        "focus": "National autism association — advocacy and family information",
+        "sourceUrl": "https://www.autisme-france.fr/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "For medical emergency France also uses 15 (SAMU); 112 remains the EU emergency number. Immediate life danger: 15 or 112.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "DE",
+    "countryName": "Germany",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "TelefonSeelsorge",
+        "phone": "0800 111 0 111",
+        "notes": "24/7 free anonymous crisis/listening. Also 0800 111 0 222 or 116 123.",
+        "sourceUrl": "https://www.telefonseelsorge.de/telefon/"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "Autismus Deutschland e.V.",
+        "url": "https://www.autismus.de/",
+        "focus": "National autism association — information and regional support directory",
+        "sourceUrl": "https://www.autismus.de/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "Multiple free numbers listed on official TelefonSeelsorge page; 0800 111 0 111 is primary listing.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "PT",
+    "countryName": "Portugal",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "Linha 1411 — Prevenção do Suicídio (SNS)",
+        "phone": "1411",
+        "notes": "National suicide prevention and psychological support line (SNS); psychologists and mental-health specialist nurses. Launched 10 Sep 2025; integrated with SNS 24.",
+        "sourceUrl": "https://www.sns.gov.pt/noticias/2025/09/10/nova-linha-1411-de-prevencao-do-suicidio-ja-disponivel/"
+      },
+      {
+        "name": "SNS 24 (health triage)",
+        "phone": "808 24 24 24",
+        "notes": "National health advice/triage line 24/7 — not primarily a suicide crisis line; useful for health navigation.",
+        "sourceUrl": "https://www.sns.gov.pt/sns-saude-mais/linhas-de-atendimento-gerais/"
+      }
+    ],
+    "caregiverOrgs": [],
+    "confidence": "high",
+    "uncertaintyNotes": "1411 is new (Sep 2025); confirm hours/coverage on SNS before hard-coding marketing claims beyond official news page.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "IT",
+    "countryName": "Italy",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "Telefono Amico Italia",
+        "phone": "02 2327 2327",
+        "notes": "Emotional support / crisis listening; free; site states 24/7. Not a substitute for 112.",
+        "sourceUrl": "https://www.telefonoamico.it/"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "Autism-Europe (IT member directory)",
+        "url": "https://www.autismeurope.org/",
+        "focus": "Locate Italian autism member organisations via Autism-Europe",
+        "sourceUrl": "https://www.autismeurope.org/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "Italy has regional variations; Telefono Amico is a recognised national NGO line. Additional regional numbers not exhaustively verified.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "PL",
+    "countryName": "Poland",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "Infolinia 116 123 (adults in emotional crisis)",
+        "phone": "116 123",
+        "notes": "Free anonymous 24/7 psychological first aid for adults; also chat via 116sos.pl. For under-18s use youth-specific services (not listed here).",
+        "sourceUrl": "https://www.gov.pl/web/cyfryzacja/infolinia-116-123--pierwsza-pomoc-psychologiczna-w-zasiegu-telefonu-i-internetu2"
+      }
+    ],
+    "caregiverOrgs": [],
+    "confidence": "high",
+    "uncertaintyNotes": "",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "DK",
+    "countryName": "Denmark",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "Livslinien",
+        "phone": "70 201 201",
+        "notes": "Suicide/crisis counselling; anonymous. Hours: daily 09:00–05:00 (per livslinien.dk).",
+        "sourceUrl": "https://www.livslinien.dk/raadgivning/telefonraadgivning"
+      }
+    ],
+    "caregiverOrgs": [],
+    "confidence": "high",
+    "uncertaintyNotes": "Not 24/7 continuous — closed 05:00–09:00; UI should show hours.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "NO",
+    "countryName": "Norway",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "Mental Helse — Hjelpetelefonen",
+        "phone": "116 123",
+        "notes": "Free 24/7 listening/support; anonymity and confidentiality. From abroad: +47 911 16 123 (mobile rates).",
+        "sourceUrl": "https://mentalhelse.no/fa-hjelp/hjelpetelefonen/"
+      }
+    ],
+    "caregiverOrgs": [],
+    "confidence": "high",
+    "uncertaintyNotes": "",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "FI",
+    "countryName": "Finland",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "MIELI Crisis Helpline (Finnish)",
+        "phone": "09 2525 0111",
+        "notes": "24/7 crisis helpline in Finnish. Swedish: 09 2525 0112.",
+        "sourceUrl": "https://mieli.fi/en/contact-information/"
+      }
+    ],
+    "caregiverOrgs": [],
+    "confidence": "high",
+    "uncertaintyNotes": "",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "SE",
+    "countryName": "Sweden",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "Mind — Självmordslinjen",
+        "phone": "90101",
+        "notes": "National suicide helpline operated by Mind. Verify hours on mind.se before display (site had bot-protection during fetch).",
+        "sourceUrl": "https://mind.se/hitta-hjalp/sjalvmordslinjen/"
+      }
+    ],
+    "caregiverOrgs": [],
+    "confidence": "medium",
+    "uncertaintyNotes": "Number widely reported and URL is Mind's official page; direct page fetch was Cloudflare-blocked on 2026-09-22 — re-verify hours/availability before production.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "GB",
+    "countryName": "United Kingdom",
+    "emergencyDial": "999",
+    "crisisLines": [
+      {
+        "name": "Samaritans",
+        "phone": "116 123",
+        "notes": "Free 24/7 emotional support from any phone.",
+        "sourceUrl": "https://www.samaritans.org/how-we-can-help/contact-samaritan/"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "National Autistic Society",
+        "url": "https://www.autism.org.uk/",
+        "focus": "Autism advice, community, and parent/carer support",
+        "sourceUrl": "https://www.autism.org.uk/what-we-do"
+      },
+      {
+        "name": "Carers UK",
+        "url": "https://www.carersuk.org/",
+        "focus": "Information and advocacy for unpaid carers",
+        "sourceUrl": "https://www.carersuk.org/about-us/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "112 also works in UK for emergency; primary public messaging is 999. NHS 111 is health advice, not suicide crisis — not listed as crisis line.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "IE",
+    "countryName": "Ireland",
+    "emergencyDial": "112",
+    "crisisLines": [
+      {
+        "name": "Samaritans (Ireland)",
+        "phone": "116 123",
+        "notes": "Free 24/7 emotional support. Same number as UK Samaritans network.",
+        "sourceUrl": "https://www.samaritans.org/how-we-can-help/contact-samaritan/"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "Family Carers Ireland",
+        "url": "https://www.familycarers.ie/",
+        "focus": "Support, training, and advocacy for family carers",
+        "sourceUrl": "https://www.familycarers.ie/about-us/who-we-are/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "Ireland also accepts 999 for emergency; 112 is EU standard and works.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "US",
+    "countryName": "United States",
+    "emergencyDial": "911",
+    "crisisLines": [
+      {
+        "name": "988 Suicide & Crisis Lifeline",
+        "phone": "988",
+        "notes": "Free confidential 24/7 call/text/chat. Spanish: press 2 or text AYUDA. Veterans: press 1.",
+        "sourceUrl": "https://988lifeline.org/get-help/"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "Autism Speaks",
+        "url": "https://www.autismspeaks.org/",
+        "focus": "Autism resources and Autism Response Team for families",
+        "sourceUrl": "https://www.autismspeaks.org/"
+      },
+      {
+        "name": "CHADD",
+        "url": "https://chadd.org/",
+        "focus": "ADHD education, parent programs, and local chapters",
+        "sourceUrl": "https://chadd.org/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "CA",
+    "countryName": "Canada",
+    "emergencyDial": "911",
+    "crisisLines": [
+      {
+        "name": "9-8-8 Suicide Crisis Helpline",
+        "phone": "988",
+        "notes": "Call or text 9-8-8; 24/7. If safety at immediate risk call 9-1-1.",
+        "sourceUrl": "https://988.ca/"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "Autism Canada",
+        "url": "https://www.autismcanada.org/",
+        "focus": "National autism resources, education, and support",
+        "sourceUrl": "https://www.autismcanada.org/"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  },
+  {
+    "countryCode": "MX",
+    "countryName": "Mexico",
+    "emergencyDial": "911",
+    "crisisLines": [
+      {
+        "name": "Línea de la Vida (CONASAMA)",
+        "phone": "800 911 2000",
+        "notes": "National mental health and addictions orientation line (Secretaría de Salud / CONASAMA); free, confidential, 24/7. Covers suicidal ideation, emotional crisis, substance use, and related mental-health support. Not a substitute for 911.",
+        "sourceUrl": "https://www.gob.mx/conasama/articulos/linea-de-la-vida-800-911-2000"
+      },
+      {
+        "name": "SAPTEL",
+        "phone": "55 5259 8121",
+        "notes": "National NGO telephone psychological support and emotional crisis intervention; free. Site states 24/7 nationwide coverage. Not a substitute for 911.",
+        "sourceUrl": "https://www.saptel.org.mx/que_es.html"
+      }
+    ],
+    "caregiverOrgs": [
+      {
+        "name": "Teletón — Autismo / Centro Autismo Teletón (CAT)",
+        "url": "https://teleton.org/autismo",
+        "focus": "Autism diagnosis, early intervention, and family accompaniment via Centro Autismo Teletón and CRIT network (nationwide). Services may involve socioeconomic assessment / costs.",
+        "sourceUrl": "https://teleton.org/autismo"
+      }
+    ],
+    "confidence": "high",
+    "uncertaintyNotes": "Emergency 911 verified on VisitMexico (SECTUR) emergencies page and CDMX C5 9-1-1 page. Línea de la Vida 800 911 2000: primary CONASAMA gob.mx article (bot-challenge on direct fetch 2026-09-22) corroborated by Michoacán Secretaría de Salud page and Find A Helpline listing citing gob.mx. SAPTEL hours: que_es.html states 24/7; another SAPTEL page previously listed limited daytime hours — treat as 24/7 per primary qué-es page but re-check if users report closed hours.",
+    "disclaimer": "This is general caregiver education and resource information, not medical advice and not a substitute for emergency services or clinical care. If anyone is in immediate danger, seriously hurt, or cannot be kept safe, call your local emergency number right away. Synlumae (formerly NeuroHelper) does not provide emergency services or clinical care.",
+    "lastChecked": "2026-09-22"
+  }
+]

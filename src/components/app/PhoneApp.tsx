@@ -3,6 +3,7 @@ import { Navigate } from "@tanstack/react-router";
 import { useAuth } from "@clerk/react";
 import { useState } from "react";
 
+import { useI18n } from "@/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 import { isClerkConfigured } from "@/lib/clerk";
 import { ActivitiesTab } from "./ActivitiesTab";
@@ -20,22 +21,17 @@ import { useAppStore } from "@/lib/app-store";
 export type TabKey = "activities" | "schedule" | "journey" | "community" | "help" | "profile";
 
 const TABS = [
-  { key: "activities", label: "Activities", icon: Activity },
-  { key: "schedule", label: "Schedule", icon: CalendarDays },
-  { key: "journey", label: "Journey", icon: Heart },
-  { key: "community", label: "Community", icon: Globe },
-  { key: "help", label: "Help", icon: CircleHelp },
-  { key: "profile", label: "Profile", icon: UserRound },
+  { key: "activities", labelKey: "nav.activities", icon: Activity },
+  { key: "schedule", labelKey: "nav.schedule", icon: CalendarDays },
+  { key: "journey", labelKey: "nav.journey", icon: Heart },
+  { key: "community", labelKey: "nav.community", icon: Globe },
+  { key: "help", labelKey: "nav.help", icon: CircleHelp },
+  { key: "profile", labelKey: "nav.profile", icon: UserRound },
 ] as const;
 
-function AppShell({
-  tab,
-  onTab,
-}: {
-  tab: TabKey;
-  onTab: (t: TabKey) => void;
-}) {
+function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const { state } = useAppStore();
+  const { t } = useI18n();
   const [profileId, setProfileId] = useState<string | null>(null);
   const [articleId, setArticleId] = useState<string | null>(null);
   const [helpNonce, setHelpNonce] = useState(0);
@@ -43,52 +39,49 @@ function AppShell({
   const goTab = (key: TabKey) => {
     setArticleId(null);
     setProfileId(null);
+    // Recreate Help so a temporary country lookup does not outlive this visit.
     if (key === "help") setHelpNonce((n) => n + 1);
     onTab(key);
   };
 
-  const screen =
-    articleId ? (
-      <ArticleView
-        id={articleId}
-        onBack={() => setArticleId(null)}
-        onProfile={(id) => {
-          setArticleId(null);
-          setProfileId(id);
-        }}
-      />
-    ) : profileId ? (
-      <ProfileView
-        id={profileId}
-        onBack={() => setProfileId(null)}
-        onArticle={(id) => setArticleId(id)}
-      />
-    ) : (
-      {
-        activities: <ActivitiesTab />,
-        schedule: <ScheduleTab />,
-        journey: <JourneyTab />,
-        community: (
-          <CommunityTab
-            onProfile={(id) => setProfileId(id)}
-            onArticle={(id) => setArticleId(id)}
-          />
-        ),
-        help: <HelpTab key={helpNonce} />,
-        profile: <ProfileTab />,
-      }[tab]
-    );
+  const screen = articleId ? (
+    <ArticleView
+      id={articleId}
+      onBack={() => setArticleId(null)}
+      onProfile={(id) => {
+        setArticleId(null);
+        setProfileId(id);
+      }}
+    />
+  ) : profileId ? (
+    <ProfileView
+      id={profileId}
+      onBack={() => setProfileId(null)}
+      onArticle={(id) => setArticleId(id)}
+    />
+  ) : (
+    {
+      activities: <ActivitiesTab />,
+      schedule: <ScheduleTab />,
+      journey: <JourneyTab />,
+      community: (
+        <CommunityTab onProfile={(id) => setProfileId(id)} onArticle={(id) => setArticleId(id)} />
+      ),
+      help: <HelpTab key={helpNonce} />,
+      profile: <ProfileTab />,
+    }[tab]
+  );
 
   return (
     <div className="phone-shell">
       <aside className="app-sidebar">
         <div className="mb-8 px-2">
           <BrandLogo variant="lockup" className="h-10 w-auto max-w-full" />
-          <p className="mt-1 text-xs text-muted-foreground">For neurodiverse families</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t("brand.tagline")}</p>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1" aria-label="Main">
-          {TABS.map(({ key, label, icon: Icon }) => (
+        <nav className="flex flex-1 flex-col gap-1" aria-label={t("nav.label")}>
+          {TABS.map(({ key, labelKey, icon: Icon }) => (
             <button
               key={key}
               type="button"
@@ -100,14 +93,19 @@ function AppShell({
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
-              <Icon className={cn("size-5", tab === key && !articleId && !profileId && "fill-primary/15")} />
-              {label}
+              <Icon
+                className={cn(
+                  "size-5",
+                  tab === key && !articleId && !profileId && "fill-primary/15",
+                )}
+              />
+              {t(labelKey)}
             </button>
           ))}
         </nav>
 
         <p className="mt-auto px-2 pt-6 text-[11px] text-muted-foreground">
-          Signed in as {state.profile?.name ?? "you"}
+          {t("brand.signedInAs", { name: state.profile?.name ?? t("roles.caregiver") })}
         </p>
       </aside>
 
@@ -115,8 +113,8 @@ function AppShell({
         <div className="app-screen min-h-0">{screen}</div>
       </div>
 
-      <nav className="app-tabbar" aria-label="Main">
-        {TABS.map(({ key, label, icon: Icon }) => (
+      <nav className="app-tabbar" aria-label={t("nav.label")}>
+        {TABS.map(({ key, labelKey, icon: Icon }) => (
           <button
             key={key}
             type="button"
@@ -126,8 +124,10 @@ function AppShell({
               tab === key && !articleId && !profileId ? "text-primary" : "text-muted-foreground",
             )}
           >
-            <Icon className={cn("size-5", tab === key && !articleId && !profileId && "fill-primary/15")} />
-            {label}
+            <Icon
+              className={cn("size-5", tab === key && !articleId && !profileId && "fill-primary/15")}
+            />
+            {t(labelKey)}
           </button>
         ))}
       </nav>

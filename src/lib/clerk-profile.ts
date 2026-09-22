@@ -59,6 +59,8 @@ export function profileFromClerkUser(user: ClerkNameSource, existing: Profile | 
       ? { favouriteActivityIds: existing.favouriteActivityIds }
       : {}),
     ...(existing?.followers ? { followers: existing.followers } : {}),
+    ...(existing?.locale ? { locale: existing.locale } : {}),
+    ...(existing?.helpCountry ? { helpCountry: existing.helpCountry } : {}),
   };
 }
 

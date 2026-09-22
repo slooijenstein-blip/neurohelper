@@ -1,0 +1,20 @@
+/** Castilian names for the 17 country packs. The research JSON only stores English names. */
+export const NAME_ES: Record<string, string> = {
+  NL: "Países Bajos",
+  BE: "Bélgica",
+  ES: "España",
+  FR: "Francia",
+  DE: "Alemania",
+  PT: "Portugal",
+  IT: "Italia",
+  PL: "Polonia",
+  DK: "Dinamarca",
+  NO: "Noruega",
+  FI: "Finlandia",
+  SE: "Suecia",
+  GB: "Reino Unido",
+  IE: "Irlanda",
+  US: "Estados Unidos",
+  CA: "Canadá",
+  MX: "México",
+};

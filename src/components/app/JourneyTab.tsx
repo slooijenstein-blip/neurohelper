@@ -2,6 +2,7 @@ import { useState } from "react";
 import { CalendarDays, CircleCheck, Heart, Plus, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useI18n } from "@/i18n/I18nProvider";
 import { useAppStore, uid } from "@/lib/app-store";
 import { ACTIVITIES } from "@/lib/activities-data";
 import { summarizeJourney } from "@/lib/journey.functions";
@@ -19,6 +20,7 @@ import {
 
 export function JourneyTab() {
   const { state, update } = useAppStore();
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
@@ -49,14 +51,13 @@ export function JourneyTab() {
         })),
         activityCatalog: ACTIVITIES.map((a) => `${a.title} (${a.skill})`),
       });
-      setSummary(res.summary || "No summary returned. Try again.");
+      setSummary(res.summary || t("journey.summaryEmpty"));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not generate summary");
+      toast.error(e instanceof Error ? e.message : t("journey.summaryFailed"));
     } finally {
       setLoading(false);
     }
   };
-
 
   const save = () => {
     if (!title.trim()) return;
@@ -76,27 +77,31 @@ export function JourneyTab() {
     setOpen(false);
     setTitle("");
     setNote("");
-    toast.success("Progress saved!");
+    toast.success(t("journey.saved"));
   };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader
-        title="My Journey"
-        subtitle={state.childName ? `${state.childName}'s progress` : "Progress on this device"}
+        title={t("journey.title")}
+        subtitle={
+          state.childName
+            ? t("journey.progressNamed", { name: state.childName })
+            : t("journey.progressDevice")
+        }
       />
 
       <div className="hide-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface px-5 py-4 md:px-8">
         <div className="grid grid-cols-2 gap-3 md:max-w-xl">
           <div className="soft-card p-4 text-center">
             <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              Completed
+              {t("journey.completed")}
             </p>
             <p className="text-3xl font-bold text-primary">{state.completedCount}</p>
           </div>
           <div className="soft-card p-4 text-center">
             <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              Scheduled
+              {t("journey.scheduled")}
             </p>
             <p className="text-3xl font-bold text-success">{scheduled}</p>
           </div>
@@ -105,7 +110,7 @@ export function JourneyTab() {
         <div className="soft-card space-y-2 p-4">
           <div className="flex items-center justify-between gap-2">
             <p className="flex items-center gap-1.5 text-sm font-semibold">
-              <Sparkles className="size-4 text-primary" /> Progress summary
+              <Sparkles className="size-4 text-primary" /> {t("journey.summary")}
             </p>
             <Button
               size="sm"
@@ -114,21 +119,23 @@ export function JourneyTab() {
               disabled={loading}
             >
               {loading ? <Loader2 className="size-3.5 animate-spin" /> : null}
-              {loading ? "Thinking" : summary ? "Refresh" : "Generate"}
+              {loading
+                ? t("journey.thinking")
+                : summary
+                  ? t("journey.refresh")
+                  : t("journey.generate")}
             </Button>
           </div>
           <p className="whitespace-pre-line text-xs leading-relaxed text-muted-foreground">
             {summary ||
-              `A local summary of ${state.childName ? `${state.childName}'s` : "recent"} completed activities, observations, and suggested next steps. (Not an AI model.)`}
+              t("journey.summaryFallback", { name: state.childName || t("journey.summaryRecent") })}
           </p>
         </div>
-
-
 
         {mostLoved ? (
           <div className="rounded-xl border border-warm/50 bg-warm/20 p-4">
             <p className="mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-warm-foreground">
-              <Heart className="size-3.5" /> Most loved activity
+              <Heart className="size-3.5" /> {t("journey.mostLoved")}
             </p>
             <p className="text-base font-semibold">{mostLoved.activityTitle}</p>
             <Stars value={mostLoved.rating} />
@@ -137,7 +144,7 @@ export function JourneyTab() {
 
         <div>
           <p className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-            <CalendarDays className="size-4 text-primary" /> This week's schedule
+            <CalendarDays className="size-4 text-primary" /> {t("journey.thisWeek")}
           </p>
           <div className="space-y-2">
             {state.schedule.map((i) => (
@@ -155,12 +162,12 @@ export function JourneyTab() {
                       : "tag-base bg-accent text-accent-foreground"
                   }
                 >
-                  {i.done ? "Done" : "Upcoming"}
+                  {i.done ? t("journey.done") : t("journey.upcoming")}
                 </span>
               </div>
             ))}
             {!state.schedule.length ? (
-              <p className="text-xs text-muted-foreground">Nothing scheduled this week yet.</p>
+              <p className="text-xs text-muted-foreground">{t("journey.nothingScheduled")}</p>
             ) : null}
           </div>
         </div>
@@ -168,10 +175,10 @@ export function JourneyTab() {
         <div>
           <div className="mb-2 flex items-center justify-between">
             <p className="flex items-center gap-1.5 text-sm font-semibold">
-              <CircleCheck className="size-4 text-primary" /> Parent observations
+              <CircleCheck className="size-4 text-primary" /> {t("journey.observations")}
             </p>
             <Button size="sm" className="h-7 rounded-full px-3" onClick={() => setOpen(true)}>
-              <Plus className="size-3.5" /> Log
+              <Plus className="size-3.5" /> {t("journey.log")}
             </Button>
           </div>
           <div className="space-y-3 border-l-2 border-border pl-4">
@@ -197,26 +204,26 @@ export function JourneyTab() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Log an observation</DialogTitle>
-            <DialogDescription>Capture how the activity went today.</DialogDescription>
+            <DialogTitle>{t("journey.logTitle")}</DialogTitle>
+            <DialogDescription>{t("journey.logDescription")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Activity name"
+              placeholder={t("journey.activityName")}
             />
             <Textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="What did you notice?"
+              placeholder={t("journey.notice")}
             />
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">Rating</span>
+              <span className="text-muted-foreground">{t("journey.rating")}</span>
               <Stars value={rating} onChange={setRating} />
             </div>
             <Button className="w-full" onClick={save}>
-              Save progress
+              {t("journey.saveProgress")}
             </Button>
           </div>
         </DialogContent>

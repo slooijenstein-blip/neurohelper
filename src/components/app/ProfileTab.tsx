@@ -4,6 +4,11 @@ import { Baby, BookmarkCheck, LogOut, MapPin, Pencil, Sparkles } from "lucide-re
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { useI18n } from "@/i18n/I18nProvider";
+import { ROLE_MESSAGE_KEY } from "@/i18n/roles";
+import { isAppLocale, type AppLocale } from "@/i18n/locales";
+import { countryName, getCountry, sortedCountries } from "@/lib/help/countries";
+import { listedCountryCode, writeStoredResidence } from "@/lib/help/detect-country";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -28,11 +33,12 @@ const selectClass =
 
 export function ProfileTab() {
   const { state, update } = useAppStore();
+  const { t } = useI18n();
   const profile = state.profile;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <ScreenHeader title="Profile" subtitle="Your identity — child details stay on this device" />
+      <ScreenHeader title={t("profile.title")} subtitle={t("profile.subtitle")} />
 
       <div className="hide-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto bg-surface px-5 py-4 md:max-w-2xl md:px-8">
         {isClerkConfigured() ? (
@@ -46,34 +52,37 @@ export function ProfileTab() {
             <Baby className="size-6" />
           </div>
           <div>
-            <p className="text-base font-semibold">{state.childName || "Add a first name"}</p>
+            <p className="text-base font-semibold">
+              {state.childName || t("profile.addFirstName")}
+            </p>
             <p className="text-xs text-muted-foreground">
-              {state.childName ? `${state.childAge} years old` : "Stored only on this device"}
+              {state.childName
+                ? t("profile.yearsOld", { age: state.childAge })
+                : t("profile.storedOnDevice")}
             </p>
           </div>
         </div>
 
         <div className="soft-card space-y-4 p-4">
           <p className="text-[11px] leading-relaxed text-muted-foreground">
-            Optional. Use a first name only. Synlumae does not store child details in your Clerk
-            account.
+            {t("profile.childNote")}
           </p>
           <div>
             <label className={fieldLabelClass} htmlFor="child-first-name">
-              Child's first name
+              {t("profile.childFirstName")}
             </label>
             <Input
               id="child-first-name"
               className="h-11"
               value={state.childName}
-              placeholder="First name (this device only)"
+              placeholder={t("profile.childPlaceholder")}
               onChange={(e) => update((prev) => ({ ...prev, childName: e.target.value }))}
             />
           </div>
           <div>
             <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-              <span>Age</span>
-              <span className="text-foreground">{state.childAge} years</span>
+              <span>{t("profile.age")}</span>
+              <span className="text-foreground">{t("profile.years", { age: state.childAge })}</span>
             </div>
             <Slider
               min={1}
@@ -91,25 +100,27 @@ export function ProfileTab() {
             <p className="text-2xl font-bold">
               {state.templates.filter((t) => t.ownerId === profile?.id).length}
             </p>
-            <p className="text-[11px] text-muted-foreground">Saved templates</p>
+            <p className="text-[11px] text-muted-foreground">{t("profile.savedTemplates")}</p>
           </div>
           <div className="soft-card p-4">
             <Sparkles className="mb-1 size-5 text-warm" />
             <p className="text-2xl font-bold">{state.observations.length}</p>
-            <p className="text-[11px] text-muted-foreground">Observations logged</p>
+            <p className="text-[11px] text-muted-foreground">{t("profile.observationsLogged")}</p>
           </div>
         </div>
 
         {state.templates.some((t) => t.ownerId === profile?.id && !t.isPublic) ? (
           <div className="soft-card p-4">
-            <h3 className="mb-2 text-sm font-semibold">Your private templates</h3>
+            <h3 className="mb-2 text-sm font-semibold">{t("profile.privateTemplates")}</h3>
             <div className="space-y-2">
               {state.templates
                 .filter((t) => t.ownerId === profile?.id && !t.isPublic)
-                .map((t) => (
-                  <div key={t.id} className="rounded-lg border border-border bg-card p-2">
-                    <p className="text-xs font-semibold">{t.name}</p>
-                    <p className="text-[11px] text-muted-foreground">{t.items.length} activities</p>
+                .map((template) => (
+                  <div key={template.id} className="rounded-lg border border-border bg-card p-2">
+                    <p className="text-xs font-semibold">{template.name}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {t("profile.activityCount", { count: template.items.length })}
+                    </p>
                   </div>
                 ))}
             </div>
@@ -121,10 +132,10 @@ export function ProfileTab() {
           className="h-11 w-full text-destructive"
           onClick={() => {
             window.localStorage.removeItem(STORAGE_KEY);
-            toast.success("Local data reset. Refresh to see defaults");
+            toast.success(t("profile.resetToast"));
           }}
         >
-          Reset local data
+          {t("profile.resetLocal")}
         </Button>
 
         {isClerkConfigured() ? <ClerkAwareSessionControls /> : <LocalLogoutButton />}
@@ -154,8 +165,12 @@ function CaregiverIdentityCard({
   persistNameToClerk?: (name: string) => Promise<void>;
 }) {
   const { update } = useAppStore();
+  const { t, locale, setLocale } = useI18n();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [localeWhenOpened, setLocaleWhenOpened] = useState<AppLocale>(locale);
+  const [countryWhenOpened, setCountryWhenOpened] = useState<string | null>(null);
+  const [draftCountry, setDraftCountry] = useState("");
   const [draft, setDraft] = useState<CaregiverProfileEdits>({
     name: "",
     role: "Parent",
@@ -163,9 +178,28 @@ function CaregiverIdentityCard({
     bio: "",
   });
 
+  const persistResidence = (code: string | null) => {
+    writeStoredResidence(code);
+    update((prev) => {
+      if (!prev.profile) return prev;
+      if (!code) {
+        const rest = { ...prev.profile };
+        delete rest.helpCountry;
+        return { ...prev, profile: rest };
+      }
+      return { ...prev, profile: { ...prev.profile, helpCountry: code } };
+    });
+  };
+
   if (!profile) return null;
 
+  const residence = listedCountryCode(profile.helpCountry);
+  const residenceCountry = residence ? getCountry(residence) : undefined;
+
   const startEdit = () => {
+    setLocaleWhenOpened(locale);
+    setCountryWhenOpened(residence);
+    setDraftCountry(residence ?? "");
     setDraft({
       name: profile.name,
       role: profile.role,
@@ -176,27 +210,39 @@ function CaregiverIdentityCard({
   };
 
   const cancelEdit = () => {
+    setLocale(localeWhenOpened);
+    persistResidence(countryWhenOpened);
     setEditing(false);
   };
 
   const save = async () => {
     const name = draft.name.trim();
     if (!name) {
-      toast.error("Please add your name");
+      toast.error(t("errors.nameRequired"));
       return;
     }
 
-    const next = applyCaregiverProfileEdits(profile, { ...draft, name });
-    update((prev) => ({ ...prev, profile: next }));
+    writeStoredResidence(draftCountry || null);
+    let savedName = name;
+    update((prev) => {
+      if (!prev.profile) return prev;
+      const next = {
+        ...applyCaregiverProfileEdits(prev.profile, { ...draft, name }),
+        locale,
+        ...(draftCountry ? { helpCountry: draftCountry } : {}),
+      };
+      savedName = next.name;
+      return { ...prev, profile: next };
+    });
     setSaving(true);
     try {
       if (persistNameToClerk) {
-        await persistNameToClerk(next.name);
+        await persistNameToClerk(savedName);
       }
-      toast.success("Profile saved");
+      toast.success(t("profile.saved"));
       setEditing(false);
     } catch {
-      toast.success("Saved on this device. Account name could not be updated yet.");
+      toast.success(t("profile.savedLocalOnly"));
       setEditing(false);
     } finally {
       setSaving(false);
@@ -218,6 +264,11 @@ function CaregiverIdentityCard({
                 </>
               ) : null}
             </p>
+            {residenceCountry ? (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {t("profile.livesIn", { country: countryName(residenceCountry, locale) })}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -231,7 +282,7 @@ function CaregiverIdentityCard({
         ) : null}
 
         <Button className="h-11 w-full" onClick={startEdit}>
-          <Pencil className="size-4" /> Edit profile
+          <Pencil className="size-4" /> {t("profile.editProfile")}
         </Button>
       </div>
     );
@@ -246,8 +297,53 @@ function CaregiverIdentityCard({
       }}
     >
       <div>
+        <label className={fieldLabelClass} htmlFor="app-language">
+          {t("language.label")}
+        </label>
+        <select
+          id="app-language"
+          className={selectClass}
+          value={locale}
+          onChange={(event) => {
+            const next = event.target.value;
+            if (isAppLocale(next)) setLocale(next);
+          }}
+        >
+          <option value="en">{t("language.en")}</option>
+          <option value="es">{t("language.es")}</option>
+        </select>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          {t("language.help")}
+        </p>
+      </div>
+      <div>
+        <label className={fieldLabelClass} htmlFor="caregiver-country">
+          {t("profile.countryLabel")}
+        </label>
+        <select
+          id="caregiver-country"
+          className={selectClass}
+          value={draftCountry}
+          onChange={(event) => {
+            const code = listedCountryCode(event.target.value);
+            setDraftCountry(code ?? "");
+            persistResidence(code);
+          }}
+        >
+          {draftCountry ? null : <option value="">{t("profile.countryPlaceholder")}</option>}
+          {sortedCountries(locale).map((country) => (
+            <option key={country.code} value={country.code}>
+              {countryName(country, locale)}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          {t("profile.countryHelp")}
+        </p>
+      </div>
+      <div>
         <label className={fieldLabelClass} htmlFor="caregiver-name">
-          Display name
+          {t("profile.displayName")}
         </label>
         <Input
           id="caregiver-name"
@@ -255,13 +351,13 @@ function CaregiverIdentityCard({
           value={draft.name}
           maxLength={80}
           autoComplete="name"
-          placeholder="Your name"
+          placeholder={t("profile.namePlaceholder")}
           onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
         />
       </div>
       <div>
         <label className={fieldLabelClass} htmlFor="caregiver-role">
-          Role
+          {t("profile.role")}
         </label>
         <select
           id="caregiver-role"
@@ -271,14 +367,14 @@ function CaregiverIdentityCard({
         >
           {ROLES.map((role) => (
             <option key={role} value={role}>
-              {role}
+              {t(ROLE_MESSAGE_KEY[role])}
             </option>
           ))}
         </select>
       </div>
       <div>
         <label className={fieldLabelClass} htmlFor="caregiver-location">
-          Location (optional)
+          {t("profile.location")}
         </label>
         <Input
           id="caregiver-location"
@@ -286,20 +382,20 @@ function CaregiverIdentityCard({
           value={draft.location}
           maxLength={80}
           autoComplete="address-level2"
-          placeholder="City or area"
+          placeholder={t("profile.locationPlaceholder")}
           onChange={(e) => setDraft((prev) => ({ ...prev, location: e.target.value }))}
         />
       </div>
       <div>
         <label className={fieldLabelClass} htmlFor="caregiver-bio">
-          Bio (optional)
+          {t("profile.bio")}
         </label>
         <Textarea
           id="caregiver-bio"
           className="min-h-24 text-base"
           value={draft.bio}
           maxLength={280}
-          placeholder="A short note about you"
+          placeholder={t("profile.bioPlaceholder")}
           onChange={(e) => setDraft((prev) => ({ ...prev, bio: e.target.value }))}
         />
         <p className="mt-1 text-right text-[11px] text-muted-foreground">{draft.bio.length}/280</p>
@@ -312,10 +408,10 @@ function CaregiverIdentityCard({
           onClick={cancelEdit}
           disabled={saving}
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
         <Button type="submit" className="h-11" disabled={saving || !draft.name.trim()}>
-          {saving ? "Saving…" : "Save"}
+          {saving ? t("common.saving") : t("common.save")}
         </Button>
       </div>
     </form>
@@ -324,6 +420,7 @@ function CaregiverIdentityCard({
 
 function LocalLogoutButton() {
   const { logout } = useAppStore();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   return (
@@ -335,7 +432,7 @@ function LocalLogoutButton() {
         void navigate({ to: "/sign-in" });
       }}
     >
-      <LogOut className="mr-1 size-4" /> Log out
+      <LogOut className="mr-1 size-4" /> {t("profile.logOut")}
     </Button>
   );
 }
@@ -349,13 +446,14 @@ function ClerkAwareSessionControls() {
 function ClerkAccountControls() {
   const { signOut, openUserProfile } = useClerk();
   const { logout } = useAppStore();
+  const { t } = useI18n();
 
   return (
     <div className="space-y-2">
       <div className="clerk-account-host soft-card flex items-center justify-between gap-3 p-4">
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-semibold">Account</p>
-          <p className="text-[11px] text-muted-foreground">Email, password, and session</p>
+          <p className="text-sm font-semibold">{t("profile.account")}</p>
+          <p className="text-[11px] text-muted-foreground">{t("profile.accountHint")}</p>
         </div>
         <UserButton
           userProfileMode="modal"
@@ -376,7 +474,7 @@ function ClerkAccountControls() {
         className="h-11 w-full"
         onClick={() => openUserProfile()}
       >
-        Manage account
+        {t("profile.manageAccount")}
       </Button>
       <Button
         variant="outline"
@@ -386,7 +484,7 @@ function ClerkAccountControls() {
           void signOut({ redirectUrl: withBasePath("/sign-in") });
         }}
       >
-        <LogOut className="mr-1 size-4" /> Log out
+        <LogOut className="mr-1 size-4" /> {t("profile.logOut")}
       </Button>
     </div>
   );

@@ -78,6 +78,8 @@ describe("profileFromClerkUser", () => {
       role: "Caregiver",
       location: "Utrecht",
       bio: "Edited bio",
+      locale: "es",
+      helpCountry: "NL",
     });
     const next = profileFromClerkUser(clerkUser(), existing);
     assert.equal(next.name, "Sam (edited)");
@@ -85,6 +87,8 @@ describe("profileFromClerkUser", () => {
     assert.equal(next.location, "Utrecht");
     assert.equal(next.bio, "Edited bio");
     assert.equal(next.clerkUserId, "user_123");
+    assert.equal(next.locale, "es");
+    assert.equal(next.helpCountry, "NL");
     assert.equal("childName" in next, false);
     assert.equal("childAge" in next, false);
   });

@@ -13,6 +13,7 @@ import {
   UserCheck,
 } from "lucide-react";
 
+import { useI18n } from "@/i18n/I18nProvider";
 import { useAppStore, uid, type Comment, type Article } from "@/lib/app-store";
 import { ScreenHeader, RoleTag, ProfileAvatar } from "./ui-bits";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export function CommunityTab({
   onArticle: (id: string) => void;
 }) {
   const { state, update, tryTemplate, toggleFollow, isFollowing } = useAppStore();
+  const { t } = useI18n();
   const [postId, setPostId] = useState<string | null>(null);
   const [tab, setTab] = useState<"posts" | "articles" | "schedules" | "following">("posts");
   const [articleOpen, setArticleOpen] = useState(false);
@@ -173,12 +175,12 @@ export function CommunityTab({
     update((prev) => ({ ...prev, posts: [post, ...prev.posts] }));
     setBody("");
     setOpen(false);
-    toast.success("Posted to the community");
+    toast.success(t("community.posted"));
   };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <ScreenHeader title="Community" subtitle="Connect with parents, therapists & creators" />
+      <ScreenHeader title={t("community.title")} subtitle={t("community.subtitle")} />
 
       <div className="space-y-3 border-b border-border bg-surface px-5 py-3 md:px-8">
         <div className="flex gap-2">
@@ -321,11 +323,7 @@ export function CommunityTab({
         {tab === "articles"
           ? articles.map((a) => (
               <div key={a.id} className="soft-card p-4">
-                <button
-                  type="button"
-                  onClick={() => onArticle(a.id)}
-                  className="text-left"
-                >
+                <button type="button" onClick={() => onArticle(a.id)} className="text-left">
                   <p className="text-sm font-bold leading-snug">{a.title}</p>
                   <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{a.excerpt}</p>
                 </button>
@@ -350,7 +348,12 @@ export function CommunityTab({
                       </p>
                     </div>
                   </button>
-                  <Button size="sm" variant="outline" className="h-7" onClick={() => onArticle(a.id)}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7"
+                    onClick={() => onArticle(a.id)}
+                  >
                     Read
                   </Button>
                 </div>
@@ -359,7 +362,9 @@ export function CommunityTab({
           : null}
 
         {tab === "articles" && !articles.length ? (
-          <p className="py-8 text-center text-sm text-muted-foreground md:col-span-2">No articles yet.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground md:col-span-2">
+            No articles yet.
+          </p>
         ) : null}
 
         {tab === "schedules"
@@ -400,7 +405,9 @@ export function CommunityTab({
           : null}
 
         {tab === "schedules" && !publicTemplates.length ? (
-          <p className="py-8 text-center text-sm text-muted-foreground md:col-span-2">No shared schedules yet.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground md:col-span-2">
+            No shared schedules yet.
+          </p>
         ) : null}
 
         {tab === "following" ? (
@@ -442,7 +449,9 @@ export function CommunityTab({
                           onClick={() => setPostId(p.id)}
                           className="w-full rounded-lg border border-border bg-card p-3 text-left hover:border-primary"
                         >
-                          <span className="tag-base bg-accent text-accent-foreground">{p.kind}</span>
+                          <span className="tag-base bg-accent text-accent-foreground">
+                            {p.kind}
+                          </span>
                           <pre className="mt-1 line-clamp-3 whitespace-pre-wrap font-sans text-xs leading-relaxed text-foreground">
                             {p.body}
                           </pre>
@@ -494,7 +503,9 @@ export function CommunityTab({
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>New post</DialogTitle>
-            <DialogDescription>Share a win, a question, or a tip with the community.</DialogDescription>
+            <DialogDescription>
+              Share a win, a question, or a tip with the community.
+            </DialogDescription>
           </DialogHeader>
           <Textarea
             value={body}

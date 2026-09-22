@@ -10,6 +10,7 @@ import {
   UserCheck,
 } from "lucide-react";
 
+import { useI18n } from "@/i18n/I18nProvider";
 import { useAppStore } from "@/lib/app-store";
 import { ScreenHeader, ProfileAvatar, RoleTag, SocialBar, SkillTag } from "./ui-bits";
 import { Button } from "@/components/ui/button";
@@ -26,15 +27,14 @@ export function ProfileView({
   onArticle?: (articleId: string) => void;
 }) {
   const { state, tryTemplate, toggleFollow, isFollowing } = useAppStore();
+  const { t } = useI18n();
   const [showing, setShowing] = useState<string | null>(null);
   const [activityId, setActivityId] = useState<string | null>(null);
 
   const member = state.members.find((m) => m.id === id) ?? state.profile;
   if (!member) return null;
 
-  const publicTemplates = state.templates.filter(
-    (t) => t.ownerId === member.id && t.isPublic,
-  );
+  const publicTemplates = state.templates.filter((t) => t.ownerId === member.id && t.isPublic);
   const publicPosts = state.posts.filter((p) => p.authorId === member.id);
   const memberArticles = state.articles.filter((a) => a.authorId === member.id);
 
@@ -46,14 +46,14 @@ export function ProfileView({
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader
-        title="Profile"
+        title={t("profile.title")}
         right={
           <button
             type="button"
             onClick={onBack}
             className="flex items-center gap-1 text-xs font-semibold text-muted-foreground"
           >
-            <ArrowLeft className="size-4" /> Back
+            <ArrowLeft className="size-4" /> {t("common.back")}
           </button>
         }
       />
@@ -81,11 +81,12 @@ export function ProfileView({
             >
               {isFollowing(member.id) ? (
                 <>
-                  <UserCheck className="size-4" /> Following
+                  <UserCheck className="size-4" /> {t("profile.following")}
                 </>
               ) : (
                 <>
-                  <UserPlus className="size-4" /> Follow {member.name.split(" ")[0]}
+                  <UserPlus className="size-4" />{" "}
+                  {t("profile.follow", { name: member.name.split(" ")[0] ?? member.name })}
                 </>
               )}
             </Button>
@@ -97,18 +98,18 @@ export function ProfileView({
           <div className="soft-card p-4">
             <BookmarkCheck className="mb-1 size-5 text-primary" />
             <p className="text-2xl font-bold">{publicTemplates.length}</p>
-            <p className="text-[11px] text-muted-foreground">Public routines</p>
+            <p className="text-[11px] text-muted-foreground">{t("profile.publicRoutines")}</p>
           </div>
           <div className="soft-card p-4">
             <Sparkles className="mb-1 size-5 text-warm" />
             <p className="text-2xl font-bold">{publicPosts.length}</p>
-            <p className="text-[11px] text-muted-foreground">Posts shared</p>
+            <p className="text-[11px] text-muted-foreground">{t("profile.postsShared")}</p>
           </div>
         </div>
 
         {memberArticles.length ? (
           <div className="soft-card p-4">
-            <h4 className="mb-2 text-sm font-semibold">Articles</h4>
+            <h4 className="mb-2 text-sm font-semibold">{t("profile.articles")}</h4>
             <div className="space-y-2">
               {memberArticles.map((a) => (
                 <button
@@ -120,7 +121,7 @@ export function ProfileView({
                   <p className="text-sm font-semibold leading-snug">{a.title}</p>
                   <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">{a.excerpt}</p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {a.readMinutes} min read · {a.likes} likes
+                    {t("profile.readMeta", { minutes: a.readMinutes, likes: a.likes })}
                   </p>
                 </button>
               ))}
@@ -130,43 +131,49 @@ export function ProfileView({
 
         {publicTemplates.length ? (
           <div className="soft-card p-4">
-            <h4 className="mb-2 text-sm font-semibold">Public routines</h4>
+            <h4 className="mb-2 text-sm font-semibold">{t("profile.publicRoutines")}</h4>
             <div className="space-y-2">
-              {publicTemplates.map((t) => (
-                <div key={t.id} className="rounded-lg border border-border bg-card p-3">
+              {publicTemplates.map((routine) => (
+                <div key={routine.id} className="rounded-lg border border-border bg-card p-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-semibold">{t.name}</p>
-                    <span className="tag-base bg-success/15 text-success">Public</span>
+                    <p className="text-sm font-semibold">{routine.name}</p>
+                    <span className="tag-base bg-success/15 text-success">
+                      {t("profile.public")}
+                    </span>
                   </div>
                   <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <CalendarDays className="size-3" /> {t.items.length} activities
+                    <CalendarDays className="size-3" />{" "}
+                    {t("profile.activityCount", { count: routine.items.length })}
                     <span className="mx-1">·</span>
                     <Clock className="size-3" />
-                    {t.items.reduce((a, i) => a + i.minutes, 0)} mins
+                    {t("profile.minutes", {
+                      count: routine.items.reduce((sum, item) => sum + item.minutes, 0),
+                    })}
                   </div>
                   <div className="mt-2 flex gap-2">
                     <Button
                       size="sm"
                       variant="outline"
                       className="h-7 flex-1"
-                      onClick={() => setShowing(showing === t.id ? null : t.id)}
+                      onClick={() => setShowing(showing === routine.id ? null : routine.id)}
                     >
-                      {showing === t.id ? "Hide" : "View"}
+                      {showing === routine.id ? t("profile.hide") : t("profile.view")}
                     </Button>
-                    <Button size="sm" className="h-7 flex-1" onClick={() => load(t.id)}>
-                      Try it
+                    <Button size="sm" className="h-7 flex-1" onClick={() => load(routine.id)}>
+                      {t("profile.tryIt")}
                     </Button>
                   </div>
-                  {showing === t.id ? (
+                  {showing === routine.id ? (
                     <ol className="mt-2 space-y-1 border-t border-border pt-2">
-                      {t.items.map((i) => (
-                        <li key={i.id} className="text-xs text-muted-foreground">
+                      {routine.items.map((item) => (
+                        <li key={item.id} className="text-xs text-muted-foreground">
                           <button
                             type="button"
-                            onClick={() => setActivityId(i.activityId)}
+                            onClick={() => setActivityId(item.activityId)}
                             className="text-left underline-offset-2 hover:text-primary hover:underline"
                           >
-                            <span className="font-semibold text-foreground">{i.title}</span> ({i.minutes} mins)
+                            <span className="font-semibold text-foreground">{item.title}</span> (
+                            {t("profile.minutes", { count: item.minutes })})
                           </button>
                         </li>
                       ))}
@@ -180,7 +187,7 @@ export function ProfileView({
 
         {publicPosts.length ? (
           <div className="soft-card p-4">
-            <h4 className="mb-2 text-sm font-semibold">Latest posts</h4>
+            <h4 className="mb-2 text-sm font-semibold">{t("profile.latestPosts")}</h4>
             <div className="space-y-2">
               {publicPosts.map((p) => (
                 <div key={p.id} className="rounded-lg border border-border bg-card p-3">
@@ -198,7 +205,7 @@ export function ProfileView({
 
         {member.favouriteActivityIds?.length ? (
           <div className="soft-card p-4">
-            <h4 className="mb-2 text-sm font-semibold">Favourite activities</h4>
+            <h4 className="mb-2 text-sm font-semibold">{t("profile.favouriteActivities")}</h4>
             <div className="flex flex-wrap gap-1.5">
               {member.favouriteActivityIds.map((aid: string) => {
                 const act = state.activities.find((a) => a.id === aid);

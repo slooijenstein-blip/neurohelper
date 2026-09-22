@@ -77,6 +77,10 @@ export type Profile = {
   followers?: string[];
   /** Clerk user id when this profile is tied to a real session */
   clerkUserId?: string;
+  /** UI language. `es` is Spanish (Spain). */
+  locale?: "en" | "es";
+  /** ISO country the caregiver lives in. Help opens on this country. */
+  helpCountry?: string;
 };
 
 
