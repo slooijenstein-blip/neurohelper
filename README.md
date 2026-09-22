@@ -23,6 +23,8 @@ How Sam tests (one browser, role switcher):
 2. **Library** → Create / Edit plan → **Add activity or custom step** → same catalog picker with details.
 3. **Library** → **Browse activities (details)** → open any activity → **Add to today’s plan** or **Add to a Library plan…**
 
+In Library, tap a template name (or the chevron) to expand the steps in place. The ⋯ menu and **Apply to days…** stay on the row. Tap a step to open its details.
+
 Helpers only mark Done; they cannot add or edit.
 
 Clerk sign-in still works when `VITE_CLERK_PUBLISHABLE_KEY` is set. Prototype personas stay available so the preview is walkable without three accounts.

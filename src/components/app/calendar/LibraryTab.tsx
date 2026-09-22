@@ -1,4 +1,13 @@
-import { Copy, MoreHorizontal, Pencil, Plus, Search, Trash2, UserRoundSearch } from "lucide-react";
+import {
+  ChevronRight,
+  Copy,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  UserRoundSearch,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -21,6 +30,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { canManageLibrary } from "@/lib/calendar/permissions";
 import { thisWeekDates, useCalendarStore } from "@/lib/calendar/store";
 import type { LibraryPlan, PlanStep } from "@/lib/calendar/types";
+import { cn } from "@/lib/utils";
 import { ScreenHeader } from "../ui-bits";
 import { ActivityPickerDialog } from "./ActivityPickerDialog";
 import { BrowseActivitiesPanel } from "./BrowseActivitiesPanel";
@@ -53,6 +63,7 @@ export function LibraryTab({
   const [patientPicker, setPatientPicker] = useState<LibraryPlan | null>(null);
   const [patientQuery, setPatientQuery] = useState("");
   const [weekdayMask, setWeekdayMask] = useState([true, true, true, true, true, false, false]);
+  const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
 
   const canManage = canManageLibrary(role) || cal.activePerson.appRole === "therapist";
 
@@ -125,80 +136,127 @@ export function LibraryTab({
     }
   };
 
-  const PlanCard = ({ plan, badge }: { plan: LibraryPlan; badge?: string }) => (
-    <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{plan.name}</p>
-          <p className="text-[11px] text-muted-foreground">
-            {t("calendar.library.stepCount", { count: plan.steps.length })}
-            {badge ? ` · ${badge}` : ""}
-          </p>
-        </div>
-        {canManage ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0">
-                <MoreHorizontal className="size-4" />
-                <span className="sr-only">{t("calendar.library.menu")}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => openEdit(plan)}>
-                <Pencil className="mr-2 size-4" /> {t("common.edit")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => {
-                  cal.duplicateLibraryPlan(plan.id);
-                  toast.success(t("calendar.library.duplicated"));
-                }}
-              >
-                <Copy className="mr-2 size-4" /> {t("calendar.library.duplicate")}
-              </DropdownMenuItem>
-              {cal.activePerson.appRole === "therapist" && plan.childId === null ? (
-                <DropdownMenuItem onClick={() => setPatientPicker(plan)}>
-                  <UserRoundSearch className="mr-2 size-4" /> {t("calendar.library.useForPatient")}
+  const PlanCard = ({ plan, badge }: { plan: LibraryPlan; badge?: string }) => {
+    const open = Boolean(expandedIds[plan.id]);
+    const totalMinutes = plan.steps.reduce((sum, step) => sum + (step.minutes || 0), 0);
+    return (
+      <div className="rounded-2xl bg-card p-4 ring-1 ring-border">
+        <div className="flex items-start justify-between gap-2">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-label={t(open ? "calendar.library.collapse" : "calendar.library.expand", {
+              name: plan.name,
+            })}
+            onClick={() =>
+              setExpandedIds((prev) => ({
+                ...prev,
+                [plan.id]: !prev[plan.id],
+              }))
+            }
+            className="flex min-w-0 flex-1 items-start gap-2 rounded-xl text-left hover:bg-muted/40"
+          >
+            <ChevronRight
+              className={cn(
+                "mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform",
+                open && "rotate-90",
+              )}
+              aria-hidden
+            />
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold">{plan.name}</span>
+              <span className="block text-[11px] text-muted-foreground">
+                {t("calendar.library.stepCount", { count: plan.steps.length })}
+                {totalMinutes > 0
+                  ? ` · ${t("calendar.library.minutesTotal", { count: totalMinutes })}`
+                  : ""}
+                {badge ? ` · ${badge}` : ""}
+              </span>
+            </span>
+          </button>
+          {canManage ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button type="button" size="icon" variant="ghost" className="size-8 shrink-0">
+                  <MoreHorizontal className="size-4" />
+                  <span className="sr-only">{t("calendar.library.menu")}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => openEdit(plan)}>
+                  <Pencil className="mr-2 size-4" /> {t("common.edit")}
                 </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => {
-                  cal.deleteLibraryPlan(plan.id);
-                  toast.success(t("calendar.library.deleted"));
-                }}
-              >
-                <Trash2 className="mr-2 size-4" /> {t("common.delete")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuItem
+                  onClick={() => {
+                    cal.duplicateLibraryPlan(plan.id);
+                    toast.success(t("calendar.library.duplicated"));
+                  }}
+                >
+                  <Copy className="mr-2 size-4" /> {t("calendar.library.duplicate")}
+                </DropdownMenuItem>
+                {cal.activePerson.appRole === "therapist" && plan.childId === null ? (
+                  <DropdownMenuItem onClick={() => setPatientPicker(plan)}>
+                    <UserRoundSearch className="mr-2 size-4" /> {t("calendar.library.useForPatient")}
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => {
+                    cal.deleteLibraryPlan(plan.id);
+                    toast.success(t("calendar.library.deleted"));
+                  }}
+                >
+                  <Trash2 className="mr-2 size-4" /> {t("common.delete")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+        </div>
+        {open ? (
+          <ol className="mt-3 space-y-1.5 border-t border-border pt-3">
+            {plan.steps.map((step, index) => {
+              const detail = step.description || step.notes;
+              return (
+                <li key={step.id}>
+                  <button
+                    type="button"
+                    onClick={() => setDetailStep(step)}
+                    className="w-full rounded-xl px-2 py-2 text-left hover:bg-muted/60"
+                  >
+                    <span className="block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                      {t("calendar.today.step", { n: index + 1 })}
+                      {step.minutes ? ` · ${step.minutes}m` : ""}
+                      {step.activityId ? ` · ${t("calendar.today.fromCatalog")}` : ""}
+                    </span>
+                    <span className="block text-sm font-semibold">{step.title}</span>
+                    {detail ? (
+                      <span className="mt-0.5 block line-clamp-2 text-xs text-muted-foreground">
+                        {detail}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              );
+            })}
+            {plan.steps.length === 0 ? (
+              <li className="px-2 text-xs text-muted-foreground">{t("calendar.library.noDetails")}</li>
+            ) : null}
+          </ol>
+        ) : null}
+        {child && canManage ? (
+          <Button
+            type="button"
+            size="sm"
+            className="mt-3 w-full"
+            variant={applyMode ? "default" : "outline"}
+            onClick={() => setApplyTarget(plan)}
+          >
+            {t("calendar.library.apply")}
+          </Button>
         ) : null}
       </div>
-      <ul className="mt-2 space-y-1">
-        {plan.steps.slice(0, 3).map((s) => (
-          <li key={s.id} className="truncate text-xs text-muted-foreground">
-            · {s.title}
-            {s.activityId ? ` (${t("calendar.today.fromCatalog")})` : ""}
-          </li>
-        ))}
-        {plan.steps.length > 3 ? (
-          <li className="text-xs text-muted-foreground">
-            {t("calendar.library.moreSteps", { count: plan.steps.length - 3 })}
-          </li>
-        ) : null}
-      </ul>
-      {child && canManage ? (
-        <Button
-          type="button"
-          size="sm"
-          className="mt-3 w-full"
-          variant={applyMode ? "default" : "outline"}
-          onClick={() => setApplyTarget(plan)}
-        >
-          {t("calendar.library.apply")}
-        </Button>
-      ) : null}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -373,9 +431,13 @@ export function LibraryTab({
         step={detailStep}
         open={!!detailStep}
         onOpenChange={(o) => !o && setDetailStep(null)}
-        canEdit={canManage}
+        canEdit={
+          Boolean(detailStep) &&
+          (creating || !!editor) &&
+          draftSteps.some((s) => s.id === detailStep?.id)
+        }
         onChangeActivity={
-          detailStep
+          detailStep && (creating || editor) && draftSteps.some((s) => s.id === detailStep.id)
             ? () => {
                 const idx = draftSteps.findIndex((s) => s.id === detailStep.id);
                 setEditStepIndex(idx >= 0 ? idx : null);
