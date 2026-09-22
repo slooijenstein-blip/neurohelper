@@ -3,13 +3,14 @@ import { nid, type PlanStep } from "./types.ts";
 
 /** Build a plan step from a catalog activity (details preserved via activityId). */
 export function planStepFromActivity(activity: Activity, keepId?: string): PlanStep {
+  const canonical = ACTIVITIES.find((item) => item.id === activity.id) ?? activity;
   return {
     id: keepId ?? nid("st"),
-    title: activity.title,
-    notes: activity.description,
-    description: activity.description,
-    minutes: activity.minMinutes,
-    activityId: activity.id,
+    title: canonical.title,
+    notes: canonical.description,
+    description: canonical.description,
+    minutes: canonical.minMinutes,
+    activityId: canonical.id,
   };
 }
 

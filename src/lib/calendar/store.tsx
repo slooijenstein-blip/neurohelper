@@ -97,7 +97,7 @@ function loadState(): CalendarState {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return createSeedState();
     const parsed = JSON.parse(raw) as CalendarState;
-    if (parsed?.v !== 2 || !Array.isArray(parsed.people)) return createSeedState();
+    if (parsed?.v !== 3 || !Array.isArray(parsed.people)) return createSeedState();
     return {
       ...parsed,
       libraryPlans: (parsed.libraryPlans ?? []).map((p) => ({
@@ -307,6 +307,7 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
             childId,
             date,
             name: plan.name,
+            nameKey: plan.nameKey ?? null,
             libraryPlanId: plan.id,
             steps: toDaySteps(plan.steps),
             tweaked: false,
@@ -339,6 +340,7 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
             ? {
                 ...p,
                 name: patch.name ?? p.name,
+                nameKey: patch.name && patch.name !== p.name ? null : (p.nameKey ?? null),
                 steps: patch.steps ? cloneSteps(patch.steps) : p.steps,
                 updatedAt: new Date().toISOString(),
               }
@@ -353,6 +355,7 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
         ...source,
         id: nid("lib"),
         name: `${source.name} (copy)`,
+        nameKey: null,
         steps: cloneSteps(source.steps),
         updatedAt: new Date().toISOString(),
       };
@@ -375,6 +378,7 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
         id: nid("lib"),
         ownerId: activePerson.id,
         name: master.name,
+        nameKey: master.nameKey ?? null,
         steps: cloneSteps(master.steps),
         childId,
         sourceTemplateId: master.id,
@@ -425,6 +429,7 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
           childId,
           date,
           name: "Today’s plan",
+          nameKey: "calendar.today.customPlan",
           libraryPlanId: null,
           steps: [dayStep],
           tweaked: true,
@@ -496,6 +501,7 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
               ? {
                   ...p,
                   name: day.name,
+                  nameKey: day.nameKey ?? p.nameKey ?? null,
                   steps: day.steps.map(({ done: _d, ...rest }) => ({ ...rest, id: nid("st") })),
                   updatedAt: new Date().toISOString(),
                 }
@@ -511,6 +517,7 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
         id: nid("lib"),
         ownerId: activePerson.id,
         name: day.name,
+        nameKey: day.nameKey ?? null,
         steps: day.steps.map(({ done: _d, ...rest }) => ({ ...rest, id: nid("st") })),
         childId,
         sourceTemplateId: null,

@@ -198,6 +198,16 @@ export const es: DeepString<Messages> = {
     count: "{{count}} actividades",
     search: "Buscar actividades",
     added: "{{title}} añadida al horario de hoy",
+    durationExact: "{{count}} min",
+    durationRange: "{{min}}–{{max}} min",
+    skills: {
+      sensory: "Juego sensorial",
+      motor: "Motricidad",
+      communication: "Comunicación",
+      social: "Habilidades sociales",
+      cognitive: "Cognitivo",
+      selfCare: "Autonomía",
+    },
   },
   community: {
     title: "Comunidad",
@@ -292,6 +302,14 @@ export const es: DeepString<Messages> = {
       sat: "Sáb",
       sun: "Dom",
     },
+    templates: {
+      calmHour: "Hora tranquila de la tarde",
+      morning: "Rutina de la mañana",
+      movement: "Pausa de sensorial y movimiento",
+      homework: "Bajada después de los deberes",
+      fineMotor: "Práctica de motricidad fina",
+      evening: "Bajada de la noche",
+    },
     ageBands: {
       "1_2": "1–2 años",
       "3_5": "3–5 años",
@@ -327,6 +345,7 @@ export const es: DeepString<Messages> = {
       stepAdded: "Se añadió {{title}}",
       stepUpdated: "Paso actualizado",
       stepRemoved: "Paso eliminado",
+      customPlan: "Plan de hoy",
     },
     helper: {
       waitingTitle: "Esperando una invitación",

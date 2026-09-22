@@ -13,13 +13,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { useI18n } from "@/i18n/I18nProvider";
-import {
-  ACTIVITIES,
-  SKILLS,
-  formatActivityDuration,
-  type Activity,
-  type Skill,
-} from "@/lib/activities-data";
+import { ACTIVITIES, SKILLS, type Activity, type Skill } from "@/lib/activities-data";
+import { localizedActivity, localizedCatalog, presentPlanName, skillMessageKey } from "@/lib/activity-locale";
 import { planStepFromActivity } from "@/lib/calendar/activity-steps";
 import { toDateKey, useCalendarStore } from "@/lib/calendar/store";
 import { canEditPlan, canManageLibrary } from "@/lib/calendar/permissions";
@@ -27,13 +22,13 @@ import { AgeTag, DurationTag, ScreenHeader, SkillTag } from "../ui-bits";
 import { cn } from "@/lib/utils";
 
 export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const cal = useCalendarStore();
   const [range, setRange] = useState<number[]>([1, 10]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [query, setQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [detail, setDetail] = useState<Activity | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [pickPlanOpen, setPickPlanOpen] = useState(false);
 
   const role = cal.roleOnSelected;
@@ -42,17 +37,24 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
     canManageLibrary(role) || cal.activePerson.appRole === "therapist";
   const libraryPlans = cal.visibleLibrary(cal.selectedChild?.id ?? null);
 
-  const results = useMemo(
-    () =>
-      ACTIVITIES.filter((a) => a.maxAge >= (range[0] ?? 1) && a.minAge <= (range[1] ?? 10))
-        .filter((a) => (skills.length ? skills.includes(a.skill) : true))
-        .filter((a) =>
-          query.trim()
-            ? (a.title + a.description).toLowerCase().includes(query.trim().toLowerCase())
-            : true,
-        ),
-    [range, skills, query],
-  );
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return localizedCatalog(locale)
+      .filter((a) => a.maxAge >= (range[0] ?? 1) && a.minAge <= (range[1] ?? 10))
+      .filter((a) => (skills.length ? skills.includes(a.skill) : true))
+      .filter((a) => {
+        if (!q) return true;
+        const raw = ACTIVITIES.find((item) => item.id === a.id);
+        const haystack = `${a.title} ${a.description} ${raw?.title ?? ""} ${raw?.description ?? ""} ${t(skillMessageKey(a.skill))}`;
+        return haystack.toLowerCase().includes(q);
+      });
+  }, [range, skills, query, locale, t]);
+
+  const detail = useMemo(() => {
+    if (!detailId) return null;
+    const raw = ACTIVITIES.find((activity) => activity.id === detailId);
+    return raw ? localizedActivity(raw, locale) : null;
+  }, [detailId, locale]);
 
   const toggleSkill = (s: Skill) =>
     setSkills((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
@@ -64,7 +66,7 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
     }
     cal.addDayStep(cal.selectedChild.id, toDateKey(new Date()), planStepFromActivity(a));
     toast.success(t("calendar.browse.addedToday", { title: a.title }));
-    setDetail(null);
+    setDetailId(null);
   };
 
   const addToPlan = (planId: string, a: Activity) => {
@@ -73,11 +75,11 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
     toast.success(
       t("calendar.browse.addedLibrary", {
         title: a.title,
-        plan: plan?.name ?? "",
+        plan: plan ? presentPlanName(plan, t) : "",
       }),
     );
     setPickPlanOpen(false);
-    setDetail(null);
+    setDetailId(null);
   };
 
   return (
@@ -135,7 +137,7 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
                     : "bg-muted text-muted-foreground",
                 )}
               >
-                {s}
+                {t(skillMessageKey(s))}
               </button>
             ))}
           </div>
@@ -147,7 +149,7 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
           <button
             key={a.id}
             type="button"
-            onClick={() => setDetail(a)}
+            onClick={() => setDetailId(a.id)}
             className="w-full rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-border hover:bg-muted/40"
           >
             <p className="text-sm font-semibold">{a.title}</p>
@@ -166,7 +168,7 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
         ) : null}
       </div>
 
-      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetailId(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{detail?.title}</DialogTitle>
@@ -218,9 +220,6 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
                   {t("calendar.browse.addLibrary")}
                 </Button>
               ) : null}
-              <p className="text-[11px] text-muted-foreground">
-                {formatActivityDuration(detail.minMinutes, detail.maxMinutes)}
-              </p>
             </div>
           ) : null}
         </DialogContent>
@@ -240,7 +239,7 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
                 className="flex w-full items-center justify-between rounded-xl bg-muted/60 px-3 py-2 text-left text-sm font-semibold hover:bg-muted"
                 onClick={() => detail && addToPlan(p.id, detail)}
               >
-                <span>{p.name}</span>
+                <span>{presentPlanName(p, t)}</span>
                 <span className="text-[11px] text-muted-foreground">
                   {t("calendar.library.stepCount", { count: p.steps.length })}
                 </span>

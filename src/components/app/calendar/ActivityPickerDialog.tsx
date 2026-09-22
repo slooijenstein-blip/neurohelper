@@ -11,11 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
-import {
-  ACTIVITIES,
-  formatActivityDuration,
-  type Activity,
-} from "@/lib/activities-data";
+import { ACTIVITIES } from "@/lib/activities-data";
+import { localizedActivity, skillMessageKey } from "@/lib/activity-locale";
 import {
   customPlanStep,
   planStepFromActivity,
@@ -37,27 +34,36 @@ export function ActivityPickerDialog({
   onPick: (step: PlanStep) => void;
   title?: string;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [mode, setMode] = useState<Mode>("catalog");
   const [query, setQuery] = useState("");
-  const [preview, setPreview] = useState<Activity | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const [customTitle, setCustomTitle] = useState("");
   const [customMinutes, setCustomMinutes] = useState("10");
   const [customNotes, setCustomNotes] = useState("");
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return ACTIVITIES.filter((a) =>
-      !q
-        ? true
-        : (a.title + a.description + a.skill).toLowerCase().includes(q),
-    ).slice(0, 40);
-  }, [query]);
+    return ACTIVITIES.map((activity) => localizedActivity(activity, locale))
+      .filter((a) => {
+        if (!q) return true;
+        const raw = ACTIVITIES.find((item) => item.id === a.id);
+        const haystack = `${a.title} ${a.description} ${raw?.title ?? ""} ${raw?.description ?? ""} ${t(skillMessageKey(a.skill))} ${a.skill}`;
+        return haystack.toLowerCase().includes(q);
+      })
+      .slice(0, 40);
+  }, [query, locale, t]);
+
+  const preview = useMemo(() => {
+    if (!previewId) return null;
+    const raw = ACTIVITIES.find((activity) => activity.id === previewId);
+    return raw ? localizedActivity(raw, locale) : null;
+  }, [previewId, locale]);
 
   const reset = () => {
     setMode("catalog");
     setQuery("");
-    setPreview(null);
+    setPreviewId(null);
     setCustomTitle("");
     setCustomMinutes("10");
     setCustomNotes("");
@@ -93,7 +99,7 @@ export function ActivityPickerDialog({
             type="button"
             onClick={() => {
               setMode("custom");
-              setPreview(null);
+              setPreviewId(null);
             }}
             className={cn(
               "rounded-full px-3 py-1 text-xs font-bold",
@@ -125,7 +131,7 @@ export function ActivityPickerDialog({
                 <button
                   type="button"
                   className="text-xs font-semibold text-primary"
-                  onClick={() => setPreview(null)}
+                  onClick={() => setPreviewId(null)}
                 >
                   {t("common.back")}
                 </button>
@@ -181,16 +187,17 @@ export function ActivityPickerDialog({
                   <button
                     key={a.id}
                     type="button"
-                    onClick={() => setPreview(a)}
+                    onClick={() => setPreviewId(a.id)}
                     className="w-full rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-border transition-colors hover:bg-muted/50"
                   >
                     <p className="text-sm font-semibold">{a.title}</p>
                     <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                       {a.description}
                     </p>
-                    <p className="mt-1 text-[11px] font-semibold text-muted-foreground">
-                      {a.skill} · {formatActivityDuration(a.minMinutes, a.maxMinutes)}
-                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      <SkillTag skill={a.skill} />
+                      <DurationTag minMinutes={a.minMinutes} maxMinutes={a.maxMinutes} />
+                    </div>
                   </button>
                 ))}
                 {results.length === 0 ? (

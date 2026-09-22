@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/I18nProvider";
+import { localizedActivity } from "@/lib/activity-locale";
 import { resolveActivity } from "@/lib/calendar/activity-steps";
 import type { DayStep, PlanStep } from "@/lib/calendar/types";
 import { AgeTag, DurationTag, SkillTag } from "../ui-bits";
@@ -30,14 +31,20 @@ export function StepDetailDialog({
   onChangeActivity?: () => void;
   onRemove?: () => void;
 }) {
-  const { t } = useI18n();
-  const activity = step ? resolveActivity(step.activityId) : null;
+  const { t, locale } = useI18n();
+  const raw = step ? resolveActivity(step.activityId) : null;
+  const activity = raw ? localizedActivity(raw, locale) : null;
+  const shown = step
+    ? activity
+      ? { title: activity.title, description: activity.description }
+      : { title: step.title, description: step.description || step.notes || "" }
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{step?.title ?? t("calendar.stepDetail.title")}</DialogTitle>
+          <DialogTitle>{shown?.title ?? t("calendar.stepDetail.title")}</DialogTitle>
           <DialogDescription>
             {activity
               ? t("calendar.stepDetail.fromCatalog")
@@ -47,9 +54,7 @@ export function StepDetailDialog({
 
         {step ? (
           <div className="space-y-4 text-sm">
-            <p className="text-muted-foreground">
-              {activity?.description ?? step.description ?? step.notes}
-            </p>
+            <p className="text-muted-foreground">{shown?.description}</p>
 
             <div className="flex flex-wrap gap-1.5">
               {activity ? (

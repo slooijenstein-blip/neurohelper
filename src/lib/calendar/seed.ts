@@ -38,6 +38,7 @@ function dayStepsFrom(plan: LibraryPlan): DayStep[] {
 function master(
   id: string,
   name: string,
+  nameKey: string,
   activityIds: readonly string[],
   ownerId: string,
 ): LibraryPlan {
@@ -45,6 +46,7 @@ function master(
     id,
     ownerId,
     name,
+    nameKey,
     steps: stepsFromCatalog(activityIds),
     childId: null,
     sourceTemplateId: null,
@@ -111,30 +113,35 @@ export function createSeedState(): CalendarState {
   const calm = master(
     MASTER_CALM,
     "Weekday afternoon calm hour",
+    "calendar.templates.calmHour",
     THERAPIST_TEMPLATE_ACTIVITIES["Weekday afternoon calm hour"],
     THERAPIST_ID,
   );
   const morning = master(
     "lib_morning_ready",
     "Morning ready routine",
+    "calendar.templates.morning",
     THERAPIST_TEMPLATE_ACTIVITIES["Morning ready routine"],
     THERAPIST_ID,
   );
   const movement = master(
     "lib_sensory_movement",
     "Sensory and movement break",
+    "calendar.templates.movement",
     THERAPIST_TEMPLATE_ACTIVITIES["Sensory and movement break"],
     THERAPIST_ID,
   );
   const homework = master(
     "lib_homework_winddown",
     "Homework wind-down",
+    "calendar.templates.homework",
     THERAPIST_TEMPLATE_ACTIVITIES["Homework wind-down"],
     THERAPIST_ID,
   );
   const fineMotor = master(
     "lib_fine_motor",
     "Fine motor practice",
+    "calendar.templates.fineMotor",
     THERAPIST_TEMPLATE_ACTIVITIES["Fine motor practice"],
     THERAPIST_ID,
   );
@@ -143,6 +150,7 @@ export function createSeedState(): CalendarState {
     id: "lib_alex_calm",
     ownerId: THERAPIST_ID,
     name: calm.name,
+    nameKey: calm.nameKey ?? null,
     steps: cloneSteps(calm.steps),
     childId: CHILD_ALEX,
     sourceTemplateId: MASTER_CALM,
@@ -152,12 +160,13 @@ export function createSeedState(): CalendarState {
   const parentEvening = master(
     "lib_sam_evening",
     "Evening wind-down",
+    "calendar.templates.evening",
     PARENT_EVENING_ACTIVITIES,
     PARENT_ID,
   );
 
   return {
-    v: 2,
+    v: 3,
     activePersonId: THERAPIST_ID,
     people: [
       {
@@ -226,6 +235,7 @@ export function createSeedState(): CalendarState {
         childId: CHILD_ALEX,
         date: today,
         name: alexCopy.name,
+        nameKey: alexCopy.nameKey ?? null,
         libraryPlanId: alexCopy.id,
         steps: dayStepsFrom(alexCopy),
         tweaked: false,

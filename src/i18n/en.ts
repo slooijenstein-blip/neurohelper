@@ -190,6 +190,16 @@ export const en = {
     count: "{{count}} activities",
     search: "Search activities",
     added: "{{title}} added to today's schedule",
+    durationExact: "{{count}} mins",
+    durationRange: "{{min}}–{{max}} mins",
+    skills: {
+      sensory: "Sensory Play",
+      motor: "Motor Skills",
+      communication: "Communication",
+      social: "Social Skills",
+      cognitive: "Cognitive",
+      selfCare: "Self-Care",
+    },
   },
   community: {
     title: "Community",
@@ -284,6 +294,14 @@ export const en = {
       sat: "Sat",
       sun: "Sun",
     },
+    templates: {
+      calmHour: "Weekday afternoon calm hour",
+      morning: "Morning ready routine",
+      movement: "Sensory and movement break",
+      homework: "Homework wind-down",
+      fineMotor: "Fine motor practice",
+      evening: "Evening wind-down",
+    },
     ageBands: {
       "1_2": "1–2 years",
       "3_5": "3–5 years",
@@ -319,6 +337,7 @@ export const en = {
       stepAdded: "Added {{title}}",
       stepUpdated: "Step updated",
       stepRemoved: "Step removed",
+      customPlan: "Today’s plan",
     },
     helper: {
       waitingTitle: "Waiting for an invite",

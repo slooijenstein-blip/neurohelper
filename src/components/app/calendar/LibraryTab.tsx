@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
+import { presentPlanName, presentPlanStep } from "@/lib/activity-locale";
 import { canManageLibrary } from "@/lib/calendar/permissions";
 import { thisWeekDates, useCalendarStore } from "@/lib/calendar/store";
 import type { LibraryPlan, PlanStep } from "@/lib/calendar/types";
@@ -43,7 +44,7 @@ export function LibraryTab({
   applyMode?: boolean;
   onApplied?: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const cal = useCalendarStore();
   const child = cal.selectedChild;
   const role = cal.roleOnSelected;
@@ -86,7 +87,7 @@ export function LibraryTab({
   const openEdit = (plan: LibraryPlan) => {
     setCreating(false);
     setEditor(plan);
-    setDraftName(plan.name);
+    setDraftName(presentPlanName(plan, t));
     setDraftSteps(plan.steps.map((s) => ({ ...s })));
   };
 
@@ -97,7 +98,12 @@ export function LibraryTab({
       return;
     }
     if (editor) {
-      cal.updateLibraryPlan(editor.id, { name: draftName, steps });
+      const shown = presentPlanName(editor, t);
+      const keepKey = Boolean(editor.nameKey) && draftName.trim() === shown;
+      cal.updateLibraryPlan(editor.id, {
+        name: keepKey ? editor.name : draftName,
+        steps,
+      });
       toast.success(t("calendar.library.updated"));
     } else {
       cal.createLibraryPlan(
@@ -122,7 +128,7 @@ export function LibraryTab({
       return;
     }
     cal.applyLibraryPlan(plan.id, child.id, dates);
-    toast.success(t("calendar.library.applied", { name: plan.name }));
+    toast.success(t("calendar.library.applied", { name: presentPlanName(plan, t) }));
     setApplyTarget(null);
     onApplied?.();
   };
@@ -146,7 +152,7 @@ export function LibraryTab({
             type="button"
             aria-expanded={open}
             aria-label={t(open ? "calendar.library.collapse" : "calendar.library.expand", {
-              name: plan.name,
+              name: presentPlanName(plan, t),
             })}
             onClick={() =>
               setExpandedIds((prev) => ({
@@ -164,7 +170,9 @@ export function LibraryTab({
               aria-hidden
             />
             <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold">{plan.name}</span>
+              <span className="block truncate text-sm font-semibold">
+                {presentPlanName(plan, t)}
+              </span>
               <span className="block text-[11px] text-muted-foreground">
                 {t("calendar.library.stepCount", { count: plan.steps.length })}
                 {totalMinutes > 0
@@ -215,7 +223,7 @@ export function LibraryTab({
         {open ? (
           <ol className="mt-3 space-y-1.5 border-t border-border pt-3">
             {plan.steps.map((step, index) => {
-              const detail = step.description || step.notes;
+              const shown = presentPlanStep(step, locale);
               return (
                 <li key={step.id}>
                   <button
@@ -225,13 +233,15 @@ export function LibraryTab({
                   >
                     <span className="block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                       {t("calendar.today.step", { n: index + 1 })}
-                      {step.minutes ? ` · ${step.minutes}m` : ""}
+                      {step.minutes
+                        ? ` · ${t("activities.durationExact", { count: step.minutes })}`
+                        : ""}
                       {step.activityId ? ` · ${t("calendar.today.fromCatalog")}` : ""}
                     </span>
-                    <span className="block text-sm font-semibold">{step.title}</span>
-                    {detail ? (
+                    <span className="block text-sm font-semibold">{shown.title}</span>
+                    {shown.description ? (
                       <span className="mt-0.5 block line-clamp-2 text-xs text-muted-foreground">
-                        {detail}
+                        {shown.description}
                       </span>
                     ) : null}
                   </button>
@@ -345,17 +355,21 @@ export function LibraryTab({
               placeholder={t("calendar.library.namePlaceholder")}
             />
             <div className="space-y-2">
-              {draftSteps.map((step, idx) => (
+              {draftSteps.map((step, idx) => {
+                const shown = presentPlanStep(step, locale);
+                return (
                 <button
                   key={step.id}
                   type="button"
                   onClick={() => setDetailStep(step)}
                   className="w-full rounded-xl bg-muted/50 px-3 py-2 text-left"
                 >
-                  <p className="text-sm font-semibold">{step.title}</p>
+                  <p className="text-sm font-semibold">{shown.title}</p>
                   <p className="line-clamp-2 text-xs text-muted-foreground">
-                    {step.description || step.notes || t("calendar.library.noDetails")}
-                    {step.minutes ? ` · ${step.minutes}m` : ""}
+                    {shown.description || t("calendar.library.noDetails")}
+                    {step.minutes
+                      ? ` · ${t("activities.durationExact", { count: step.minutes })}`
+                      : ""}
                   </p>
                   <div className="mt-2 flex gap-2">
                     <span
@@ -396,7 +410,8 @@ export function LibraryTab({
                     </span>
                   </div>
                 </button>
-              ))}
+                );
+              })}
             </div>
             <Button
               type="button"
@@ -453,7 +468,9 @@ export function LibraryTab({
           <DialogHeader>
             <DialogTitle>{t("calendar.library.applyTitle")}</DialogTitle>
             <DialogDescription>
-              {t("calendar.library.applyBody", { name: applyTarget?.name ?? "" })}
+              {t("calendar.library.applyBody", {
+                name: applyTarget ? presentPlanName(applyTarget, t) : "",
+              })}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap gap-2">

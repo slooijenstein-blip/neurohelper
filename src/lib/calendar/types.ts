@@ -38,6 +38,8 @@ export type LibraryPlan = {
   /** Owner persona id (therapist master or caregiver). */
   ownerId: string;
   name: string;
+  /** i18n key for seeded names. Custom plans leave this unset. */
+  nameKey?: string | null;
   steps: PlanStep[];
   /** When set, this is a per-child copy that may diverge from the master. */
   childId: string | null;
@@ -51,6 +53,7 @@ export type DayPlan = {
   childId: string;
   date: string;
   name: string;
+  nameKey?: string | null;
   libraryPlanId: string | null;
   steps: DayStep[];
   /** True when day-only edits differ from the library source. */
@@ -110,7 +113,7 @@ export type Invite = {
 
 export type CalendarState = {
   /** Bump when demo seed shape changes so a stale local copy reloads. */
-  v: 2;
+  v: 3;
   people: Person[];
   /** Active viewing persona for the prototype walkthrough. */
   activePersonId: string;

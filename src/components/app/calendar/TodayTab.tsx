@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/I18nProvider";
+import { presentPlanName, presentPlanStep } from "@/lib/activity-locale";
 import { canEditPlan, canMarkDone } from "@/lib/calendar/permissions";
 import { toDateKey, useCalendarStore } from "@/lib/calendar/store";
 import type { DayStep, PlanStep } from "@/lib/calendar/types";
@@ -14,7 +15,7 @@ import { StepDetailDialog } from "./StepDetailDialog";
 import { WeekStrip } from "./WeekStrip";
 
 export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const cal = useCalendarStore();
   const [date, setDate] = useState(toDateKey(new Date()));
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -44,7 +45,9 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
       setReplacingId(null);
     } else {
       cal.addDayStep(child.id, date, step);
-      toast.success(t("calendar.today.stepAdded", { title: step.title }));
+      toast.success(
+        t("calendar.today.stepAdded", { title: presentPlanStep(step, locale).title }),
+      );
     }
   };
 
@@ -123,7 +126,9 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
         ) : (
           <div className="space-y-2">
             <div className="flex items-baseline justify-between gap-2">
-              <h3 className="font-display text-base font-semibold">{plan.name}</h3>
+              <h3 className="font-display text-base font-semibold">
+                {presentPlanName(plan, t)}
+              </h3>
               <span className="text-[11px] font-semibold text-muted-foreground">
                 {plan.steps.filter((s) => s.done).length}/{plan.steps.length}{" "}
                 {t("calendar.today.done")}
@@ -135,7 +140,9 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
               </p>
             ) : null}
             <ol className="space-y-2">
-              {plan.steps.map((step, index) => (
+              {plan.steps.map((step, index) => {
+                const shown = presentPlanStep(step, locale);
+                return (
                 <li key={step.id}>
                   <div
                     className={cn(
@@ -166,7 +173,9 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
                     >
                       <span className="block text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                         {t("calendar.today.step", { n: index + 1 })}
-                        {step.minutes ? ` · ${step.minutes}m` : ""}
+                        {step.minutes
+                          ? ` · ${t("activities.durationExact", { count: step.minutes })}`
+                          : ""}
                         {step.activityId ? ` · ${t("calendar.today.fromCatalog")}` : ""}
                       </span>
                       <span
@@ -175,17 +184,18 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
                           step.done && "text-muted-foreground line-through",
                         )}
                       >
-                        {step.title}
+                        {shown.title}
                       </span>
-                      {step.description || step.notes ? (
+                      {shown.description ? (
                         <span className="mt-0.5 block line-clamp-2 text-xs text-muted-foreground">
-                          {step.description || step.notes}
+                          {shown.description}
                         </span>
                       ) : null}
                     </button>
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ol>
           </div>
         )}
