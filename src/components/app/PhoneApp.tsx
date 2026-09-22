@@ -39,6 +39,7 @@ function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const goTab = (key: TabKey) => {
     setArticleId(null);
     setProfileId(null);
+    // Recreate Help so a temporary country lookup does not outlive this visit.
     if (key === "help") setHelpNonce((n) => n + 1);
     onTab(key);
   };

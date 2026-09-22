@@ -83,6 +83,10 @@ export const en = {
     resetLocal: "Reset local data",
     resetToast: "Local data reset. Refresh to see defaults",
     editProfile: "Edit profile",
+    countryLabel: "Country you live in",
+    countryPlaceholder: "Choose a country",
+    countryHelp: "Help opens with the emergency number and support resources for this country.",
+    livesIn: "Country you live in: {{country}}",
     displayName: "Display name",
     namePlaceholder: "Your name",
     role: "Role",
@@ -225,9 +229,15 @@ export const en = {
       caregiverTitle: "When I am overwhelmed",
       caregiverSubtitle: "Burnout, asking for help, and respite.",
     },
-    countryLabel: "Country",
+    countryLabel: "Look up a country",
     countryHelp:
-      "We guess from your browser language or time zone. You can change it, and Synlumae remembers.",
+      "This does not change the country you live in. Next time you open Help, it uses your profile again.",
+    homeCountry: "Resources for the country you live in. Emergency numbers come first.",
+    guessedCountry:
+      "We guessed this from your browser. Set the country you live in under Profile → Edit profile so Help opens in the right place.",
+    lookupOther:
+      "You are looking up another country. Next time you open Help, it returns to {{country}} unless you change the country you live in under Profile → Edit profile.",
+    useHomeCountry: "Back to {{country}}",
     needsReview: "Limited verified resources — emergency number only",
     mediumReview: "Some details for this country still need a second check.",
     goodToKnow: "Good to know",

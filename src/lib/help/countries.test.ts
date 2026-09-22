@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import rawPacks from "./country-resources.json" with { type: "json" };
 
 import { COUNTRIES, getCountry, REQUIRED_COUNTRY_CODES, sortedCountries } from "./countries.ts";
-import { detectCountry, resolveHelpCountry } from "./detect-country.ts";
+import { detectCountry, helpLookupMode, resolveHelpCountry } from "./detect-country.ts";
 import { safeHttpsUrl, telHref } from "./links.ts";
 
 type Pack = {
@@ -144,7 +144,7 @@ describe("country help directory", () => {
 });
 
 describe("detectCountry", () => {
-  it("prefers a saved choice, then locale region, then time zone", () => {
+  it("prefers the profile country, then the device copy, then locale or time zone", () => {
     assert.equal(
       resolveHelpCountry({
         profileCountry: "ES",
@@ -164,5 +164,8 @@ describe("detectCountry", () => {
     assert.equal(detectCountry("en", "UTC"), "NL");
     assert.equal(detectCountry("en", "Europe/Vienna"), "NL");
     assert.equal(resolveHelpCountry({ stored: "BG", browserLocale: "en-US" }), "US");
+    assert.equal(helpLookupMode(null, "NL"), "guessed");
+    assert.equal(helpLookupMode("MX", "MX"), "home");
+    assert.equal(helpLookupMode("MX", "NL"), "other");
   });
 });

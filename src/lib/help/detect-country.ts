@@ -79,14 +79,49 @@ export function detectCountry(browserLocale?: string | null, timeZone?: string |
   return DEFAULT_HELP_COUNTRY;
 }
 
+export function listedCountryCode(code: string | null | undefined): string | null {
+  if (!code) return null;
+  const normalized = code.trim().toUpperCase();
+  return getCountry(normalized) ? normalized : null;
+}
+
+export function readStoredResidence(): string | null {
+  try {
+    return listedCountryCode(window.localStorage.getItem(HELP_COUNTRY_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
+export function writeStoredResidence(code: string | null) {
+  try {
+    if (!code) window.localStorage.removeItem(HELP_COUNTRY_STORAGE_KEY);
+    else window.localStorage.setItem(HELP_COUNTRY_STORAGE_KEY, code);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Profile country, then the copy saved on this device, then browser detection. */
 export function resolveHelpCountry(input: {
   profileCountry?: string | null;
   stored?: string | null;
   browserLocale?: string | null;
   timeZone?: string | null;
 }): string {
-  if (input.profileCountry && getCountry(input.profileCountry))
-    return input.profileCountry.toUpperCase();
-  if (input.stored && getCountry(input.stored)) return input.stored.toUpperCase();
+  const profile = listedCountryCode(input.profileCountry);
+  if (profile) return profile;
+  const stored = listedCountryCode(input.stored);
+  if (stored) return stored;
   return detectCountry(input.browserLocale, input.timeZone);
+}
+
+/** How Help should describe the country currently on screen. */
+export function helpLookupMode(
+  residenceCode: string | null,
+  viewingCode: string,
+): "home" | "other" | "guessed" {
+  if (!residenceCode) return "guessed";
+  if (residenceCode !== viewingCode) return "other";
+  return "home";
 }

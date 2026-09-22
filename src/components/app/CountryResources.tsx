@@ -10,6 +10,7 @@ import {
   sortedCountries,
   type SupportResource,
 } from "@/lib/help/countries";
+import { helpLookupMode } from "@/lib/help/detect-country";
 import { safeHttpsUrl, telHref } from "@/lib/help/links";
 
 const selectClass =
@@ -48,6 +49,48 @@ export function CountryPicker({
       <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{t("help.countryHelp")}</p>
     </div>
   );
+}
+
+export function CountryContextNote({
+  countryCode,
+  residenceCode,
+  onUseResidence,
+}: {
+  countryCode: string;
+  residenceCode: string | null;
+  onUseResidence: () => void;
+}) {
+  const { t, locale } = useI18n();
+  const mode = helpLookupMode(residenceCode, countryCode);
+  const residence = residenceCode ? getCountry(residenceCode) : undefined;
+  const residenceName = residence ? countryName(residence, locale) : "";
+
+  if (mode === "guessed") {
+    return (
+      <p className="rounded-xl border border-warm/50 bg-warm/25 px-3 py-2 text-sm leading-relaxed">
+        {t("help.guessedCountry")}
+      </p>
+    );
+  }
+
+  if (mode === "other") {
+    return (
+      <div className="rounded-xl border border-warm/50 bg-warm/25 px-3 py-2">
+        <p className="text-sm leading-relaxed">
+          {t("help.lookupOther", { country: residenceName })}
+        </p>
+        <button
+          type="button"
+          className="mt-2 text-sm font-semibold text-primary underline-offset-2 hover:underline"
+          onClick={onUseResidence}
+        >
+          {t("help.useHomeCountry", { country: residenceName })}
+        </button>
+      </div>
+    );
+  }
+
+  return <p className="text-xs leading-relaxed text-muted-foreground">{t("help.homeCountry")}</p>;
 }
 
 export function HelpDisclaimer() {
@@ -111,9 +154,13 @@ function ResourceCard({ resource }: { resource: SupportResource }) {
 export function CountryResources({
   countryCode,
   onCountry,
+  residenceCode,
+  onUseResidence,
 }: {
   countryCode: string;
   onCountry: (code: string) => void;
+  residenceCode: string | null;
+  onUseResidence: () => void;
 }) {
   const { t, locale } = useI18n();
   const country = getCountry(countryCode);
@@ -122,6 +169,11 @@ export function CountryResources({
     <div className="space-y-4">
       <HelpDisclaimer />
       <CountryPicker countryCode={countryCode} onCountry={onCountry} />
+      <CountryContextNote
+        countryCode={countryCode}
+        residenceCode={residenceCode}
+        onUseResidence={onUseResidence}
+      />
       <p className="text-sm text-muted-foreground">{t("help.supportIntro")}</p>
 
       {!country ? null : (

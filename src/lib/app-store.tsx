@@ -79,7 +79,7 @@ export type Profile = {
   clerkUserId?: string;
   /** UI language. `es` is Spanish (Spain). */
   locale?: "en" | "es";
-  /** ISO country chosen in Help. */
+  /** ISO country the caregiver lives in. Help opens on this country. */
   helpCountry?: string;
 };
 

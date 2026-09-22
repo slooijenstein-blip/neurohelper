@@ -17,7 +17,12 @@ import { HELP_HUBS, itemsForHub, type HelpHub, type HelpItem } from "@/lib/help-
 import { getCountry } from "@/lib/help/countries";
 import { telHref } from "@/lib/help/links";
 
-import { CountryPicker, CountryResources, HelpDisclaimer } from "./CountryResources";
+import {
+  CountryContextNote,
+  CountryPicker,
+  CountryResources,
+  HelpDisclaimer,
+} from "./CountryResources";
 import { useHelpCountry } from "./useHelpCountry";
 import { ScreenHeader } from "./ui-bits";
 
@@ -32,7 +37,7 @@ function hubCopy(id: HelpHub, t: (key: string) => string) {
 
 export function HelpTab() {
   const { t, locale } = useI18n();
-  const { countryCode, setCountry } = useHelpCountry();
+  const { countryCode, setCountry, residenceCode, useResidence } = useHelpCountry();
   const [hub, setHub] = useState<HelpHub | null>(null);
   const [itemId, setItemId] = useState<string | null>(null);
   const [utility, setUtility] = useState<UtilityView>(null);
@@ -91,7 +96,12 @@ export function HelpTab() {
         {item ? (
           <HelpItemDetail item={item} showEnglishNote={locale === "es"} />
         ) : utility === "support" ? (
-          <CountryResources countryCode={countryCode} onCountry={setCountry} />
+          <CountryResources
+            countryCode={countryCode}
+            onCountry={setCountry}
+            residenceCode={residenceCode}
+            onUseResidence={useResidence}
+          />
         ) : utility === "clinician" ? (
           <ClinicianView />
         ) : hub ? (
@@ -118,6 +128,11 @@ export function HelpTab() {
           <div className="space-y-3">
             <HelpDisclaimer />
             <CountryPicker countryCode={countryCode} onCountry={setCountry} />
+            <CountryContextNote
+              countryCode={countryCode}
+              residenceCode={residenceCode}
+              onUseResidence={useResidence}
+            />
             {country?.needsReview ? (
               <p className="rounded-xl border border-warm/50 bg-warm/25 px-3 py-2 text-sm font-semibold leading-snug">
                 {t("help.needsReview")}

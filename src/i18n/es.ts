@@ -90,6 +90,10 @@ export const es: DeepString<Messages> = {
     resetLocal: "Borrar datos locales",
     resetToast: "Datos locales borrados. Actualiza para ver los valores iniciales",
     editProfile: "Editar perfil",
+    countryLabel: "País donde vives",
+    countryPlaceholder: "Elige un país",
+    countryHelp: "Ayuda se abre con el número de emergencias y los recursos de apoyo de este país.",
+    livesIn: "País donde vives: {{country}}",
     displayName: "Nombre visible",
     namePlaceholder: "Tu nombre",
     role: "Rol",
@@ -233,9 +237,15 @@ export const es: DeepString<Messages> = {
       caregiverTitle: "Cuando me siento desbordado o desbordada",
       caregiverSubtitle: "Agotamiento, pedir ayuda y respiro.",
     },
-    countryLabel: "País",
+    countryLabel: "Consultar un país",
     countryHelp:
-      "Lo estimamos con el idioma o la zona horaria del navegador. Puedes cambiarlo y Synlumae lo recuerda.",
+      "Esto no cambia el país donde vives. La próxima vez que abras Ayuda, volverá al de tu perfil.",
+    homeCountry: "Recursos del país donde vives. El número de emergencias va primero.",
+    guessedCountry:
+      "Lo hemos estimado con tu navegador. Indica el país donde vives en Perfil → Editar perfil para que Ayuda se abra en el lugar correcto.",
+    lookupOther:
+      "Estás consultando otro país. La próxima vez que abras Ayuda, volverá a {{country}}, salvo que cambies el país donde vives en Perfil → Editar perfil.",
+    useHomeCountry: "Volver a {{country}}",
     needsReview: "Recursos verificados limitados: solo el número de emergencias",
     mediumReview: "Algunos datos de este país aún necesitan una segunda comprobación.",
     goodToKnow: "Ten en cuenta",

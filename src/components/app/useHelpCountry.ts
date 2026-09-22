@@ -1,56 +1,55 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { useAppStore } from "@/lib/app-store";
-import { getCountry } from "@/lib/help/countries";
-import { HELP_COUNTRY_STORAGE_KEY, resolveHelpCountry } from "@/lib/help/detect-country";
+import {
+  helpLookupMode,
+  listedCountryCode,
+  readStoredResidence,
+  resolveHelpCountry,
+} from "@/lib/help/detect-country";
 
-function readStoredCountry(): string | null {
-  try {
-    return window.localStorage.getItem(HELP_COUNTRY_STORAGE_KEY);
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredCountry(code: string) {
-  try {
-    window.localStorage.setItem(HELP_COUNTRY_STORAGE_KEY, code);
-  } catch {
-    /* ignore */
-  }
-}
-
+/**
+ * Help opens on the caregiver's country of residence.
+ * A different choice in Help is only for this visit. Leaving Help drops it,
+ * because the Help screen is created again from the profile country.
+ */
 export function useHelpCountry() {
-  const { state, hydrated, update } = useAppStore();
-  const [countryCode, setCountryCode] = useState("NL");
+  const { state, hydrated } = useAppStore();
+  const residenceCode = listedCountryCode(state.profile?.helpCountry);
+  const [resolved, setResolved] = useState("NL");
+  const [lookup, setLookup] = useState<string | null>(null);
 
   useEffect(() => {
     if (!hydrated) return;
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    setCountryCode(
+    setResolved(
       resolveHelpCountry({
         profileCountry: state.profile?.helpCountry ?? null,
-        stored: readStoredCountry(),
+        stored: readStoredResidence(),
         browserLocale: navigator.language,
         timeZone,
       }),
     );
+    setLookup(null);
   }, [hydrated, state.profile?.helpCountry]);
 
-  const setCountry = useCallback(
-    (next: string) => {
-      const code = next.toUpperCase();
-      if (!getCountry(code)) return;
-      setCountryCode(code);
-      writeStoredCountry(code);
-      if (state.profile && state.profile.helpCountry !== code) {
-        update((prev) =>
-          prev.profile ? { ...prev, profile: { ...prev.profile, helpCountry: code } } : prev,
-        );
-      }
-    },
-    [state.profile, update],
-  );
+  const countryCode = lookup ?? resolved;
 
-  return { countryCode, setCountry };
+  const setCountry = useCallback((next: string) => {
+    const code = listedCountryCode(next);
+    if (!code) return;
+    setLookup(code);
+  }, []);
+
+  const useResidence = useCallback(() => {
+    setLookup(null);
+  }, []);
+
+  return {
+    countryCode,
+    setCountry,
+    residenceCode,
+    useResidence,
+    lookupMode: helpLookupMode(residenceCode, countryCode),
+  };
 }

@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { useI18n } from "@/i18n/I18nProvider";
 import { ROLE_MESSAGE_KEY } from "@/i18n/roles";
 import { isAppLocale, type AppLocale } from "@/i18n/locales";
+import { countryName, getCountry, sortedCountries } from "@/lib/help/countries";
+import { listedCountryCode, writeStoredResidence } from "@/lib/help/detect-country";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -167,6 +169,8 @@ function CaregiverIdentityCard({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [localeWhenOpened, setLocaleWhenOpened] = useState<AppLocale>(locale);
+  const [countryWhenOpened, setCountryWhenOpened] = useState<string | null>(null);
+  const [draftCountry, setDraftCountry] = useState("");
   const [draft, setDraft] = useState<CaregiverProfileEdits>({
     name: "",
     role: "Parent",
@@ -174,10 +178,28 @@ function CaregiverIdentityCard({
     bio: "",
   });
 
+  const persistResidence = (code: string | null) => {
+    writeStoredResidence(code);
+    update((prev) => {
+      if (!prev.profile) return prev;
+      if (!code) {
+        const rest = { ...prev.profile };
+        delete rest.helpCountry;
+        return { ...prev, profile: rest };
+      }
+      return { ...prev, profile: { ...prev.profile, helpCountry: code } };
+    });
+  };
+
   if (!profile) return null;
+
+  const residence = listedCountryCode(profile.helpCountry);
+  const residenceCountry = residence ? getCountry(residence) : undefined;
 
   const startEdit = () => {
     setLocaleWhenOpened(locale);
+    setCountryWhenOpened(residence);
+    setDraftCountry(residence ?? "");
     setDraft({
       name: profile.name,
       role: profile.role,
@@ -189,6 +211,7 @@ function CaregiverIdentityCard({
 
   const cancelEdit = () => {
     setLocale(localeWhenOpened);
+    persistResidence(countryWhenOpened);
     setEditing(false);
   };
 
@@ -199,12 +222,14 @@ function CaregiverIdentityCard({
       return;
     }
 
+    writeStoredResidence(draftCountry || null);
     let savedName = name;
     update((prev) => {
       if (!prev.profile) return prev;
       const next = {
         ...applyCaregiverProfileEdits(prev.profile, { ...draft, name }),
         locale,
+        ...(draftCountry ? { helpCountry: draftCountry } : {}),
       };
       savedName = next.name;
       return { ...prev, profile: next };
@@ -239,6 +264,11 @@ function CaregiverIdentityCard({
                 </>
               ) : null}
             </p>
+            {residenceCountry ? (
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {t("profile.livesIn", { country: countryName(residenceCountry, locale) })}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -284,6 +314,31 @@ function CaregiverIdentityCard({
         </select>
         <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
           {t("language.help")}
+        </p>
+      </div>
+      <div>
+        <label className={fieldLabelClass} htmlFor="caregiver-country">
+          {t("profile.countryLabel")}
+        </label>
+        <select
+          id="caregiver-country"
+          className={selectClass}
+          value={draftCountry}
+          onChange={(event) => {
+            const code = listedCountryCode(event.target.value);
+            setDraftCountry(code ?? "");
+            persistResidence(code);
+          }}
+        >
+          {draftCountry ? null : <option value="">{t("profile.countryPlaceholder")}</option>}
+          {sortedCountries(locale).map((country) => (
+            <option key={country.code} value={country.code}>
+              {countryName(country, locale)}
+            </option>
+          ))}
+        </select>
+        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          {t("profile.countryHelp")}
         </p>
       </div>
       <div>
