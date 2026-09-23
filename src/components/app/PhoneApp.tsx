@@ -15,6 +15,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 import { isClerkConfigured } from "@/lib/clerk";
 import { isProAccount, tabsForAccount, type AppTabKey } from "@/lib/pro-access";
+import { useDevShareUser } from "@/lib/share/dev-session";
 import { ActivitiesTab } from "./ActivitiesTab";
 import { ScheduleTab } from "./ScheduleTab";
 import { JourneyTab } from "./JourneyTab";
@@ -171,17 +172,19 @@ function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
 function ClerkGatedApp(props: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const { isLoaded, isSignedIn } = useAuth();
   const { devDemo, prototypeDemo, hydrated } = useAppStore();
+  const devShare = useDevShareUser();
 
   if (!isLoaded || !hydrated) return <AuthLoading />;
-  if (isSignedIn || prototypeDemo || (import.meta.env.DEV && devDemo))
+  if (isSignedIn || prototypeDemo || devShare || (import.meta.env.DEV && devDemo))
     return <AppShell {...props} />;
   return <Navigate to="/sign-in" />;
 }
 
 function LocalGatedApp(props: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const { devDemo, prototypeDemo, hydrated } = useAppStore();
+  const devShare = useDevShareUser();
   if (!hydrated) return <AuthLoading />;
-  if (prototypeDemo || (import.meta.env.DEV && devDemo)) return <AppShell {...props} />;
+  if (prototypeDemo || devShare || (import.meta.env.DEV && devDemo)) return <AppShell {...props} />;
   return <Navigate to="/sign-in" />;
 }
 

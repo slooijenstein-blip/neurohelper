@@ -501,6 +501,8 @@ export const es: DeepString<Messages> = {
       accept: "Aceptar invitación",
       openApp: "Abrir Synlumae",
       missing: "Este enlace de invitación no existe o ya se ha usado.",
+      signIn: "Inicia sesión para aceptar",
+      emailMismatch: "Esta invitación es para {{email}}. Entra con ese correo.",
     },
     prototype: {
       label: "Recorrido del prototipo",
@@ -539,5 +541,20 @@ export const es: DeepString<Messages> = {
     people: "Quién puede verlo",
     emptyToday: "Hoy no hay nada compartido.",
     demoBanner: "Demo de familia. Actividades, Comunidad y Horario siguen. No hay pestaña Pro.",
+  },
+  share: {
+    emailSent: "Correo enviado. Pueden abrirlo para unirse a este plan.",
+    emailSaved: "Invitación guardada. No se envió el correo ({{reason}}).",
+    emailExists:
+      "Invitación guardada. Esta persona ya tiene cuenta, así que Clerk no envió otro correo. Comparte el enlace o pídele que entre con ese correo.",
+    redirectBlocked:
+      "Invitación guardada, pero Clerk rechazó esta dirección de la vista previa. Añádela en las URL de redirección permitidas del panel de Clerk y vuelve a enviarla.",
+    notConfigured:
+      "El correo de invitaciones aún no está activo en esta vista previa. Hay que añadir las claves del servidor de la pull request. Continuar como Pro y Continuar como padre o madre siguen funcionando en este dispositivo.",
+    liveOn: "El uso compartido en vivo está activo en esta cuenta.",
+    sending: "Enviando invitación…",
+    saveFailed: "No se pudo guardar. Si esta cuenta es real, revisa que el uso compartido esté activado.",
+    signInToAccept: "Inicia sesión con {{email}} para ver este plan compartido.",
+    accepted: "Ya estás dentro. El plan compartido está en Horario.",
   },
 };

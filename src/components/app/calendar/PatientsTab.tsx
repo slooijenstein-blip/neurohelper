@@ -43,6 +43,10 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
 
   const addPatient = () => {
     const child = cal.addChild(name, ageBand, tagFilter ? [tagFilter] : []);
+    if (!child) {
+      toast.error(t("share.saveFailed"));
+      return;
+    }
     setAdding(false);
     setName("");
     toast.success(t("calendar.patients.added", { name: child.displayName }));
@@ -78,9 +82,7 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
             onClick={() => setTagFilter(null)}
             className={cn(
               "rounded-full px-3 py-1 text-xs font-bold",
-              !tagFilter
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground",
+              !tagFilter ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
             )}
           >
             {t("calendar.patients.all")}
@@ -123,6 +125,11 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
         </div>
 
         <p className="text-[11px] text-muted-foreground">{t("calendar.patients.privacyNote")}</p>
+        {cal.shareMode === "live" ? (
+          <p className="rounded-xl bg-muted/60 px-3 py-2 text-[11px] text-muted-foreground">
+            {cal.shareStatus === "ready" ? t("share.liveOn") : t("share.notConfigured")}
+          </p>
+        ) : null}
 
         <div className="space-y-2">
           {patients.map((child) => {
@@ -246,7 +253,9 @@ export function ChildrenHome({ onOpenChild }: { onOpenChild: () => void }) {
               {canAdd ? t("calendar.children.emptyTitle") : t("calendar.helper.waitingTitle")}
             </p>
             {!canAdd ? (
-              <p className="mt-2 text-xs text-muted-foreground">{t("calendar.helper.waitingBody")}</p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {t("calendar.helper.waitingBody")}
+              </p>
             ) : (
               <Button type="button" className="mt-3" onClick={() => setAdding(true)}>
                 <Plus className="mr-1 size-4" /> {t("calendar.children.add")}
@@ -287,6 +296,10 @@ export function ChildrenHome({ onOpenChild }: { onOpenChild: () => void }) {
             className="w-full"
             onClick={() => {
               const child = cal.addChild(name, ageBand);
+              if (!child) {
+                toast.error(t("share.saveFailed"));
+                return;
+              }
               setAdding(false);
               setName("");
               toast.success(t("calendar.patients.added", { name: child.displayName }));

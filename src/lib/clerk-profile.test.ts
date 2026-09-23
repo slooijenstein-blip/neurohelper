@@ -111,13 +111,17 @@ describe("profileFromClerkUser", () => {
     assert.deepEqual(next.socials, {});
   });
 
-  it("keeps a controlled Pro flag for the same Clerk user", () => {
-    const next = profileFromClerkUser(
-      clerkUser(),
-      localProfile({ isPro: true, role: "Therapist" }),
+  it("grants Pro only from Clerk public metadata", () => {
+    const on = profileFromClerkUser(
+      clerkUser({ publicMetadata: { isPro: true } }),
+      localProfile({ role: "Therapist" }),
     );
-    assert.equal(next.isPro, true);
-    assert.equal(next.role, "Therapist");
+    assert.equal(on.isPro, true);
+    assert.equal(on.role, "Therapist");
+
+    const off = profileFromClerkUser(clerkUser(), localProfile({ isPro: true, role: "Therapist" }));
+    assert.equal(off.isPro, undefined);
+    assert.equal(off.role, "Therapist");
   });
 
   it("does not grant Pro to the legacy demo profile", () => {

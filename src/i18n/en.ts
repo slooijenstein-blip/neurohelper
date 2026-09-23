@@ -491,6 +491,8 @@ export const en = {
       accept: "Accept invite",
       openApp: "Open Synlumae",
       missing: "This invite link is missing or already used.",
+      signIn: "Sign in to accept",
+      emailMismatch: "This invite is for {{email}}. Sign in with that email.",
     },
     prototype: {
       label: "Prototype walkthrough",
@@ -529,6 +531,21 @@ export const en = {
     people: "Who can see this",
     emptyToday: "Nothing shared for today yet.",
     demoBanner: "Parent demo. Activities, Community, and Schedule stay. There is no Pro tab.",
+  },
+  share: {
+    emailSent: "Email sent. They can open it to join this plan.",
+    emailSaved: "Invite saved. Email was not sent ({{reason}}).",
+    emailExists:
+      "Invite saved. This person already has an account, so Clerk did not send a new invitation email. Share the link, or ask them to sign in with that email.",
+    redirectBlocked:
+      "Invite saved, but Clerk rejected this preview address. Add it under allowed redirect URLs in the Clerk Dashboard, then resend.",
+    notConfigured:
+      "Live email sharing is not turned on for this preview yet. Add the server keys from the pull request. Continue as Pro and Continue as Parent still work on this device.",
+    liveOn: "Live sharing is on for this signed-in account.",
+    sending: "Sending invite…",
+    saveFailed: "Could not save that. If this is a live account, check that sharing is turned on.",
+    signInToAccept: "Sign in with {{email}} to see this shared plan.",
+    accepted: "You’re in. The shared plan is on Schedule.",
   },
 } as const;
 

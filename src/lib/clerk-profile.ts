@@ -7,7 +7,12 @@ export type ClerkNameSource = {
   firstName: string | null;
   username: string | null;
   primaryEmailAddress: { emailAddress: string } | null;
+  publicMetadata?: { isPro?: unknown } | null;
 };
+
+export function isClerkPro(user: ClerkNameSource): boolean {
+  return user.publicMetadata?.isPro === true;
+}
 
 const DEMO_SAM_BIO =
   "Parent of a curious 4-year-old. Always looking for motor skill ideas that fit into our day.";
@@ -61,7 +66,7 @@ export function profileFromClerkUser(user: ClerkNameSource, existing: Profile | 
     ...(existing?.followers ? { followers: existing.followers } : {}),
     ...(existing?.locale ? { locale: existing.locale } : {}),
     ...(existing?.helpCountry ? { helpCountry: existing.helpCountry } : {}),
-    ...(keepLocalExtras && existing?.isPro ? { isPro: true as const } : {}),
+    ...(isClerkPro(user) ? { isPro: true as const } : {}),
   };
 }
 

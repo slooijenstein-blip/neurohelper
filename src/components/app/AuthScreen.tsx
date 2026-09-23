@@ -8,6 +8,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { useAppStore, type DemoPersona } from "@/lib/app-store";
 import { isClerkConfigured } from "@/lib/clerk";
 import { withBasePath } from "@/lib/paths";
+import { devShareEnabled, setDevShareUser } from "@/lib/share/dev-session";
 
 import { BrandLogo } from "./BrandLogo";
 
@@ -55,6 +56,37 @@ function PersonaDemoButtons() {
         onClick={() => enter("parent")}
       >
         {t("auth.continueParent")}
+      </Button>
+    </div>
+  );
+}
+
+function DevShareButtons() {
+  const navigate = useNavigate();
+  if (!devShareEnabled()) return null;
+
+  const enter = (value: string) => {
+    setDevShareUser(value);
+    void navigate({ to: "/" });
+  };
+
+  return (
+    <div className="space-y-2">
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        onClick={() => enter("user_maya0001|maya@example.com|Maya|1")}
+      >
+        Dev live Pro
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        onClick={() => enter("user_sam000001|sam.parent@example.com|Sam|0")}
+      >
+        Dev live Parent
       </Button>
     </div>
   );
@@ -124,9 +156,17 @@ function AuthChrome({ children }: { children: ReactNode }) {
   );
 }
 
+function afterAuthPath(): string {
+  if (typeof window === "undefined") return withBasePath("/");
+  const redirect = new URLSearchParams(window.location.search).get("redirect");
+  if (redirect && redirect.startsWith("/invite/")) return withBasePath(redirect);
+  return withBasePath("/");
+}
+
 export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
   const clerkReady = isClerkConfigured();
   const { t } = useI18n();
+  const nextUrl = afterAuthPath();
 
   return (
     <AuthChrome>
@@ -137,8 +177,8 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
               routing="path"
               path={withBasePath("/sign-in")}
               signUpUrl={withBasePath("/sign-up")}
-              forceRedirectUrl={withBasePath("/")}
-              fallbackRedirectUrl={withBasePath("/")}
+              forceRedirectUrl={nextUrl}
+              fallbackRedirectUrl={nextUrl}
               withSignUp
             />
           ) : (
@@ -146,8 +186,8 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
               routing="path"
               path={withBasePath("/sign-up")}
               signInUrl={withBasePath("/sign-in")}
-              forceRedirectUrl={withBasePath("/")}
-              fallbackRedirectUrl={withBasePath("/")}
+              forceRedirectUrl={nextUrl}
+              fallbackRedirectUrl={nextUrl}
             />
           )}
         </div>
@@ -157,6 +197,7 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
 
       <div className="mt-6 space-y-2">
         <PersonaDemoButtons />
+        <DevShareButtons />
         <DevDemoButton />
         {mode === "sign-in" ? (
           <p className="text-center text-xs text-muted-foreground">

@@ -75,9 +75,20 @@ export function PeopleTab() {
     }
     const link = `${window.location.origin}${withBasePath(`/invite/${invite.token}`)}`;
     setLastLink(link);
-    toast.success(t("calendar.people.inviteSent"));
     setEmail("");
     setDisplayName("");
+    if (cal.shareMode !== "live") {
+      toast.success(t("calendar.people.inviteSent"));
+      return;
+    }
+    toast.message(t("share.sending"));
+    void cal.emailFor(invite.id).then((delivery) => {
+      if (delivery.sent) toast.success(t("share.emailSent"));
+      else if (delivery.code === "already_user") toast.message(t("share.emailExists"));
+      else if (delivery.code === "redirect_blocked") toast.message(t("share.redirectBlocked"));
+      else if (delivery.code === "not_configured") toast.message(t("share.notConfigured"));
+      else toast.message(t("share.emailSaved", { reason: delivery.message }));
+    });
   };
 
   const copyLink = async (link: string) => {
@@ -156,11 +167,17 @@ export function PeopleTab() {
                       <DropdownMenuItem
                         onClick={() => {
                           const inv = cal.resendInvite(person.inviteId!);
-                          if (inv) {
-                            const link = `${window.location.origin}${withBasePath(`/invite/${inv.token}`)}`;
-                            void copyLink(link);
+                          if (!inv) return;
+                          const link = `${window.location.origin}${withBasePath(`/invite/${inv.token}`)}`;
+                          void copyLink(link);
+                          if (cal.shareMode !== "live") {
+                            toast.success(t("calendar.people.resent"));
+                            return;
                           }
-                          toast.success(t("calendar.people.resent"));
+                          void cal.emailFor(inv.id).then((delivery) => {
+                            if (delivery.sent) toast.success(t("share.emailSent"));
+                            else toast.message(t("share.emailSaved", { reason: delivery.message }));
+                          });
                         }}
                       >
                         <Mail className="mr-2 size-4" /> {t("calendar.people.resend")}

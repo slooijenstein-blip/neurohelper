@@ -34,7 +34,7 @@ Copy `.env.example` to `.env.local` (never commit `.env.local`):
 | Variable                     | Where it is used   | Notes                                                                                                                                                                                                |
 | ---------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `VITE_CLERK_PUBLISHABLE_KEY` | Browser (required) | Starts with `pk_test_` (dev) or `pk_live_` (production). Safe to expose in the client. Vite only exposes variables that start with `VITE_`.                                                          |
-| `CLERK_SECRET_KEY`           | Server only        | Starts with `sk_test_` or `sk_live_`. **Do not** prefix this with `VITE_`. This static SPA does not read it at runtime; keep it for the Clerk Dashboard, webhooks, and a future host such as Vercel. |
+| `CLERK_SECRET_KEY`           | Server only (`/api/share`) | Starts with `sk_test_` or `sk_live_`. **Do not** prefix this with `VITE_`. Required on Vercel so Pro can send Clerk invitation emails. |
 
 Optional (the app also sets these from Vite `BASE_URL`):
 
@@ -59,6 +59,60 @@ In the Clerk Dashboard → **Paths** / allowed origins, add:
 
 Child first name / age stay in this browser (`localStorage` key `motor-skill-buddy-v1`). They are not sent to Clerk.
 
+## Pro invites (preview only)
+
+A Clerk user with **Pro** turned on can invite a parent by email from the **Pro** tab. The parent signs in and sees that plan under **Schedule → Shared with you**. Parents do not get a Pro tab.
+
+This stays off production until the preview branch is merged. GitHub Pages and synlumae.com are unchanged by the preview itself.
+
+### Mark one therapist as Pro
+
+1. Open [Clerk Dashboard](https://dashboard.clerk.com) → **Users**
+2. Open the therapist account
+3. **Public metadata** → set `{ "isPro": true }` and save
+4. That person signs out and back in on the preview
+
+`isPro` must be the boolean `true`, not the text `"true"`.
+
+### Vercel env vars for the preview
+
+Set these on the **neurohelper** project for **Preview** (and Production only if you later want this on synlumae.com). Do not put them in git.
+
+| Variable | Required | Where it comes from |
+| --- | --- | --- |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Yes | Clerk → API keys. Already used by the app. |
+| `CLERK_SECRET_KEY` | Yes, for live invites | Clerk → API keys. Server only. Starts with `sk_test_` or `sk_live_`. |
+| `UPSTASH_REDIS_REST_URL` | Yes, for live invites | Vercel → Storage → Upstash Redis / KV. |
+| `UPSTASH_REDIS_REST_TOKEN` | Yes, for live invites | Same store. |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | Alias | Used if the Upstash names are not set. |
+| `CLERK_AUTHORIZED_PARTIES` | No | Only if session checks reject the preview host. |
+
+Create the database with **Vercel → Storage → Create → Upstash Redis** (Marketplace) and connect it to this project. Vercel injects the REST URL and token. No SQL schema.
+
+Open `https://<preview>/api/share/health`. A ready preview looks like `{ "ok": true, "clerk": true, "store": "redis" }`.
+
+### Clerk email and redirect URLs
+
+Invites use Clerk’s Backend API (`invitations.createInvitation`, `notify: true`). The email is Clerk’s standard invitation, not a custom template. It does **not** include a child’s last name or other detail — only a link back to this app.
+
+In Clerk → **Configure → Developers → Paths / Redirect URLs** (and **Domains → Allowed origins** if sign-in says the host is not allowed), add the preview origin, for example:
+
+- `https://<preview-host>.vercel.app`
+- `https://<preview-host>.vercel.app/invite/*` if the dashboard asks for a path
+
+Do **not** change the Clerk primary / Frontend API domain. Do **not** change DNS or synlumae.com.
+
+If the person **already has a Clerk account**, Clerk will not send another invitation email. The invite is still saved. Copy the link, or ask them to sign in with that email — the plan shows up on Schedule. In Clerk **Development**, also check spam. If no email arrives, open Clerk → **Users → Invitations** to see whether Clerk accepted it.
+
+### How Sam tries it
+
+1. Open the Vercel preview for this pull request (not synlumae.com, not GitHub Pages).
+2. Hard-refresh. Optional: **Continue as Pro** / **Continue as Parent** still walks the same screens on this device only, with no email.
+3. Sign in as the therapist whose public metadata has `"isPro": true`. Confirm **Activities** and **Pro** are both there.
+4. **Pro** → add a patient (first name + age band) → open them → **Plans** → **Apply** the weekday calm-hour template to today → **Share** → invite the parent’s email.
+5. The parent opens the email (or the copied link), creates an account or signs in with that email, and opens **Schedule**. **Shared with you** shows the plan. There is no Pro tab.
+6. **Profile → Log out** on each account between the two sign-ins.
+
 ## Production
 
 ```sh
@@ -69,7 +123,7 @@ Static output is in `dist/client` (`index.html` plus hashed `/assets`).
 
 ### Vercel
 
-This app is a **static SPA**. `vercel.json` sets Framework to Other, Output Directory to `dist/client`, and rewrites client routes to `/index.html` (hashed `/assets/*` are still served as files).
+This app is a **static SPA** plus one Node function, `/api/share`, for Pro invites. `vercel.json` sets Framework to Other, Output Directory to `dist/client`, and rewrites client routes to `/index.html` (hashed `/assets/*` and `/api/*` are not rewritten to the shell).
 
 Do not add the `nitro()` Vite plugin for this host. Nitro’s Vercel preset writes `.vercel/output` (Build Output API) and can replace that static publish with an empty deploy. Clerk env var names stay `VITE_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY`.
 

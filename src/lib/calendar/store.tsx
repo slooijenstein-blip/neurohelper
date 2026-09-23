@@ -4,11 +4,15 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
-import { canEditPlan, canInvite, inviteRolesFor, membershipOnChild } from "./permissions";
+import type { Actor, EmailResult, ShareAction } from "@/lib/share/actions";
+import { postShareAction } from "@/lib/share/client";
+import { applyShareAction } from "@/lib/share/mutate";
+import { membershipOnChild } from "./permissions";
 import { createSeedState, DEMO_PERSON_IDS } from "./seed";
 import { normalizePlanStep } from "./activity-steps";
 import {
@@ -25,7 +29,6 @@ import {
   type DayStep,
   type Invite,
   type LibraryPlan,
-  type Membership,
   type Person,
   type PlanStep,
 } from "./types";
@@ -43,7 +46,7 @@ type CalendarContextValue = {
   resetDemo: () => void;
   switchPersona: (personId: string) => void;
   selectChild: (childId: string | null) => void;
-  addChild: (displayName: string, ageBand: AgeBand, tagIds?: string[]) => Child;
+  addChild: (displayName: string, ageBand: AgeBand, tagIds?: string[]) => Child | null;
   addTherapistTag: (name: string) => void;
   setChildTags: (childId: string, tagIds: string[]) => void;
   getDayPlan: (childId: string, date: string) => DayPlan | null;
@@ -88,6 +91,16 @@ type CalendarContextValue = {
   }>;
   visibleLibrary: (childId: string | null) => LibraryPlan[];
   therapistTagsForActive: () => CalendarState["therapistTags"];
+  shareMode: "demo" | "live";
+  shareStatus: "off" | "ready" | "not_configured" | "error";
+  attachLive: (input: {
+    getToken: () => Promise<string | null>;
+    devUser: string | null;
+    state: CalendarState | null;
+    status: "ready" | "not_configured" | "error";
+  }) => void;
+  detachLive: () => void;
+  emailFor: (inviteId: string) => Promise<EmailResult>;
 };
 
 const CalendarContext = createContext<CalendarContextValue | null>(null);
@@ -130,23 +143,127 @@ function cloneSteps(steps: PlanStep[]): PlanStep[] {
   return steps.map((s) => normalizePlanStep({ ...s, id: nid("st") }));
 }
 
-function toDaySteps(steps: PlanStep[]): DayStep[] {
-  return steps.map((s) => ({ ...normalizePlanStep({ ...s, id: nid("ds") }), done: false }));
+const DEMO_EMAIL: EmailResult = {
+  sent: false,
+  code: "demo",
+  message: "",
+};
+
+function adoptServerState(prev: CalendarState, next: CalendarState): CalendarState {
+  const selected =
+    prev.selectedChildId && next.children.some((child) => child.id === prev.selectedChildId)
+      ? prev.selectedChildId
+      : next.selectedChildId;
+  return { ...next, selectedChildId: selected };
+}
+
+function actorFrom(state: CalendarState): Actor {
+  const person = state.people.find((item) => item.id === state.activePersonId) ?? state.people[0];
+  if (!person) {
+    return { userId: "person_missing", email: "missing@example.com", name: "Member", isPro: false };
+  }
+  return {
+    userId: person.id,
+    email: person.email,
+    name: person.name,
+    isPro: person.appRole === "therapist",
+  };
 }
 
 export function CalendarStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<CalendarState>(() => createSeedState());
   const [hydrated, setHydrated] = useState(false);
+  const [shareMode, setShareMode] = useState<"demo" | "live">("demo");
+  const [shareStatus, setShareStatus] = useState<"off" | "ready" | "not_configured" | "error">(
+    "off",
+  );
+  const stateRef = useRef(state);
+  const modeRef = useRef<"demo" | "live">("demo");
+  const statusRef = useRef(shareStatus);
+  const liveRef = useRef<{
+    getToken: () => Promise<string | null>;
+    devUser: string | null;
+  } | null>(null);
+  const chainRef = useRef(Promise.resolve());
+  const genRef = useRef(0);
+  const emailResults = useRef(new Map<string, EmailResult>());
+  const emailWaiters = useRef(new Map<string, (result: EmailResult) => void>());
 
   useEffect(() => {
-    setState(loadState());
+    stateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    if (modeRef.current === "live") {
+      setHydrated(true);
+      return;
+    }
+    const loaded = loadState();
+    stateRef.current = loaded;
+    setState(loaded);
     setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || modeRef.current !== "demo") return;
     persist(state);
   }, [state, hydrated]);
+
+  const rememberEmail = useCallback((inviteId: string | null, email: EmailResult | null) => {
+    if (!inviteId || !email) return;
+    emailResults.current.set(inviteId, email);
+    emailWaiters.current.get(inviteId)?.(email);
+    emailWaiters.current.delete(inviteId);
+  }, []);
+
+  const enqueue = useCallback(
+    (action: ShareAction) => {
+      const bridge = liveRef.current;
+      if (!bridge || modeRef.current !== "live" || statusRef.current !== "ready") return;
+      const my = ++genRef.current;
+      chainRef.current = chainRef.current.then(async () => {
+        try {
+          const token = await bridge.getToken();
+          const result = await postShareAction(
+            { token, devUser: bridge.devUser },
+            action,
+            window.location.origin,
+          );
+          rememberEmail(result.inviteId, result.email);
+          if (my !== genRef.current) return;
+          setState((prev) => {
+            const merged = adoptServerState(prev, result.state);
+            stateRef.current = merged;
+            return merged;
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Could not save.";
+          rememberEmail("inviteId" in action ? action.inviteId : null, {
+            sent: false,
+            code: "clerk_error",
+            message,
+          });
+          if (my === genRef.current) setShareStatus("error");
+        }
+      });
+    },
+    [rememberEmail],
+  );
+
+  const dispatch = useCallback(
+    (action: ShareAction) => {
+      try {
+        const result = applyShareAction(stateRef.current, actorFrom(stateRef.current), action);
+        stateRef.current = result.state;
+        setState(result.state);
+        enqueue(action);
+        return result;
+      } catch {
+        return null;
+      }
+    },
+    [enqueue],
+  );
 
   const update = useCallback((fn: (prev: CalendarState) => CalendarState) => {
     setState((prev) => fn(prev));
@@ -232,389 +349,195 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
       }),
     selectChild: (childId) => update((prev) => ({ ...prev, selectedChildId: childId })),
     addChild: (displayName, ageBand, tagIds = []) => {
-      const child: Child = {
-        id: nid("child"),
-        displayName: displayName.trim() || "Child",
+      const childId = nid("child");
+      const result = dispatch({
+        type: "addChild",
+        childId,
+        membershipId: nid("mem"),
+        displayName,
         ageBand,
-        createdAt: new Date().toISOString(),
-        createdById: activePerson.id,
-      };
-      const membership: Membership = {
-        id: nid("mem"),
-        childId: child.id,
-        personId: activePerson.id,
-        role: activePerson.appRole === "therapist" ? "therapist" : "caregiver",
-        status: "active",
-      };
-      update((prev) => ({
-        ...prev,
-        children: [...prev.children, child],
-        memberships: [...prev.memberships, membership],
-        childTags: [...prev.childTags, ...tagIds.map((tagId) => ({ childId: child.id, tagId }))],
-        selectedChildId: child.id,
-      }));
-      return child;
+        tagIds,
+        now: new Date().toISOString(),
+      });
+      return result?.state.children.find((child) => child.id === childId) ?? null;
     },
     addTherapistTag: (name) => {
-      const trimmed = name.trim();
-      if (!trimmed || activePerson.appRole !== "therapist") return;
-      update((prev) => ({
-        ...prev,
-        therapistTags: [
-          ...prev.therapistTags,
-          { id: nid("tag"), therapistId: activePerson.id, name: trimmed },
-        ],
-      }));
+      dispatch({ type: "addTherapistTag", tagId: nid("tag"), name });
     },
     setChildTags: (childId, tagIds) => {
-      update((prev) => ({
-        ...prev,
-        childTags: [
-          ...prev.childTags.filter((ct) => ct.childId !== childId),
-          ...tagIds.map((tagId) => ({ childId, tagId })),
-        ],
-      }));
+      dispatch({ type: "setChildTags", childId, tagIds });
     },
     getDayPlan: (childId, date) =>
       state.dayPlans.find((p) => p.childId === childId && p.date === date) ?? null,
     toggleStepDone: (childId, date, stepId) => {
-      const role = membershipOnChild(state.memberships, childId, activePerson.id)?.role ?? null;
-      if (!role) return;
-      update((prev) => ({
-        ...prev,
-        dayPlans: prev.dayPlans.map((plan) => {
-          if (plan.childId !== childId || plan.date !== date) return plan;
-          return {
-            ...plan,
-            steps: plan.steps.map((s) => (s.id === stepId ? { ...s, done: !s.done } : s)),
-            updatedAt: new Date().toISOString(),
-          };
-        }),
-      }));
+      dispatch({ type: "toggleStepDone", childId, date, stepId, now: new Date().toISOString() });
     },
     applyLibraryPlan: (libraryPlanId, childId, dates) => {
-      const role = membershipOnChild(state.memberships, childId, activePerson.id)?.role ?? null;
-      if (!canEditPlan(role)) return;
-      const plan = state.libraryPlans.find((p) => p.id === libraryPlanId);
+      const plan = stateRef.current.libraryPlans.find((item) => item.id === libraryPlanId);
       if (!plan) return;
-      update((prev) => {
-        let dayPlans = [...prev.dayPlans];
-        for (const date of dates) {
-          const next: DayPlan = {
-            id: nid("day"),
-            childId,
-            date,
-            name: plan.name,
-            nameKey: plan.nameKey ?? null,
-            libraryPlanId: plan.id,
-            steps: toDaySteps(plan.steps),
-            tweaked: false,
-            updatedAt: new Date().toISOString(),
-          };
-          dayPlans = dayPlans.filter((d) => !(d.childId === childId && d.date === date));
-          dayPlans.push(next);
-        }
-        return { ...prev, dayPlans };
+      dispatch({
+        type: "applyLibraryPlan",
+        libraryPlanId,
+        childId,
+        days: dates.map((date) => ({
+          date,
+          dayId: nid("day"),
+          stepIds: plan.steps.map(() => nid("st")),
+        })),
+        now: new Date().toISOString(),
       });
     },
     createLibraryPlan: (name, steps, childId = null) => {
       const plan: LibraryPlan = {
         id: nid("lib"),
-        ownerId: activePerson.id,
+        ownerId: stateRef.current.activePersonId,
         name: name.trim() || "Untitled plan",
         steps: cloneSteps(steps),
         childId,
         sourceTemplateId: null,
         updatedAt: new Date().toISOString(),
       };
-      update((prev) => ({ ...prev, libraryPlans: [...prev.libraryPlans, plan] }));
-      return plan;
+      const result = dispatch({ type: "createLibraryPlan", plan });
+      return result?.state.libraryPlans.find((item) => item.id === plan.id) ?? plan;
     },
     updateLibraryPlan: (id, patch) => {
-      update((prev) => ({
-        ...prev,
-        libraryPlans: prev.libraryPlans.map((p) =>
-          p.id === id
-            ? {
-                ...p,
-                name: patch.name ?? p.name,
-                nameKey: patch.name && patch.name !== p.name ? null : (p.nameKey ?? null),
-                steps: patch.steps ? cloneSteps(patch.steps) : p.steps,
-                updatedAt: new Date().toISOString(),
-              }
-            : p,
-        ),
-      }));
+      dispatch({
+        type: "updateLibraryPlan",
+        id,
+        ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(patch.steps ? { steps: cloneSteps(patch.steps) } : {}),
+        now: new Date().toISOString(),
+      });
     },
     duplicateLibraryPlan: (id) => {
-      const source = state.libraryPlans.find((p) => p.id === id);
+      const source = stateRef.current.libraryPlans.find((plan) => plan.id === id);
       if (!source) return null;
-      const copy: LibraryPlan = {
-        ...source,
-        id: nid("lib"),
-        name: `${source.name} (copy)`,
-        nameKey: null,
-        steps: cloneSteps(source.steps),
-        updatedAt: new Date().toISOString(),
-      };
-      update((prev) => ({ ...prev, libraryPlans: [...prev.libraryPlans, copy] }));
-      return copy;
+      const copyId = nid("lib");
+      const result = dispatch({
+        type: "duplicateLibraryPlan",
+        sourceId: id,
+        copyId,
+        stepIds: source.steps.map(() => nid("st")),
+        now: new Date().toISOString(),
+      });
+      return result?.state.libraryPlans.find((plan) => plan.id === copyId) ?? null;
     },
     deleteLibraryPlan: (id) => {
-      update((prev) => ({
-        ...prev,
-        libraryPlans: prev.libraryPlans.filter((p) => p.id !== id),
-      }));
+      dispatch({ type: "deleteLibraryPlan", id });
     },
     useTemplateForPatient: (masterId, childId) => {
-      if (activePerson.appRole !== "therapist") return null;
-      const master = state.libraryPlans.find(
-        (p) => p.id === masterId && p.childId === null && p.ownerId === activePerson.id,
-      );
+      const master = stateRef.current.libraryPlans.find((plan) => plan.id === masterId);
       if (!master) return null;
-      const copy: LibraryPlan = {
-        id: nid("lib"),
-        ownerId: activePerson.id,
-        name: master.name,
-        nameKey: master.nameKey ?? null,
-        steps: cloneSteps(master.steps),
+      const copyId = nid("lib");
+      const result = dispatch({
+        type: "useTemplateForPatient",
+        masterId,
         childId,
-        sourceTemplateId: master.id,
-        updatedAt: new Date().toISOString(),
-      };
-      update((prev) => ({ ...prev, libraryPlans: [...prev.libraryPlans, copy] }));
-      return copy;
+        copyId,
+        stepIds: master.steps.map(() => nid("st")),
+        now: new Date().toISOString(),
+      });
+      return result?.state.libraryPlans.find((plan) => plan.id === copyId) ?? null;
     },
     tweakDayStep: (childId, date, stepId, title) => {
-      const role = membershipOnChild(state.memberships, childId, activePerson.id)?.role ?? null;
-      if (!canEditPlan(role)) return;
-      update((prev) => ({
-        ...prev,
-        dayPlans: prev.dayPlans.map((plan) => {
-          if (plan.childId !== childId || plan.date !== date) return plan;
-          return {
-            ...plan,
-            tweaked: true,
-            steps: plan.steps.map((s) => (s.id === stepId ? { ...s, title } : s)),
-            updatedAt: new Date().toISOString(),
-          };
-        }),
-      }));
+      dispatch({
+        type: "tweakDayStep",
+        childId,
+        date,
+        stepId,
+        title,
+        now: new Date().toISOString(),
+      });
     },
     addDayStep: (childId, date, step) => {
-      const role = membershipOnChild(state.memberships, childId, activePerson.id)?.role ?? null;
-      if (!canEditPlan(role)) return;
-      const dayStep: DayStep = { ...normalizePlanStep(step), id: nid("ds"), done: false };
-      update((prev) => {
-        const existing = prev.dayPlans.find((p) => p.childId === childId && p.date === date);
-        if (existing) {
-          return {
-            ...prev,
-            dayPlans: prev.dayPlans.map((p) =>
-              p.id === existing.id
-                ? {
-                    ...p,
-                    steps: [...p.steps, dayStep],
-                    tweaked: true,
-                    updatedAt: new Date().toISOString(),
-                  }
-                : p,
-            ),
-          };
-        }
-        const created: DayPlan = {
-          id: nid("day"),
-          childId,
-          date,
-          name: "Today’s plan",
-          nameKey: "calendar.today.customPlan",
-          libraryPlanId: null,
-          steps: [dayStep],
-          tweaked: true,
-          updatedAt: new Date().toISOString(),
-        };
-        return { ...prev, dayPlans: [...prev.dayPlans, created] };
+      dispatch({
+        type: "addDayStep",
+        childId,
+        date,
+        step,
+        dayId: nid("day"),
+        stepId: nid("ds"),
+        now: new Date().toISOString(),
       });
     },
     replaceDayStep: (childId, date, stepId, step) => {
-      const role = membershipOnChild(state.memberships, childId, activePerson.id)?.role ?? null;
-      if (!canEditPlan(role)) return;
-      update((prev) => ({
-        ...prev,
-        dayPlans: prev.dayPlans.map((plan) => {
-          if (plan.childId !== childId || plan.date !== date) return plan;
-          return {
-            ...plan,
-            tweaked: true,
-            steps: plan.steps.map((s) =>
-              s.id === stepId ? { ...normalizePlanStep({ ...step, id: stepId }), done: s.done } : s,
-            ),
-            updatedAt: new Date().toISOString(),
-          };
-        }),
-      }));
+      dispatch({
+        type: "replaceDayStep",
+        childId,
+        date,
+        stepId,
+        step,
+        now: new Date().toISOString(),
+      });
     },
     removeDayStep: (childId, date, stepId) => {
-      const role = membershipOnChild(state.memberships, childId, activePerson.id)?.role ?? null;
-      if (!canEditPlan(role)) return;
-      update((prev) => ({
-        ...prev,
-        dayPlans: prev.dayPlans.map((plan) => {
-          if (plan.childId !== childId || plan.date !== date) return plan;
-          return {
-            ...plan,
-            tweaked: true,
-            steps: plan.steps.filter((s) => s.id !== stepId),
-            updatedAt: new Date().toISOString(),
-          };
-        }),
-      }));
+      dispatch({ type: "removeDayStep", childId, date, stepId, now: new Date().toISOString() });
     },
     appendLibraryStep: (libraryPlanId, step) => {
-      update((prev) => ({
-        ...prev,
-        libraryPlans: prev.libraryPlans.map((p) =>
-          p.id === libraryPlanId
-            ? {
-                ...p,
-                steps: [...p.steps, normalizePlanStep({ ...step, id: nid("st") })],
-                updatedAt: new Date().toISOString(),
-              }
-            : p,
-        ),
-      }));
+      dispatch({
+        type: "appendLibraryStep",
+        libraryPlanId,
+        step,
+        stepId: nid("st"),
+        now: new Date().toISOString(),
+      });
     },
     saveDayBackToLibrary: (childId, date) => {
-      const role = membershipOnChild(state.memberships, childId, activePerson.id)?.role ?? null;
-      if (!canEditPlan(role)) return null;
-      const day = state.dayPlans.find((p) => p.childId === childId && p.date === date);
+      const day = stateRef.current.dayPlans.find(
+        (plan) => plan.childId === childId && plan.date === date,
+      );
       if (!day) return null;
-      if (day.libraryPlanId) {
-        update((prev) => ({
-          ...prev,
-          libraryPlans: prev.libraryPlans.map((p) =>
-            p.id === day.libraryPlanId
-              ? {
-                  ...p,
-                  name: day.name,
-                  nameKey: day.nameKey ?? p.nameKey ?? null,
-                  steps: day.steps.map(({ done: _d, ...rest }) => ({ ...rest, id: nid("st") })),
-                  updatedAt: new Date().toISOString(),
-                }
-              : p,
-          ),
-          dayPlans: prev.dayPlans.map((p) => (p.id === day.id ? { ...p, tweaked: false } : p)),
-        }));
-        return state.libraryPlans.find((p) => p.id === day.libraryPlanId) ?? null;
-      }
-      const plan: LibraryPlan = {
-        id: nid("lib"),
-        ownerId: activePerson.id,
-        name: day.name,
-        nameKey: day.nameKey ?? null,
-        steps: day.steps.map(({ done: _d, ...rest }) => ({ ...rest, id: nid("st") })),
+      const planId = day.libraryPlanId || nid("lib");
+      const result = dispatch({
+        type: "saveDayBackToLibrary",
         childId,
-        sourceTemplateId: null,
-        updatedAt: new Date().toISOString(),
-      };
-      update((prev) => ({
-        ...prev,
-        libraryPlans: [...prev.libraryPlans, plan],
-        dayPlans: prev.dayPlans.map((p) =>
-          p.id === day.id ? { ...p, libraryPlanId: plan.id, tweaked: false } : p,
-        ),
-      }));
-      return plan;
+        date,
+        planId,
+        stepIds: day.steps.map(() => nid("st")),
+        now: new Date().toISOString(),
+      });
+      const savedId =
+        day.libraryPlanId &&
+        result?.state.libraryPlans.some((plan) => plan.id === day.libraryPlanId)
+          ? day.libraryPlanId
+          : planId;
+      return result?.state.libraryPlans.find((plan) => plan.id === savedId) ?? null;
     },
     createInvite: (childId, email, role, displayName) => {
-      const actorRole =
-        membershipOnChild(state.memberships, childId, activePerson.id)?.role ?? null;
-      if (!canInvite(actorRole)) return null;
-      const allowed = inviteRolesFor(actorRole);
-      if (!allowed.includes(role)) return null;
-      const normalized = email.trim().toLowerCase();
-      if (!normalized.includes("@")) return null;
-
-      // Re-invite: if a pending invite exists for this email, refresh it (fix the "can't invite again" bug)
-      const existing = state.invites.find(
-        (i) => i.childId === childId && i.email === normalized && i.status === "pending",
-      );
-      if (existing) {
-        update((prev) => ({
-          ...prev,
-          invites: prev.invites.map((i) =>
-            i.id === existing.id
-              ? { ...i, createdAt: new Date().toISOString(), token: nid("tok") }
-              : i,
-          ),
-        }));
-        return { ...existing, createdAt: new Date().toISOString() };
-      }
-
-      const membership: Membership = {
-        id: nid("mem"),
+      const inviteId = nid("inv");
+      const result = dispatch({
+        type: "createInvite",
         childId,
-        personId: nid("pending"),
+        email,
         role,
-        status: "pending",
-      };
-      const invite: Invite = {
-        id: nid("inv"),
-        childId,
-        email: normalized,
-        role,
-        status: "pending",
-        invitedById: activePerson.id,
+        displayName,
+        inviteId,
+        membershipId: nid("mem"),
+        pendingPersonId: nid("pending"),
         token: nid("tok"),
-        createdAt: new Date().toISOString(),
-        membershipId: membership.id,
-        displayName: displayName.trim() || normalized.split("@")[0] || normalized,
-      };
-      update((prev) => ({
-        ...prev,
-        memberships: [...prev.memberships, membership],
-        invites: [...prev.invites, invite],
-      }));
-      return invite;
+        now: new Date().toISOString(),
+      });
+      return (
+        result?.state.invites.find((invite) => invite.id === inviteId) ?? result?.invite ?? null
+      );
     },
     resendInvite: (inviteId) => {
-      const current = state.invites.find((i) => i.id === inviteId);
-      if (!current) return null;
-      const next: Invite = {
-        ...current,
-        createdAt: new Date().toISOString(),
+      const result = dispatch({
+        type: "resendInvite",
+        inviteId,
         token: nid("tok"),
-        status: "pending",
-      };
-      update((prev) => ({
-        ...prev,
-        invites: prev.invites.map((i) => (i.id === inviteId ? next : i)),
-      }));
-      return next;
+        now: new Date().toISOString(),
+      });
+      return result?.invite ?? null;
     },
     changeMemberRole: (membershipId, role) => {
-      update((prev) => ({
-        ...prev,
-        memberships: prev.memberships.map((m) => (m.id === membershipId ? { ...m, role } : m)),
-      }));
+      dispatch({ type: "changeMemberRole", membershipId, role });
     },
     removeMember: (membershipId) => {
-      update((prev) => ({
-        ...prev,
-        memberships: prev.memberships.filter((m) => m.id !== membershipId),
-      }));
+      dispatch({ type: "removeMember", membershipId });
     },
     removeInvite: (inviteId) => {
-      update((prev) => {
-        const invite = prev.invites.find((i) => i.id === inviteId);
-        return {
-          ...prev,
-          invites: prev.invites.filter((i) => i.id !== inviteId),
-          memberships: invite?.membershipId
-            ? prev.memberships.filter((m) => m.id !== invite.membershipId)
-            : prev.memberships,
-        };
-      });
+      dispatch({ type: "removeInvite", inviteId });
     },
     acceptInviteToken: (token) => {
       const invite = state.invites.find((i) => i.token === token && i.status === "pending");
@@ -707,6 +630,41 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
     },
     therapistTagsForActive: () =>
       state.therapistTags.filter((t) => t.therapistId === activePerson.id),
+    shareMode,
+    shareStatus,
+    attachLive: ({ getToken, devUser, state: next, status }) => {
+      modeRef.current = "live";
+      statusRef.current = status;
+      liveRef.current = { getToken, devUser };
+      setShareMode("live");
+      setShareStatus(status);
+      if (next) {
+        setState((prev) => {
+          const merged = adoptServerState(prev, next);
+          stateRef.current = merged;
+          return merged;
+        });
+      }
+    },
+    detachLive: () => {
+      if (modeRef.current === "demo") return;
+      modeRef.current = "demo";
+      statusRef.current = "off";
+      liveRef.current = null;
+      const next = loadState();
+      stateRef.current = next;
+      setState(next);
+      setShareMode("demo");
+      setShareStatus("off");
+    },
+    emailFor: (inviteId) => {
+      const existing = emailResults.current.get(inviteId);
+      if (existing) return Promise.resolve(existing);
+      if (modeRef.current !== "live") return Promise.resolve(DEMO_EMAIL);
+      return new Promise((resolve) => {
+        emailWaiters.current.set(inviteId, resolve);
+      });
+    },
   };
 
   return <CalendarContext.Provider value={value}>{children}</CalendarContext.Provider>;

@@ -15,6 +15,7 @@ import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { ROLES, useAppStore, type Profile, type Role } from "@/lib/app-store";
 import { useCalendarStore } from "@/lib/calendar/store";
+import { setDevShareUser } from "@/lib/share/dev-session";
 import { isProAccount } from "@/lib/pro-access";
 import { isClerkConfigured } from "@/lib/clerk";
 import {
@@ -141,6 +142,7 @@ export function ProfileTab() {
         </Button>
 
         <DemoPersonaNote />
+        <LiveShareNote />
 
         {isClerkConfigured() ? <ClerkAwareSessionControls /> : <LocalLogoutButton />}
       </div>
@@ -422,6 +424,20 @@ function CaregiverIdentityCard({
   );
 }
 
+function LiveShareNote() {
+  const { prototypeDemo } = useAppStore();
+  const cal = useCalendarStore();
+  const { t } = useI18n();
+  if (prototypeDemo || cal.shareMode !== "live") return null;
+  return (
+    <div className="rounded-2xl bg-muted/50 p-4 ring-1 ring-border">
+      <p className="text-xs text-muted-foreground">
+        {cal.shareStatus === "ready" ? t("share.liveOn") : t("share.notConfigured")}
+      </p>
+    </div>
+  );
+}
+
 function DemoPersonaNote() {
   const { prototypeDemo } = useAppStore();
   const { state } = useAppStore();
@@ -459,6 +475,7 @@ function LocalLogoutButton() {
       variant="outline"
       className="h-11 w-full"
       onClick={() => {
+        setDevShareUser(null);
         logout();
         void navigate({ to: "/sign-in" });
       }}
@@ -511,6 +528,7 @@ function ClerkAccountControls() {
         variant="outline"
         className="h-11 w-full"
         onClick={() => {
+          setDevShareUser(null);
           logout();
           void signOut({ redirectUrl: withBasePath("/sign-in") });
         }}

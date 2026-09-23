@@ -59,9 +59,21 @@ export function SharedPlansPanel() {
     }
     const next = `${window.location.origin}${withBasePath(`/invite/${invite.token}`)}`;
     setLink(next);
-    toast.success(t("shared.sent"));
     setEmail("");
     setName("");
+    if (cal.shareMode !== "live") {
+      toast.success(t("shared.sent"));
+      return;
+    }
+    toast.message(t("share.sending"));
+    void cal.emailFor(invite.id).then((delivery) => {
+      if (delivery.sent) toast.success(t("share.emailSent"));
+      else if (delivery.code === "already_user") toast.message(t("share.emailExists"));
+      else
+        toast.message(
+          t("share.emailSaved", { reason: delivery.message || t("share.notConfigured") }),
+        );
+    });
   };
 
   return (

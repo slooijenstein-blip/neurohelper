@@ -10,13 +10,15 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "node --experimental-strip-types --test src/lib/clerk-profile.test.ts src/lib/help/countries.test.ts src/i18n/translate.test.ts src/lib/pro-access.test.ts src/lib/calendar/permissions.test.ts src/lib/activity-locale.test.ts",
+    "test": "node --experimental-strip-types --test src/lib/clerk-profile.test.ts src/lib/help/countries.test.ts src/i18n/translate.test.ts src/lib/pro-access.test.ts src/lib/calendar/permissions.test.ts src/lib/activity-locale.test.ts src/lib/share/share.test.ts",
+    "build:api": "node scripts/bundle-share-api.mjs",
     "deploy:pages": "node scripts/deploy-pages.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
   },
   "dependencies": {
+    "@clerk/backend": "^2.33.7",
     "@clerk/react": "^6.16.1",
     "@clerk/ui": "^1.33.1",
     "@hookform/resolvers": "^5.2.2",

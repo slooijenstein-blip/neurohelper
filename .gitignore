@@ -26,6 +26,9 @@ dist-ssr
 .wrangler/
 .dev.vars
 
+# Local share-store used by npm run dev
+.data/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
