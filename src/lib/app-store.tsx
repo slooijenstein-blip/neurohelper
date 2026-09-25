@@ -20,7 +20,6 @@ export type ScheduleItem = {
   fromTemplateId?: string;
 };
 
-
 export type Role =
   | "Parent"
   | "Legal Guardian"
@@ -90,7 +89,6 @@ export type Profile = {
 
 export type DemoPersona = "pro" | "parent";
 
-
 export type Template = {
   id: string;
   ownerId: string;
@@ -115,7 +113,6 @@ export type DayPlan = {
   name: string;
 };
 
-
 export type Comment = {
   id: string;
   authorId: string;
@@ -126,7 +123,6 @@ export type Comment = {
   parentId?: string;
   replies?: Comment[];
 };
-
 
 export type Post = {
   id: string;
@@ -148,7 +144,6 @@ export type Post = {
   repostNote?: string;
 };
 
-
 export type Article = {
   id: string;
   authorId: string;
@@ -166,7 +161,6 @@ export type Article = {
   comments: Comment[];
   createdAt: string;
 };
-
 
 export type Observation = {
   id: string;
@@ -192,7 +186,6 @@ export type AppState = {
   articles: Article[];
   dayPlans: DayPlan[];
   following: string[];
-
 };
 
 const STORAGE_KEY = "motor-skill-buddy-v1";
@@ -234,7 +227,6 @@ export function profileForDemoPersona(persona: DemoPersona): Profile {
   if (persona === "pro") return { ...proDemoProfile };
   return { ...myProfile, isPro: false };
 }
-
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -392,7 +384,10 @@ const memberProfiles: Profile[] = [
     role: "Therapist",
     location: "London",
     bio: "Paediatric occupational therapist. Sharing practical routines that build independence and confidence.",
-    socials: { instagram: "https://instagram.com/maya.ot", linkedin: "https://linkedin.com/in/maya-ot" },
+    socials: {
+      instagram: "https://instagram.com/maya.ot",
+      linkedin: "https://linkedin.com/in/maya-ot",
+    },
     color: "bg-teal-500",
     favouriteActivityIds: ["tape-rescue", "calming-glitter-bottle"],
     followers: ["jonas", "priya"],
@@ -404,7 +399,10 @@ const memberProfiles: Profile[] = [
     role: "Parent",
     location: "Berlin",
     bio: "Dad of two. Testing schedules that burn energy without melting down.",
-    socials: { tiktok: "https://tiktok.com/@jonas.dad", instagram: "https://instagram.com/jonas.dad" },
+    socials: {
+      tiktok: "https://tiktok.com/@jonas.dad",
+      instagram: "https://instagram.com/jonas.dad",
+    },
     color: "bg-orange-500",
     favouriteActivityIds: ["obstacle-course", "interactive-bubble-chase"],
     followers: ["maya", "tom"],
@@ -428,7 +426,10 @@ const memberProfiles: Profile[] = [
     role: "Creator",
     location: "Barcelona",
     bio: "Creating sensory play videos and printable activities for families.",
-    socials: { tiktok: "https://tiktok.com/@elena.plays", instagram: "https://instagram.com/elena.plays" },
+    socials: {
+      tiktok: "https://tiktok.com/@elena.plays",
+      instagram: "https://instagram.com/elena.plays",
+    },
     color: "bg-pink-500",
     favouriteActivityIds: ["sensory-rice-bin", "playdough-letters"],
     followers: ["maya", "jonas", "tom"],
@@ -457,7 +458,6 @@ const memberProfiles: Profile[] = [
     favouriteActivityIds: ["deep-pressure-sandwich", "mirror-emotions"],
     followers: ["priya"],
   },
-
 ];
 
 function buildScheduleSharePost(template: Template): Post {
@@ -484,7 +484,6 @@ function buildScheduleSharePost(template: Template): Post {
   };
 }
 
-
 const seedPosts: Post[] = [
   buildScheduleSharePost(seedTemplates.find((t) => t.id === "tpl-fine-motor")!),
   buildScheduleSharePost(seedTemplates.find((t) => t.id === "tpl-energy")!),
@@ -502,7 +501,6 @@ const seedPosts: Post[] = [
     reactions: { heart: 3, clap: 1 },
     myReactions: [],
     comments: [
-
       {
         id: uid(),
         authorId: "jonas",
@@ -529,7 +527,6 @@ const seedPosts: Post[] = [
     reactions: { heart: 1, helpful: 2 },
     myReactions: [],
     comments: [
-
       {
         id: uid(),
         authorId: "me",
@@ -573,7 +570,6 @@ const seedPosts: Post[] = [
     reactions: { heart: 2, clap: 1 },
     myReactions: [],
     comments: [
-
       {
         id: uid(),
         authorId: "zara",
@@ -587,8 +583,6 @@ const seedPosts: Post[] = [
     createdAt: "2026-08-19",
   },
 ];
-
-
 
 const seedArticles: Article[] = [
   {
@@ -687,7 +681,6 @@ When a child picks the order of two activities, compliance stops being a battle.
   },
 ];
 
-
 const demoObservations: Observation[] = [
   {
     id: "o1",
@@ -715,7 +708,13 @@ const seed: AppState = {
     ...t,
     likes: [6, 14, 9, 4][i] ?? 0,
     liked: false,
-    ratings: [[5, 4, 5], [5, 5, 4, 5], [4, 4, 5], [5, 3, 4]][i] ?? [],
+    ratings:
+      [
+        [5, 4, 5],
+        [5, 5, 4, 5],
+        [4, 4, 5],
+        [5, 3, 4],
+      ][i] ?? [],
     tries: [3, 11, 6, 2][i] ?? 0,
     repeatDays: i === 0 ? [1, 2, 3, 4, 5] : [],
   })),
@@ -730,7 +729,6 @@ const seed: AppState = {
   dayPlans: [],
   following: [],
 };
-
 
 type Ctx = {
   state: AppState;
@@ -764,7 +762,6 @@ export const toDateKey = (d: Date) =>
 export const averageRating = (t: Template) =>
   t.ratings?.length ? t.ratings.reduce((a, b) => a + b, 0) / t.ratings.length : 0;
 
-
 const AppContext = createContext<Ctx | null>(null);
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
@@ -792,17 +789,22 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         }));
       }
 
-      const storedPersona = window.sessionStorage.getItem(DEMO_PERSONA_KEY);
-      const persona: DemoPersona | null =
-        storedPersona === "pro" || storedPersona === "parent" ? storedPersona : null;
-      if (window.sessionStorage.getItem(PROTOTYPE_DEMO_KEY) === "1" && persona) {
-        setPrototypeDemo(true);
-        setDemoPersona(persona);
-        setState((prev) => ({
-          ...prev,
-          profile: profileForDemoPersona(persona),
-          loggedOut: false,
-        }));
+      if (!import.meta.env.DEV) {
+        window.sessionStorage.removeItem(PROTOTYPE_DEMO_KEY);
+        window.sessionStorage.removeItem(DEMO_PERSONA_KEY);
+      } else {
+        const storedPersona = window.sessionStorage.getItem(DEMO_PERSONA_KEY);
+        const persona: DemoPersona | null =
+          storedPersona === "pro" || storedPersona === "parent" ? storedPersona : null;
+        if (window.sessionStorage.getItem(PROTOTYPE_DEMO_KEY) === "1" && persona) {
+          setPrototypeDemo(true);
+          setDemoPersona(persona);
+          setState((prev) => ({
+            ...prev,
+            profile: profileForDemoPersona(persona),
+            loggedOut: false,
+          }));
+        }
       }
 
       if (import.meta.env.DEV && window.sessionStorage.getItem(DEV_DEMO_KEY) === "1") {
@@ -905,6 +907,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const enterPrototypeDemo = useCallback(
     (persona: DemoPersona) => {
+      if (!import.meta.env.DEV) return;
       try {
         window.sessionStorage.setItem(PROTOTYPE_DEMO_KEY, "1");
         window.sessionStorage.setItem(DEMO_PERSONA_KEY, persona);
@@ -936,11 +939,18 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const tryTemplate = useCallback(
     (templateId: string) => {
       update((prev) => {
-        const tpl = prev.templates.find((t) => t.id === templateId) ?? seed.templates.find((t) => t.id === templateId);
+        const tpl =
+          prev.templates.find((t) => t.id === templateId) ??
+          seed.templates.find((t) => t.id === templateId);
         if (!tpl) return prev;
         return {
           ...prev,
-          schedule: tpl.items.map((i) => ({ ...i, id: uid(), done: false, fromTemplateId: tpl.id })),
+          schedule: tpl.items.map((i) => ({
+            ...i,
+            id: uid(),
+            done: false,
+            fromTemplateId: tpl.id,
+          })),
           templates: prev.templates.map((t) =>
             t.id === templateId ? { ...t, tries: (t.tries ?? 0) + 1 } : t,
           ),
@@ -986,7 +996,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     (templateId: string, days: number[]) => {
       update((prev) => ({
         ...prev,
-        templates: prev.templates.map((t) => (t.id === templateId ? { ...t, repeatDays: days } : t)),
+        templates: prev.templates.map((t) =>
+          t.id === templateId ? { ...t, repeatDays: days } : t,
+        ),
       }));
     },
     [update],
@@ -1088,5 +1100,3 @@ export function useAppStore() {
   if (!ctx) throw new Error("useAppStore must be used inside AppStoreProvider");
   return ctx;
 }
-
-

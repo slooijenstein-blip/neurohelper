@@ -8,13 +8,14 @@ import {
   Stethoscope,
 } from "lucide-react";
 import { Navigate } from "@tanstack/react-router";
-import { useAuth } from "@clerk/react";
+import { useAuth, useUser } from "@clerk/react";
 import { useEffect, useState } from "react";
 
 import { useI18n } from "@/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 import { isClerkConfigured } from "@/lib/clerk";
-import { isProAccount, tabsForAccount, type AppTabKey } from "@/lib/pro-access";
+import { isClerkPro, type ClerkNameSource } from "@/lib/clerk-profile";
+import { isProAccount, showProChrome, tabsForAccount, type AppTabKey } from "@/lib/pro-access";
 import { useDevShareUser } from "@/lib/share/dev-session";
 import { ActivitiesTab } from "./ActivitiesTab";
 import { ScheduleTab } from "./ScheduleTab";
@@ -41,13 +42,22 @@ const TAB_META: Record<TabKey, { labelKey: string; icon: typeof Activity }> = {
   profile: { labelKey: "nav.profile", icon: UserRound },
 };
 
-function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
-  const { state } = useAppStore();
+function AppShell({
+  tab,
+  onTab,
+  clerkIsPro,
+}: {
+  tab: TabKey;
+  onTab: (t: TabKey) => void;
+  clerkIsPro: boolean;
+}) {
+  const { state, prototypeDemo } = useAppStore();
   const { t } = useI18n();
   const [profileId, setProfileId] = useState<string | null>(null);
   const [articleId, setArticleId] = useState<string | null>(null);
   const [helpNonce, setHelpNonce] = useState(0);
-  const isPro = isProAccount(state.profile);
+  const deviceDemo = import.meta.env.DEV && prototypeDemo && isProAccount(state.profile);
+  const isPro = showProChrome({ clerkIsPro, deviceDemo });
   const tabs = tabsForAccount(isPro);
 
   useEffect(() => {
@@ -171,20 +181,23 @@ function AppShell({ tab, onTab }: { tab: TabKey; onTab: (t: TabKey) => void }) {
 
 function ClerkGatedApp(props: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
   const { devDemo, prototypeDemo, hydrated } = useAppStore();
   const devShare = useDevShareUser();
+  const deviceDemo = import.meta.env.DEV && (prototypeDemo || devDemo);
+  const clerkIsPro = user ? isClerkPro(user as ClerkNameSource) : false;
 
   if (!isLoaded || !hydrated) return <AuthLoading />;
-  if (isSignedIn || prototypeDemo || devShare || (import.meta.env.DEV && devDemo))
-    return <AppShell {...props} />;
+  if (isSignedIn || deviceDemo || devShare) return <AppShell {...props} clerkIsPro={clerkIsPro} />;
   return <Navigate to="/sign-in" />;
 }
 
 function LocalGatedApp(props: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const { devDemo, prototypeDemo, hydrated } = useAppStore();
   const devShare = useDevShareUser();
+  const deviceDemo = import.meta.env.DEV && (prototypeDemo || devDemo);
   if (!hydrated) return <AuthLoading />;
-  if (prototypeDemo || devShare || (import.meta.env.DEV && devDemo)) return <AppShell {...props} />;
+  if (deviceDemo || devShare) return <AppShell {...props} clerkIsPro={false} />;
   return <Navigate to="/sign-in" />;
 }
 

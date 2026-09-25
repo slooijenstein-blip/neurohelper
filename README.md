@@ -107,8 +107,8 @@ If the person **already has a Clerk account**, Clerk will not send another invit
 ### How Sam tries it
 
 1. Open the Vercel preview for this pull request (not synlumae.com, not GitHub Pages).
-2. Hard-refresh. Optional: **Continue as Pro** / **Continue as Parent** still walks the same screens on this device only, with no email.
-3. Sign in as the therapist whose public metadata has `"isPro": true`. Confirm **Activities** and **Pro** are both there.
+2. Hard-refresh and sign in. **Continue as Pro** is not on this preview. It exists only in local `npm run dev`, and it does not call the live share API.
+3. Sign in as the therapist whose public metadata has `"isPro": true`. Confirm **Activities** and **Pro** are both there. A profile role tag does not add the Pro tab.
 4. **Pro** → add a patient (first name + age band) → open them → **Plans** → **Apply** the weekday calm-hour template to today → **Share** → invite the parent’s email.
 5. The parent opens the email (or the copied link), creates an account or signs in with that email, and opens **Schedule**. **Shared with you** shows the plan. There is no Pro tab.
 6. **Profile → Log out** on each account between the two sign-ins.

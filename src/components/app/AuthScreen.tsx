@@ -30,6 +30,7 @@ function PersonaDemoButtons() {
   const { enterPrototypeDemo } = useAppStore();
   const { t } = useI18n();
   const navigate = useNavigate();
+  if (!import.meta.env.DEV) return null;
 
   const enter = (persona: DemoPersona) => {
     enterPrototypeDemo(persona);
@@ -221,7 +222,7 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
 
 export function SignedInRedirect({ children }: { children: ReactNode }) {
   const { devDemo, prototypeDemo } = useAppStore();
-  if (prototypeDemo || (import.meta.env.DEV && devDemo)) return <Navigate to="/" />;
+  if (import.meta.env.DEV && (prototypeDemo || devDemo)) return <Navigate to="/" />;
   if (!isClerkConfigured()) return <>{children}</>;
   return <SignedInRedirectInner>{children}</SignedInRedirectInner>;
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { isProAccount, tabsForAccount } from "./pro-access.ts";
+import { isProAccount, showProChrome, tabsForAccount } from "./pro-access.ts";
 
 describe("pro access", () => {
   it("keeps the caregiver tabs and withholds Pro unless the flag is on", () => {
@@ -22,5 +22,12 @@ describe("pro access", () => {
     assert.ok(pro.includes("pro"));
     assert.equal(pro[0], "activities");
     assert.equal(pro[1], "pro");
+  });
+
+  it("shows Pro chrome from Clerk metadata, and from the device demo only when that flag is passed", () => {
+    assert.equal(showProChrome({ clerkIsPro: true, deviceDemo: false }), true);
+    assert.equal(showProChrome({ clerkIsPro: false, deviceDemo: false }), false);
+    assert.equal(showProChrome({ clerkIsPro: false, deviceDemo: true }), true);
+    assert.equal(isProAccount({ role: "Therapist" } as { isPro?: boolean }), false);
   });
 });

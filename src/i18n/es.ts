@@ -46,7 +46,7 @@ export const es: DeepString<Messages> = {
     signIn: "Iniciar sesión",
     devDemo: "Continuar como Sam (solo desarrollo)",
     demoHint:
-      "Solo este navegador. Iniciar sesión con una cuenta real lo apaga. Una etiqueta de rol no te hace Pro.",
+      "Solo desarrollo local. Esto no activa Pro. Una etiqueta de rol no activa Pro.",
     continuePro: "Continuar como Pro",
     continueParent: "Continuar como padre/madre",
     setupLead:

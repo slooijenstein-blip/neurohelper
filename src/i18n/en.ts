@@ -39,7 +39,7 @@ export const en = {
     signIn: "Sign in",
     devDemo: "Continue as Sam (dev only)",
     demoHint:
-      "This browser only. Signing in with a real account turns this off. A role tag does not make you Pro.",
+      "Local development only. This does not turn on Pro. A role tag does not turn on Pro.",
     continuePro: "Continue as Pro",
     continueParent: "Continue as Parent",
     setupLead:
