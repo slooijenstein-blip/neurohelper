@@ -55,39 +55,6 @@ async function sendClerkInvitation(input) {
   }
 }
 
-// src/lib/calendar/permissions.ts
-function canEditPlan(role) {
-  return role === "therapist" || role === "caregiver";
-}
-function canInvite(role) {
-  return role === "therapist" || role === "caregiver";
-}
-function inviteRolesFor(actor) {
-  if (actor === "therapist") return ["caregiver"];
-  if (actor === "caregiver") return ["helper"];
-  return [];
-}
-function membershipOnChild(memberships, childId, personId) {
-  return memberships.find(
-    (m) => m.childId === childId && m.personId === personId && m.status === "active"
-  ) ?? null;
-}
-
-// src/lib/calendar/types.ts
-var AGE_BANDS = [
-  { id: "1-2", labelKey: "calendar.ageBands.1_2" },
-  { id: "3-5", labelKey: "calendar.ageBands.3_5" },
-  { id: "6-8", labelKey: "calendar.ageBands.6_8" },
-  { id: "9-12", labelKey: "calendar.ageBands.9_12" }
-];
-function isAgeBand(value) {
-  return AGE_BANDS.some((band) => band.id === value);
-}
-function nid(prefix) {
-  const raw = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-  return `${prefix}_${raw.slice(0, 12)}`;
-}
-
 // src/lib/share/names.ts
 function normalizeEmail(email) {
   return email.trim().toLowerCase();
@@ -157,6 +124,126 @@ function assertDateKey(date) {
 }
 function emailLocalPart(email) {
   return email.split("@")[0]?.replace(/[._+-]+/g, " ").trim() || "Parent";
+}
+
+// src/lib/share/pro-request.ts
+var PRO_REQUEST_ADMIN_EMAIL = "samlooijenstein@gmail.com";
+var PRO_REQUEST_ROLES = ["therapist", "psychologist", "other"];
+function clipLine(raw, max) {
+  let cleaned = "";
+  for (const char of raw) {
+    cleaned += char.charCodeAt(0) < 32 ? " " : char;
+  }
+  return cleaned.replace(/\s+/g, " ").trim().slice(0, max);
+}
+function newProRequestId() {
+  return `proreq_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
+}
+function isProRequestAdmin(actor) {
+  const allow = canonicalEmail(PRO_REQUEST_ADMIN_EMAIL);
+  return actorEmailKeys(actor).some((key) => canonicalEmail(key) === allow);
+}
+function parseProRequestInput(body) {
+  const fullName = clipLine(typeof body["fullName"] === "string" ? body["fullName"] : "", 80);
+  if (!fullName || fullName.includes("@")) {
+    throw new ShareError(400, "invalid_name", "Enter your full name.");
+  }
+  const email = assertEmail(typeof body["email"] === "string" ? body["email"] : "");
+  const roleRaw = typeof body["role"] === "string" ? body["role"] : "";
+  if (!PRO_REQUEST_ROLES.includes(roleRaw)) {
+    throw new ShareError(400, "invalid_role", "Choose therapist, psychologist, or other.");
+  }
+  const countryRaw = typeof body["country"] === "string" ? body["country"].trim().toUpperCase() : "";
+  if (!/^[A-Z]{2}$/.test(countryRaw)) {
+    throw new ShareError(400, "invalid_country", "Choose a country.");
+  }
+  if (body["worksWithFamilies"] !== true) {
+    throw new ShareError(
+      400,
+      "confirm_required",
+      "Confirm that you work with families in a professional role."
+    );
+  }
+  return {
+    fullName,
+    email,
+    role: roleRaw,
+    country: countryRaw,
+    organisation: clipLine(
+      typeof body["organisation"] === "string" ? body["organisation"] : "",
+      80
+    ),
+    why: clipLine(typeof body["why"] === "string" ? body["why"] : "", 160),
+    worksWithFamilies: true
+  };
+}
+async function submitProRequest(store, actor, input, now) {
+  if (actor.isPro) {
+    throw new ShareError(409, "already_pro", "This account already has Pro.");
+  }
+  const existing = await store.getProRequest(actor.userId);
+  const request = {
+    id: existing?.id ?? newProRequestId(),
+    userId: actor.userId,
+    email: normalizeEmail(input.email),
+    fullName: input.fullName,
+    role: input.role,
+    country: input.country,
+    organisation: input.organisation,
+    why: input.why,
+    worksWithFamilies: true,
+    status: "pending",
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now
+  };
+  await store.saveProRequest(request);
+  return request;
+}
+async function pendingForReview(requests, userIsPro) {
+  const waiting = [];
+  for (const request of requests) {
+    if (await userIsPro(request.userId)) continue;
+    waiting.push(request);
+  }
+  return waiting;
+}
+function proRequestNotifyResult(notifyEmail) {
+  const to = notifyEmail?.trim();
+  if (!to) return { notified: false, code: "not_configured" };
+  return { notified: false, code: "no_mailer" };
+}
+
+// src/lib/calendar/permissions.ts
+function canEditPlan(role) {
+  return role === "therapist" || role === "caregiver";
+}
+function canInvite(role) {
+  return role === "therapist" || role === "caregiver";
+}
+function inviteRolesFor(actor) {
+  if (actor === "therapist") return ["caregiver"];
+  if (actor === "caregiver") return ["helper"];
+  return [];
+}
+function membershipOnChild(memberships, childId, personId) {
+  return memberships.find(
+    (m) => m.childId === childId && m.personId === personId && m.status === "active"
+  ) ?? null;
+}
+
+// src/lib/calendar/types.ts
+var AGE_BANDS = [
+  { id: "1-2", labelKey: "calendar.ageBands.1_2" },
+  { id: "3-5", labelKey: "calendar.ageBands.3_5" },
+  { id: "6-8", labelKey: "calendar.ageBands.6_8" },
+  { id: "9-12", labelKey: "calendar.ageBands.9_12" }
+];
+function isAgeBand(value) {
+  return AGE_BANDS.some((band) => band.id === value);
+}
+function nid(prefix) {
+  const raw = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  return `${prefix}_${raw.slice(0, 12)}`;
 }
 
 // src/lib/share/mutate.ts
@@ -2294,8 +2381,12 @@ function emptyBag() {
     membership: {},
     token: {},
     user: {},
-    email: {}
+    email: {},
+    proRequests: {}
   };
+}
+function ensureBag(bag) {
+  if (!bag.proRequests || typeof bag.proRequests !== "object") bag.proRequests = {};
 }
 function listAdd(map, key, ownerId) {
   const current = map[key] ?? [];
@@ -2346,7 +2437,11 @@ function createMemoryShareStore() {
   const bag = emptyBag();
   return storeFromBag(bag);
 }
+function sortedProRequests(bag) {
+  return Object.values(bag.proRequests).sort((a, b) => a.createdAt < b.createdAt ? 1 : -1);
+}
 function storeFromBag(bag) {
+  ensureBag(bag);
   return {
     async get(ownerUserId) {
       return bag.workspaces[ownerUserId] ?? null;
@@ -2374,6 +2469,15 @@ function storeFromBag(bag) {
     },
     async ownersForEmail(email) {
       return [...bag.email[email] ?? []];
+    },
+    async getProRequest(userId) {
+      return bag.proRequests[userId] ?? null;
+    },
+    async saveProRequest(request) {
+      bag.proRequests[request.userId] = request;
+    },
+    async listProRequests() {
+      return sortedProRequests(bag);
     }
   };
 }
@@ -2382,6 +2486,7 @@ function createFileShareStore(filePath) {
   try {
     const parsed = JSON.parse(readFileSync(filePath, "utf8"));
     Object.assign(bag, parsed);
+    ensureBag(bag);
   } catch {
   }
   const persist = () => {
@@ -2393,6 +2498,10 @@ function createFileShareStore(filePath) {
     ...inner,
     async save(previous, next) {
       await inner.save(previous, next);
+      persist();
+    },
+    async saveProRequest(request) {
+      await inner.saveProRequest(request);
       persist();
     }
   };
@@ -2546,6 +2655,34 @@ function createRedisShareStore(conn) {
     },
     async ownersForEmail(email) {
       return readList(`email:${email}`);
+    },
+    async getProRequest(userId) {
+      return readJson2(`proreq:${userId}`);
+    },
+    async saveProRequest(request) {
+      const lock = key("lock:proreq");
+      let locked2 = null;
+      for (let attempt = 0; attempt < 4 && locked2 !== "OK"; attempt += 1) {
+        locked2 = await redis(conn, ["SET", lock, "1", "NX", "EX", "8"]);
+        if (locked2 !== "OK")
+          await new Promise((resolve) => setTimeout(resolve, 40 * (attempt + 1)));
+      }
+      if (locked2 !== "OK") throw Object.assign(new Error("busy"), { code: "conflict" });
+      try {
+        await writeJson(`proreq:${request.userId}`, request);
+        const index = await readList("proreq:index");
+        if (!index.includes(request.userId))
+          await writeList("proreq:index", [...index, request.userId]);
+      } finally {
+        await redis(conn, ["DEL", lock]);
+      }
+    },
+    async listProRequests() {
+      const index = await readList("proreq:index");
+      const rows = await Promise.all(
+        index.map((userId) => readJson2(`proreq:${userId}`))
+      );
+      return rows.filter((row) => row !== null).sort((a, b) => a.createdAt < b.createdAt ? 1 : -1);
     }
   };
 }
@@ -2588,7 +2725,21 @@ function match(pathname) {
   if (rest.length === 3 && rest[0] === "invites" && rest[2] === "accept") {
     return { name: "accept", token: decodeURIComponent(rest[1]) };
   }
+  if (rest.length === 1 && rest[0] === "pro-request") return { name: "pro-request" };
+  if (rest.length === 1 && rest[0] === "pro-requests") return { name: "pro-requests" };
   return null;
+}
+async function clerkUserIsPro(secretKey, userId) {
+  if (!secretKey) return false;
+  try {
+    const { createClerkClient } = await import("@clerk/backend");
+    const user = await createClerkClient({ secretKey }).users.getUser(userId);
+    const meta = user.publicMetadata;
+    return meta?.isPro === true;
+  } catch (err) {
+    console.error("pro request clerk lookup", err);
+    return false;
+  }
 }
 function devActor(req, env) {
   if (readEnv2(env, "SHARE_DEV_BYPASS") !== "1" || readEnv2(env, "VERCEL")) return null;
@@ -2658,6 +2809,9 @@ function createShareDeps(env = process.env) {
     clerk,
     storeName,
     service,
+    store,
+    userIsPro: (userId) => clerkUserIsPro(secretKey, userId),
+    proRequestNotify: proRequestNotifyResult(readEnv2(env, "PRO_REQUEST_NOTIFY_EMAIL")),
     authenticate: async (req) => {
       const dev = devActor(req, env);
       if (dev) return dev;
@@ -2694,7 +2848,7 @@ async function handleShareApi(req, deps) {
       store: deps.storeName
     });
   }
-  if (!deps.service || !deps.configured) {
+  if (!deps.service || !deps.store || !deps.configured) {
     return json(
       {
         error: "Live sharing is not configured on this preview yet.",
@@ -2730,6 +2884,23 @@ async function handleShareApi(req, deps) {
       }
       const result = await deps.service.act(actor, action, origin);
       return json(result);
+    }
+    if (route.name === "pro-request" && req.method === "GET") {
+      const request = await deps.store.getProRequest(actor.userId);
+      return json({ request });
+    }
+    if (route.name === "pro-request" && req.method === "POST") {
+      const body = await readJson(req);
+      const input = parseProRequestInput(body);
+      const request = await submitProRequest(deps.store, actor, input, (/* @__PURE__ */ new Date()).toISOString());
+      return json({ request, notify: deps.proRequestNotify });
+    }
+    if (route.name === "pro-requests" && req.method === "GET") {
+      if (!isProRequestAdmin(actor)) {
+        throw new ShareError(403, "forbidden", "You cannot view Pro requests.");
+      }
+      const waiting = await pendingForReview(await deps.store.listProRequests(), deps.userIsPro);
+      return json({ requests: waiting });
     }
     if (route.name === "accept" && req.method === "POST") {
       const body = await readJson(req);

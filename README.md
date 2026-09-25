@@ -112,6 +112,8 @@ If the person **already has a Clerk account**, Clerk will not send another invit
 4. **Pro** → add a patient (first name + age band) → open them → **Plans** → **Apply** the weekday calm-hour template to today → **Share** → invite the parent’s email.
 5. The parent opens the email (or the copied link), creates an account or signs in with that email, and opens **Schedule**. **Shared with you** shows the plan. There is no Pro tab.
 6. **Profile → Log out** on each account between the two sign-ins.
+7. On a signed-in account that is **not** Pro, open **Profile**. **Synlumae Pro for professionals** is a short request form (not a banner on Activities). Submit it. The status becomes **Pending**. Pro stays off until you set Clerk public metadata `isPro` to `true`, then that person signs out and back in. The status then shows **Approved**.
+8. Sign in as **samlooijenstein@gmail.com** and open **Profile** to see **Pro requests waiting**. That list is the review inbox. Approval is still done by hand in Clerk. A role tag of Therapist does not grant Pro.
 
 ## Production
 

@@ -1,6 +1,13 @@
 import type { Actor, ShareAction } from "./actions.ts";
 import { ShareError } from "./errors.ts";
 import { sendClerkInvitation } from "./mail.ts";
+import {
+  isProRequestAdmin,
+  parseProRequestInput,
+  pendingForReview,
+  proRequestNotifyResult,
+  submitProRequest,
+} from "./pro-request.ts";
 import { ShareService } from "./service.ts";
 import {
   createFileShareStore,
@@ -20,6 +27,9 @@ export type ShareDeps = {
   clerk: boolean;
   storeName: "redis" | "file" | "memory" | "none";
   service: ShareService | null;
+  store: ShareStore | null;
+  userIsPro: (userId: string) => Promise<boolean>;
+  proRequestNotify: ReturnType<typeof proRequestNotifyResult>;
   authenticate: (req: Request) => Promise<Actor | null>;
 };
 
@@ -55,6 +65,8 @@ function match(
   | { name: "actions" }
   | { name: "peek"; token: string }
   | { name: "accept"; token: string }
+  | { name: "pro-request" }
+  | { name: "pro-requests" }
   | null {
   const parts = pathname.split("?")[0]!.replace(/\/+$/, "").split("/").filter(Boolean);
   if (parts[0] !== "api" || parts[1] !== "share") return null;
@@ -67,7 +79,22 @@ function match(
   if (rest.length === 3 && rest[0] === "invites" && rest[2] === "accept") {
     return { name: "accept", token: decodeURIComponent(rest[1]!) };
   }
+  if (rest.length === 1 && rest[0] === "pro-request") return { name: "pro-request" };
+  if (rest.length === 1 && rest[0] === "pro-requests") return { name: "pro-requests" };
   return null;
+}
+
+async function clerkUserIsPro(secretKey: string | undefined, userId: string): Promise<boolean> {
+  if (!secretKey) return false;
+  try {
+    const { createClerkClient } = await import("@clerk/backend");
+    const user = await createClerkClient({ secretKey }).users.getUser(userId);
+    const meta = user.publicMetadata as { isPro?: unknown } | null | undefined;
+    return meta?.isPro === true;
+  } catch (err) {
+    console.error("pro request clerk lookup", err);
+    return false;
+  }
 }
 
 function devActor(req: Request, env: NodeJS.ProcessEnv): Actor | null {
@@ -156,6 +183,9 @@ export function createShareDeps(env: NodeJS.ProcessEnv = process.env): ShareDeps
     clerk,
     storeName,
     service,
+    store,
+    userIsPro: (userId) => clerkUserIsPro(secretKey, userId),
+    proRequestNotify: proRequestNotifyResult(readEnv(env, "PRO_REQUEST_NOTIFY_EMAIL")),
     authenticate: async (req) => {
       const dev = devActor(req, env);
       if (dev) return dev;
@@ -195,7 +225,7 @@ export async function handleShareApi(req: Request, deps: ShareDeps): Promise<Res
       store: deps.storeName,
     });
   }
-  if (!deps.service || !deps.configured) {
+  if (!deps.service || !deps.store || !deps.configured) {
     return json(
       {
         error: "Live sharing is not configured on this preview yet.",
@@ -234,6 +264,23 @@ export async function handleShareApi(req: Request, deps: ShareDeps): Promise<Res
       }
       const result = await deps.service.act(actor, action, origin);
       return json(result);
+    }
+    if (route.name === "pro-request" && req.method === "GET") {
+      const request = await deps.store.getProRequest(actor.userId);
+      return json({ request });
+    }
+    if (route.name === "pro-request" && req.method === "POST") {
+      const body = await readJson(req);
+      const input = parseProRequestInput(body);
+      const request = await submitProRequest(deps.store, actor, input, new Date().toISOString());
+      return json({ request, notify: deps.proRequestNotify });
+    }
+    if (route.name === "pro-requests" && req.method === "GET") {
+      if (!isProRequestAdmin(actor)) {
+        throw new ShareError(403, "forbidden", "You cannot view Pro requests.");
+      }
+      const waiting = await pendingForReview(await deps.store.listProRequests(), deps.userIsPro);
+      return json({ requests: waiting });
     }
     if (route.name === "accept" && req.method === "POST") {
       const body = await readJson(req);

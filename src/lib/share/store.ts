@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { emailIndexKeys } from "./names.ts";
+import type { ProRequest } from "./pro-request.ts";
 import type { Workspace } from "./workspace.ts";
 
 export type ShareStore = {
@@ -14,6 +15,9 @@ export type ShareStore = {
   ownerForToken(token: string): Promise<string | null>;
   ownersForUser(userId: string): Promise<string[]>;
   ownersForEmail(email: string): Promise<string[]>;
+  getProRequest(userId: string): Promise<ProRequest | null>;
+  saveProRequest(request: ProRequest): Promise<void>;
+  listProRequests(): Promise<ProRequest[]>;
 };
 
 type Bag = {
@@ -25,6 +29,7 @@ type Bag = {
   token: Record<string, string>;
   user: Record<string, string[]>;
   email: Record<string, string[]>;
+  proRequests: Record<string, ProRequest>;
 };
 
 function emptyBag(): Bag {
@@ -37,7 +42,12 @@ function emptyBag(): Bag {
     token: {},
     user: {},
     email: {},
+    proRequests: {},
   };
+}
+
+function ensureBag(bag: Bag) {
+  if (!bag.proRequests || typeof bag.proRequests !== "object") bag.proRequests = {};
 }
 
 function listAdd(map: Record<string, string[]>, key: string, ownerId: string) {
@@ -95,7 +105,12 @@ export function createMemoryShareStore(): ShareStore {
   return storeFromBag(bag);
 }
 
+function sortedProRequests(bag: Bag): ProRequest[] {
+  return Object.values(bag.proRequests).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
 function storeFromBag(bag: Bag): ShareStore {
+  ensureBag(bag);
   return {
     async get(ownerUserId) {
       return bag.workspaces[ownerUserId] ?? null;
@@ -124,6 +139,15 @@ function storeFromBag(bag: Bag): ShareStore {
     async ownersForEmail(email) {
       return [...(bag.email[email] ?? [])];
     },
+    async getProRequest(userId) {
+      return bag.proRequests[userId] ?? null;
+    },
+    async saveProRequest(request) {
+      bag.proRequests[request.userId] = request;
+    },
+    async listProRequests() {
+      return sortedProRequests(bag);
+    },
   };
 }
 
@@ -132,6 +156,7 @@ export function createFileShareStore(filePath: string): ShareStore {
   try {
     const parsed = JSON.parse(readFileSync(filePath, "utf8")) as Bag;
     Object.assign(bag, parsed);
+    ensureBag(bag);
   } catch {
     /* first run */
   }
@@ -144,6 +169,10 @@ export function createFileShareStore(filePath: string): ShareStore {
     ...inner,
     async save(previous, next) {
       await inner.save(previous, next);
+      persist();
+    },
+    async saveProRequest(request) {
+      await inner.saveProRequest(request);
       persist();
     },
   };
@@ -315,6 +344,36 @@ export function createRedisShareStore(conn: RedisEnv): ShareStore {
     },
     async ownersForEmail(email) {
       return readList(`email:${email}`);
+    },
+    async getProRequest(userId) {
+      return readJson<ProRequest>(`proreq:${userId}`);
+    },
+    async saveProRequest(request) {
+      const lock = key("lock:proreq");
+      let locked: unknown = null;
+      for (let attempt = 0; attempt < 4 && locked !== "OK"; attempt += 1) {
+        locked = await redis(conn, ["SET", lock, "1", "NX", "EX", "8"]);
+        if (locked !== "OK")
+          await new Promise((resolve) => setTimeout(resolve, 40 * (attempt + 1)));
+      }
+      if (locked !== "OK") throw Object.assign(new Error("busy"), { code: "conflict" });
+      try {
+        await writeJson(`proreq:${request.userId}`, request);
+        const index = await readList("proreq:index");
+        if (!index.includes(request.userId))
+          await writeList("proreq:index", [...index, request.userId]);
+      } finally {
+        await redis(conn, ["DEL", lock]);
+      }
+    },
+    async listProRequests() {
+      const index = await readList("proreq:index");
+      const rows = await Promise.all(
+        index.map((userId) => readJson<ProRequest>(`proreq:${userId}`)),
+      );
+      return rows
+        .filter((row): row is ProRequest => row !== null)
+        .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
     },
   };
 }

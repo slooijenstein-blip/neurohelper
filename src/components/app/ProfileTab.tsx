@@ -24,6 +24,7 @@ import {
   type CaregiverProfileEdits,
 } from "@/lib/clerk-profile";
 import { withBasePath } from "@/lib/paths";
+import { ProAccessCard } from "./ProAccessCard";
 import { ScreenHeader, ProfileAvatar, RoleTag, SocialBar } from "./ui-bits";
 
 const STORAGE_KEY = "motor-skill-buddy-v1";
@@ -140,6 +141,8 @@ export function ProfileTab() {
         >
           {t("profile.resetLocal")}
         </Button>
+
+        <ProAccessCard />
 
         <DemoPersonaNote />
         <LiveShareNote />

@@ -1,5 +1,6 @@
 import type { CalendarState } from "../calendar/types.ts";
 import type { EmailResult, ShareAction } from "./actions.ts";
+import type { ProRequest, ProRequestInput } from "./pro-request.ts";
 
 export type ShareAuth = {
   token: string | null;
@@ -97,4 +98,43 @@ export async function acceptInviteOnServer(
     throw Object.assign(new Error(err.message), { code: err.code });
   }
   return (await response.json()) as { state: CalendarState };
+}
+
+export async function fetchOwnProRequest(auth: ShareAuth): Promise<ProRequest | null> {
+  const response = await fetch("/api/share/pro-request", { headers: authHeaders(auth) });
+  if (!response.ok) {
+    const err = await readError(response);
+    throw Object.assign(new Error(err.message), { code: err.code });
+  }
+  const body = (await response.json()) as { request: ProRequest | null };
+  return body.request;
+}
+
+export async function submitProRequest(
+  auth: ShareAuth,
+  input: ProRequestInput,
+): Promise<ProRequest> {
+  const headers = authHeaders(auth);
+  headers.set("content-type", "application/json");
+  const response = await fetch("/api/share/pro-request", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) {
+    const err = await readError(response);
+    throw Object.assign(new Error(err.message), { code: err.code });
+  }
+  const body = (await response.json()) as { request: ProRequest };
+  return body.request;
+}
+
+export async function fetchProRequestQueue(auth: ShareAuth): Promise<ProRequest[]> {
+  const response = await fetch("/api/share/pro-requests", { headers: authHeaders(auth) });
+  if (!response.ok) {
+    const err = await readError(response);
+    throw Object.assign(new Error(err.message), { code: err.code });
+  }
+  const body = (await response.json()) as { requests: ProRequest[] };
+  return body.requests;
 }

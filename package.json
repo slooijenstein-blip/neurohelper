@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "node --experimental-strip-types --test src/lib/clerk-profile.test.ts src/lib/help/countries.test.ts src/i18n/translate.test.ts src/lib/pro-access.test.ts src/lib/calendar/permissions.test.ts src/lib/activity-locale.test.ts src/lib/share/share.test.ts",
+    "test": "node --experimental-strip-types --test src/lib/clerk-profile.test.ts src/lib/help/countries.test.ts src/i18n/translate.test.ts src/lib/pro-access.test.ts src/lib/calendar/permissions.test.ts src/lib/activity-locale.test.ts src/lib/share/share.test.ts src/lib/share/pro-request.test.ts",
     "build:api": "node scripts/bundle-share-api.mjs",
     "deploy:pages": "node scripts/deploy-pages.mjs"
   },

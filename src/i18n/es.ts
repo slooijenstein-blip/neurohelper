@@ -45,8 +45,7 @@ export const es: DeepString<Messages> = {
     haveAccount: "¿Ya tienes una cuenta?",
     signIn: "Iniciar sesión",
     devDemo: "Continuar como Sam (solo desarrollo)",
-    demoHint:
-      "Solo desarrollo local. Esto no activa Pro. Una etiqueta de rol no activa Pro.",
+    demoHint: "Solo desarrollo local. Esto no activa Pro. Una etiqueta de rol no activa Pro.",
     continuePro: "Continuar como Pro",
     continueParent: "Continuar como padre/madre",
     setupLead:
@@ -526,7 +525,8 @@ export const es: DeepString<Messages> = {
     back: "Pacientes",
     forPatient: "{{name}}",
     intro: "Las familias siguen con la app de siempre. No ven esta lista de pacientes.",
-    demoBanner: "Demo Pro. Sigues teniendo Actividades, Comunidad, Ayuda y Perfil, más la pestaña Pro.",
+    demoBanner:
+      "Demo Pro. Sigues teniendo Actividades, Comunidad, Ayuda y Perfil, más la pestaña Pro.",
   },
   shared: {
     title: "Compartido contigo",
@@ -554,8 +554,42 @@ export const es: DeepString<Messages> = {
       "El correo de invitaciones aún no está activo en esta vista previa. Hay que añadir las claves del servidor de la pull request. Pro solo se activa cuando lo marcamos en la cuenta.",
     liveOn: "El uso compartido en vivo está activo en esta cuenta.",
     sending: "Enviando invitación…",
-    saveFailed: "No se pudo guardar. Si esta cuenta es real, revisa que el uso compartido esté activado.",
+    saveFailed:
+      "No se pudo guardar. Si esta cuenta es real, revisa que el uso compartido esté activado.",
     signInToAccept: "Inicia sesión con {{email}} para ver este plan compartido.",
     accepted: "Ya estás dentro. El plan compartido está en Horario.",
+  },
+  proRequest: {
+    title: "Synlumae Pro para profesionales",
+    intro:
+      "Pide a Synlumae que active Pro en esta cuenta. Revisamos cada solicitud a mano. Una etiqueta de rol no activa Pro.",
+    fullName: "Nombre completo",
+    email: "Correo",
+    role: "Rol",
+    rolePlaceholder: "Elige un rol",
+    roleTherapist: "Terapeuta",
+    rolePsychologist: "Psicólogo o psicóloga",
+    roleOther: "Otro",
+    country: "País",
+    countryPlaceholder: "Elige un país",
+    organisation: "Organización o consulta (opcional)",
+    why: "Por qué quieres Pro (opcional)",
+    whyPlaceholder: "Una línea",
+    confirm: "Trabajo con familias o con niños y niñas neurodiversos en un rol profesional",
+    submit: "Solicitar Pro",
+    submitting: "Enviando…",
+    thanks: "Gracias. Lo revisaremos y te escribiremos si activamos Pro.",
+    statusLabel: "Estado",
+    statusPending: "Pendiente",
+    statusApproved: "Aprobada",
+    approvedBody: "Pro está activo en esta cuenta.",
+    pendingBody: "Lo revisaremos y te escribiremos si activamos Pro.",
+    adminTitle: "Solicitudes de Pro en espera",
+    adminHint:
+      "La aprobación sigue en Clerk. Abre el usuario, pon isPro en true en los metadatos públicos, y esa persona cierra sesión y vuelve a entrar.",
+    adminEmpty: "No hay solicitudes en espera.",
+    unavailable:
+      "Solicitar Pro no está disponible hasta que el uso compartido esté activo en esta vista previa.",
+    saveFailed: "No se pudo enviar la solicitud. Inténtalo de nuevo.",
   },
 };

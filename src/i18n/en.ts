@@ -38,8 +38,7 @@ export const en = {
     haveAccount: "Already have an account?",
     signIn: "Sign in",
     devDemo: "Continue as Sam (dev only)",
-    demoHint:
-      "Local development only. This does not turn on Pro. A role tag does not turn on Pro.",
+    demoHint: "Local development only. This does not turn on Pro. A role tag does not turn on Pro.",
     continuePro: "Continue as Pro",
     continueParent: "Continue as Parent",
     setupLead:
@@ -330,8 +329,7 @@ export const en = {
       saveBack: "Save back to Library",
       savedBack: "Saved back to Library",
       emptyTitle: "No plan for this day",
-      emptyBody:
-        "Use a plan from Library, or add activities from the catalog with full details.",
+      emptyBody: "Use a plan from Library, or add activities from the catalog with full details.",
       helperEmpty: "A caregiver or therapist still needs to set today’s plan.",
       done: "done",
       step: "Step {{n}}",
@@ -422,7 +420,8 @@ export const en = {
       moreSteps: "+{{count}} more",
       apply: "Apply to days…",
       applyTitle: "Apply plan",
-      applyBody: "Apply “{{name}}” to selected weekdays this week. Day-only tweaks stay on that day.",
+      applyBody:
+        "Apply “{{name}}” to selected weekdays this week. Day-only tweaks stay on that day.",
       applyConfirm: "Apply to selected days",
       applied: "Applied “{{name}}”",
       needChild: "Open a child first",
@@ -442,7 +441,8 @@ export const en = {
       invite: "Invite",
       inviteAlways: "Invite someone",
       inviteTitle: "Invite to this child",
-      inviteTherapistHint: "Invite a caregiver for this child only. They will never see your other patients.",
+      inviteTherapistHint:
+        "Invite a caregiver for this child only. They will never see your other patients.",
       inviteCaregiverHint: "Invite a helper (view + mark done) for this child.",
       namePlaceholder: "Name",
       emailPlaceholder: "Email",
@@ -475,8 +475,7 @@ export const en = {
       newTag: "New group tag",
       addTag: "Add tag",
       tagAdded: "Tag added",
-      privacyNote:
-        "Parents only ever see their own child. Group names stay on your desk.",
+      privacyNote: "Parents only ever see their own child. Group names stay on your desk.",
       empty: "No patients match.",
       added: "{{name}} added",
     },
@@ -547,6 +546,38 @@ export const en = {
     saveFailed: "Could not save that. If this is a live account, check that sharing is turned on.",
     signInToAccept: "Sign in with {{email}} to see this shared plan.",
     accepted: "You’re in. The shared plan is on Schedule.",
+  },
+  proRequest: {
+    title: "Synlumae Pro for professionals",
+    intro:
+      "Ask Synlumae to turn on Pro for this account. We review each request by hand. A role tag does not turn Pro on.",
+    fullName: "Full name",
+    email: "Email",
+    role: "Role",
+    rolePlaceholder: "Choose a role",
+    roleTherapist: "Therapist",
+    rolePsychologist: "Psychologist",
+    roleOther: "Other",
+    country: "Country",
+    countryPlaceholder: "Choose a country",
+    organisation: "Organisation or practice (optional)",
+    why: "Why you want Pro (optional)",
+    whyPlaceholder: "One line",
+    confirm: "I work with families or neurodiverse children in a professional role",
+    submit: "Request Pro",
+    submitting: "Sending…",
+    thanks: "Thanks. We’ll review this and email you if Pro is enabled.",
+    statusLabel: "Status",
+    statusPending: "Pending",
+    statusApproved: "Approved",
+    approvedBody: "Pro is on for this account.",
+    pendingBody: "We’ll review this and email you if Pro is enabled.",
+    adminTitle: "Pro requests waiting",
+    adminHint:
+      "Approval stays in Clerk. Open the user, set public metadata isPro to true, then they sign out and back in.",
+    adminEmpty: "No requests waiting.",
+    unavailable: "Request Pro isn’t available until sharing is turned on for this preview.",
+    saveFailed: "Could not send that request. Try again.",
   },
 } as const;
 
