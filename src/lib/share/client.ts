@@ -9,10 +9,11 @@ export type ShareAuth = {
 export type SnapshotResult =
   { ok: true; isPro: boolean; state: CalendarState } | { ok: false; code: string; message: string };
 
-function authHeaders(auth: ShareAuth): Headers {
+function authHeaders(auth: ShareAuth, inviteToken?: string | null): Headers {
   const headers = new Headers();
   if (auth.token) headers.set("authorization", `Bearer ${auth.token}`);
   if (auth.devUser && import.meta.env.DEV) headers.set("x-share-dev-user", auth.devUser);
+  if (inviteToken) headers.set("x-share-invite-token", inviteToken);
   return headers;
 }
 
@@ -28,8 +29,13 @@ async function readError(response: Response): Promise<{ code: string; message: s
   }
 }
 
-export async function fetchShareSnapshot(auth: ShareAuth): Promise<SnapshotResult> {
-  const response = await fetch("/api/share/snapshot", { headers: authHeaders(auth) });
+export async function fetchShareSnapshot(
+  auth: ShareAuth,
+  inviteToken?: string | null,
+): Promise<SnapshotResult> {
+  const response = await fetch("/api/share/snapshot", {
+    headers: authHeaders(auth, inviteToken),
+  });
   if (!response.ok) {
     const err = await readError(response);
     return { ok: false, ...err };

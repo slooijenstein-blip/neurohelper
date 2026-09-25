@@ -186,6 +186,104 @@ describe("live sharing", () => {
     );
   });
 
+  it("still shows an inbound share on a Pro account", async () => {
+    const { service } = serviceWith();
+    const colleague: Actor = {
+      userId: "user_colleague1",
+      email: "nia@example.com",
+      name: "Nia",
+      isPro: true,
+    };
+    await service.snapshot(colleague);
+    await service.act(
+      colleague,
+      {
+        type: "addChild",
+        childId: "child_rio00001",
+        membershipId: "mem_nia000001",
+        displayName: "Rio",
+        ageBand: "3-5",
+        tagIds: [],
+        now: new Date().toISOString(),
+      },
+      origin,
+    );
+    await service.act(
+      colleague,
+      {
+        type: "createInvite",
+        childId: "child_rio00001",
+        email: therapist.email,
+        role: "caregiver",
+        displayName: "Maya",
+        inviteId: "inv_maya00001",
+        membershipId: "mem_maya00001",
+        pendingPersonId: "pending_maya0001",
+        token: "tok_maya0001",
+        now: new Date().toISOString(),
+      },
+      origin,
+    );
+    const seen = await service.snapshot(therapist);
+    assert.equal(seen.isPro, true);
+    assert.equal(
+      seen.state.children.some((child) => child.displayName === "Rio"),
+      true,
+    );
+    assert.equal(
+      seen.state.people.find((person) => person.id === therapist.userId)?.appRole,
+      "therapist",
+    );
+    assert.equal(
+      seen.state.memberships.find(
+        (membership) =>
+          membership.childId === "child_rio00001" && membership.personId === therapist.userId,
+      )?.role,
+      "caregiver",
+    );
+  });
+
+  it("accepts a Gmail invite when Google drops the dots", async () => {
+    const { service } = serviceWith();
+    await service.snapshot(therapist);
+    await service.act(
+      therapist,
+      {
+        type: "addChild",
+        childId: "child_alex0001",
+        membershipId: "mem_therap01",
+        displayName: "Alex",
+        ageBand: "3-5",
+        tagIds: [],
+        now: new Date().toISOString(),
+      },
+      origin,
+    );
+    await service.act(
+      therapist,
+      {
+        type: "createInvite",
+        childId: "child_alex0001",
+        email: "sam.parent@gmail.com",
+        role: "caregiver",
+        displayName: "Sam",
+        inviteId: "inv_invite01",
+        membershipId: "mem_parent01",
+        pendingPersonId: "pending_person01",
+        token: "tok_token001",
+        now: new Date().toISOString(),
+      },
+      origin,
+    );
+    const seen = await service.snapshot({
+      ...parent,
+      email: "samparent@gmail.com",
+      emails: ["samparent@gmail.com"],
+    });
+    assert.equal(seen.isPro, false);
+    assert.equal(seen.state.children[0]?.displayName, "Alex");
+  });
+
   it("refuses patients from an account that is not Pro", async () => {
     const { service } = serviceWith();
     await assert.rejects(

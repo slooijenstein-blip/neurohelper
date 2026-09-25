@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/react";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { BrandLogo } from "@/components/app/BrandLogo";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { isClerkConfigured } from "@/lib/clerk";
 import { withBasePath } from "@/lib/paths";
 import { acceptInviteOnServer, fetchInvitePreview } from "@/lib/share/client";
 import { readDevShareUser } from "@/lib/share/dev-session";
+import { rememberPendingInvite } from "@/lib/share/pending-invite";
 
 export function InviteAcceptPage({ token }: { token: string }) {
   if (isClerkConfigured()) return <ClerkInviteAcceptPage token={token} />;
@@ -47,6 +48,11 @@ function LocalInviteAcceptPage({
     email: string;
   } | null>(null);
   const [missing, setMissing] = useState(false);
+  const tried = useRef(false);
+
+  useEffect(() => {
+    rememberPendingInvite(token);
+  }, [token]);
 
   const local = cal.state.invites.find(
     (invite) => invite.token === token && invite.status === "pending",
@@ -106,6 +112,14 @@ function LocalInviteAcceptPage({
   };
 
   const signInHref = `${withBasePath("/sign-in")}?redirect=${encodeURIComponent(`/invite/${token}`)}`;
+
+  useEffect(() => {
+    if (!signedIn || done || !known || tried.current) return;
+    tried.current = true;
+    void accept();
+    // Accept once when a signed-in person lands here, including after Google OAuth.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done, known, signedIn]);
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-background px-4">

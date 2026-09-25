@@ -13,7 +13,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import { presentPlanName, presentPlanStep } from "@/lib/activity-locale";
-import { canInvite, inviteRolesFor } from "@/lib/calendar/permissions";
+import { canInvite, inviteRolesFor, membershipOnChild } from "@/lib/calendar/permissions";
 import { toDateKey, useCalendarStore } from "@/lib/calendar/store";
 import type { DayPlan } from "@/lib/calendar/types";
 import { withBasePath } from "@/lib/paths";
@@ -45,8 +45,11 @@ export function SharedPlansPanel() {
   const [link, setLink] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  if (!cal.hydrated || cal.activePerson.appRole === "therapist") return null;
-  if (cal.myChildren.length === 0) return null;
+  const sharedChildren = cal.myChildren.filter((child) => {
+    const role = membershipOnChild(cal.state.memberships, child.id, cal.activePerson.id)?.role;
+    return role === "caregiver" || role === "helper";
+  });
+  if (!cal.hydrated || sharedChildren.length === 0) return null;
 
   const today = toDateKey(new Date());
 
@@ -78,7 +81,7 @@ export function SharedPlansPanel() {
 
   return (
     <section className="space-y-3" data-testid="shared-plans">
-      {cal.myChildren.map((child) => {
+      {sharedChildren.map((child) => {
         const role =
           cal.state.memberships.find(
             (membership) =>

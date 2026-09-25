@@ -38,7 +38,8 @@ export const en = {
     haveAccount: "Already have an account?",
     signIn: "Sign in",
     devDemo: "Continue as Sam (dev only)",
-    demoHint: "Preview personas. This does not change Clerk or production sign-in.",
+    demoHint:
+      "This browser only. Signing in with a real account turns this off. A role tag does not make you Pro.",
     continuePro: "Continue as Pro",
     continueParent: "Continue as Parent",
     setupLead:

@@ -8,6 +8,7 @@ import { displayNameFromClerk, isClerkPro, type ClerkNameSource } from "@/lib/cl
 import type { Actor } from "@/lib/share/actions";
 import { fetchShareSnapshot, type SnapshotResult } from "@/lib/share/client";
 import { useDevShareUser } from "@/lib/share/dev-session";
+import { readPendingInvite } from "@/lib/share/pending-invite";
 import { blankAccountState } from "@/lib/share/workspace";
 
 function profileWithPro(profile: Profile, isPro: boolean): Profile {
@@ -73,7 +74,7 @@ function DevLiveShareSync() {
     void (async () => {
       let attached: ReturnType<typeof liveStateFrom>;
       try {
-        const result = await fetchShareSnapshot({ token: null, devUser });
+        const result = await fetchShareSnapshot({ token: null, devUser }, readPendingInvite());
         attached = liveStateFrom(actor, result);
       } catch {
         attached = {
@@ -112,7 +113,7 @@ function ClerkLiveShareSync() {
 
   useEffect(() => {
     if (!hydrated || !cal.hydrated || !isLoaded) return;
-    if (prototypeDemo || !isSignedIn || !userId) {
+    if (!isSignedIn || !userId) {
       detachRef.current();
       return;
     }
@@ -128,7 +129,7 @@ function ClerkLiveShareSync() {
       let attached: ReturnType<typeof liveStateFrom>;
       try {
         const token = await getToken();
-        const result = await fetchShareSnapshot({ token, devUser: null });
+        const result = await fetchShareSnapshot({ token, devUser: null }, readPendingInvite());
         attached = liveStateFrom(actor, result);
       } catch {
         attached = {

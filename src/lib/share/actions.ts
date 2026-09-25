@@ -106,6 +106,8 @@ export type ShareAction =
 export type Actor = {
   userId: string;
   email: string;
+  /** Other verified addresses (Google often adds a second one). */
+  emails?: string[];
   name: string;
   isPro: boolean;
 };

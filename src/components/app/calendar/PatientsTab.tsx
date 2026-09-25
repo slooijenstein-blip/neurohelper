@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
+import { membershipOnChild } from "@/lib/calendar/permissions";
 import { useCalendarStore } from "@/lib/calendar/store";
 import { AGE_BANDS, type AgeBand } from "@/lib/calendar/types";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,11 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
   const patients = useMemo(() => {
     const q = query.trim().toLowerCase();
     return cal.myChildren.filter((c) => {
+      if (
+        membershipOnChild(cal.state.memberships, c.id, cal.activePerson.id)?.role !== "therapist"
+      ) {
+        return false;
+      }
       if (q && !c.displayName.toLowerCase().includes(q)) return false;
       if (tagFilter) {
         const has = cal.state.childTags.some((ct) => ct.childId === c.id && ct.tagId === tagFilter);
@@ -39,7 +45,14 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
       }
       return true;
     });
-  }, [cal.myChildren, cal.state.childTags, query, tagFilter]);
+  }, [
+    cal.activePerson.id,
+    cal.myChildren,
+    cal.state.childTags,
+    cal.state.memberships,
+    query,
+    tagFilter,
+  ]);
 
   const addPatient = () => {
     const child = cal.addChild(name, ageBand, tagFilter ? [tagFilter] : []);

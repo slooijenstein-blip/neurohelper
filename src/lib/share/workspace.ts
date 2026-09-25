@@ -226,6 +226,36 @@ export function mergeViews(views: CalendarState[], actor: Actor): CalendarState 
   };
 }
 
+/** Keep the therapist caseload and add plans shared with that same account. */
+export function mergeInbound(own: CalendarState, inbound: CalendarState[]): CalendarState {
+  if (inbound.length === 0) return own;
+  const people = new Map(own.people.map((person) => [person.id, person]));
+  const children = new Map(own.children.map((child) => [child.id, child]));
+  const memberships = new Map(own.memberships.map((item) => [item.id, item]));
+  const invites = new Map(own.invites.map((item) => [item.id, item]));
+  const libraryPlans = new Map(own.libraryPlans.map((item) => [item.id, item]));
+  const dayPlans = new Map(own.dayPlans.map((item) => [item.id, item]));
+  for (const view of inbound) {
+    for (const person of view.people) {
+      if (!people.has(person.id)) people.set(person.id, person);
+    }
+    for (const child of view.children) children.set(child.id, child);
+    for (const membership of view.memberships) memberships.set(membership.id, membership);
+    for (const invite of view.invites) invites.set(invite.id, invite);
+    for (const plan of view.libraryPlans) libraryPlans.set(plan.id, plan);
+    for (const plan of view.dayPlans) dayPlans.set(plan.id, plan);
+  }
+  return {
+    ...own,
+    people: [...people.values()],
+    children: [...children.values()],
+    memberships: [...memberships.values()],
+    invites: [...invites.values()],
+    libraryPlans: [...libraryPlans.values()],
+    dayPlans: [...dayPlans.values()],
+  };
+}
+
 const PLAN_KEEP_DAYS = 60;
 
 export function pruneWorkspace(ws: Workspace, today: Date): Workspace {

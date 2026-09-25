@@ -16,7 +16,14 @@ import {
 } from "../calendar/types.ts";
 import type { Actor, ShareAction } from "./actions.ts";
 import { ShareError } from "./errors.ts";
-import { assertDateKey, assertEmail, assertId, clipDisplayName, emailLocalPart } from "./names.ts";
+import {
+  assertDateKey,
+  assertEmail,
+  assertId,
+  clipDisplayName,
+  emailLocalPart,
+  emailMatchesActor,
+} from "./names.ts";
 
 export type MutateResult = {
   state: CalendarState;
@@ -621,15 +628,17 @@ export function applyShareAction(
       };
     }
     case "acceptInvite": {
-      const invite = state.invites.find(
-        (item) => item.token === action.token && item.status === "pending",
-      );
-      if (!invite) {
-        throw new ShareError(404, "invite_missing", "This invite is missing or already used.");
+      const invite = state.invites.find((item) => item.token === action.token);
+      if (!invite || !emailMatchesActor(invite.email, actor)) {
+        throw new ShareError(
+          invite ? 403 : 404,
+          invite ? "email_mismatch" : "invite_missing",
+          invite
+            ? "Sign in with the invited email to accept."
+            : "This invite is missing or already used.",
+        );
       }
-      if (assertEmail(invite.email) !== assertEmail(actor.email)) {
-        throw new ShareError(403, "email_mismatch", "Sign in with the invited email to accept.");
-      }
+      if (invite.status === "active") return { state };
       const appRole: AppRole = invite.role === "helper" ? "helper" : "caregiver";
       const person: Person = {
         id: actor.userId,

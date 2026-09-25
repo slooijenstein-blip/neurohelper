@@ -99,6 +99,41 @@ function assertEmail(email) {
   }
   return normalized;
 }
+function canonicalEmail(email) {
+  const normalized = normalizeEmail(email);
+  const at = normalized.lastIndexOf("@");
+  if (at <= 0) return normalized;
+  const domain = normalized.slice(at + 1);
+  const host = domain === "googlemail.com" ? "gmail.com" : domain;
+  if (host !== "gmail.com") return normalized;
+  const local = normalized.slice(0, at).split("+")[0]?.replace(/\./g, "") ?? "";
+  return `${local}@gmail.com`;
+}
+function emailIndexKeys(email) {
+  const normalized = assertEmail(email);
+  const canonical = canonicalEmail(normalized);
+  return canonical === normalized ? [normalized] : [normalized, canonical];
+}
+function actorEmailKeys(actor) {
+  const keys = /* @__PURE__ */ new Set();
+  for (const raw of [actor.email, ...actor.emails ?? []]) {
+    try {
+      for (const key of emailIndexKeys(raw)) keys.add(key);
+    } catch {
+    }
+  }
+  return [...keys];
+}
+function emailMatchesActor(inviteEmail, actor) {
+  let invite = "";
+  try {
+    invite = assertEmail(inviteEmail);
+  } catch {
+    return false;
+  }
+  const keys = new Set(actorEmailKeys(actor));
+  return keys.has(invite) || keys.has(canonicalEmail(invite));
+}
 function clipDisplayName(raw, fallback) {
   let cleaned = "";
   for (const char of raw) {
@@ -689,15 +724,15 @@ function applyShareAction(state, actor, action) {
       };
     }
     case "acceptInvite": {
-      const invite = state.invites.find(
-        (item) => item.token === action.token && item.status === "pending"
-      );
-      if (!invite) {
-        throw new ShareError(404, "invite_missing", "This invite is missing or already used.");
+      const invite = state.invites.find((item) => item.token === action.token);
+      if (!invite || !emailMatchesActor(invite.email, actor)) {
+        throw new ShareError(
+          invite ? 403 : 404,
+          invite ? "email_mismatch" : "invite_missing",
+          invite ? "Sign in with the invited email to accept." : "This invite is missing or already used."
+        );
       }
-      if (assertEmail(invite.email) !== assertEmail(actor.email)) {
-        throw new ShareError(403, "email_mismatch", "Sign in with the invited email to accept.");
-      }
+      if (invite.status === "active") return { state };
       const appRole = invite.role === "helper" ? "helper" : "caregiver";
       const person = {
         id: actor.userId,
@@ -1975,6 +2010,34 @@ function mergeViews(views, actor) {
     selectedChildId: childList.length === 1 ? childList[0]?.id ?? null : null
   };
 }
+function mergeInbound(own, inbound) {
+  if (inbound.length === 0) return own;
+  const people = new Map(own.people.map((person) => [person.id, person]));
+  const children = new Map(own.children.map((child) => [child.id, child]));
+  const memberships = new Map(own.memberships.map((item) => [item.id, item]));
+  const invites = new Map(own.invites.map((item) => [item.id, item]));
+  const libraryPlans = new Map(own.libraryPlans.map((item) => [item.id, item]));
+  const dayPlans = new Map(own.dayPlans.map((item) => [item.id, item]));
+  for (const view of inbound) {
+    for (const person of view.people) {
+      if (!people.has(person.id)) people.set(person.id, person);
+    }
+    for (const child of view.children) children.set(child.id, child);
+    for (const membership of view.memberships) memberships.set(membership.id, membership);
+    for (const invite of view.invites) invites.set(invite.id, invite);
+    for (const plan of view.libraryPlans) libraryPlans.set(plan.id, plan);
+    for (const plan of view.dayPlans) dayPlans.set(plan.id, plan);
+  }
+  return {
+    ...own,
+    people: [...people.values()],
+    children: [...children.values()],
+    memberships: [...memberships.values()],
+    invites: [...invites.values()],
+    libraryPlans: [...libraryPlans.values()],
+    dayPlans: [...dayPlans.values()]
+  };
+}
 var PLAN_KEEP_DAYS = 60;
 function pruneWorkspace(ws, today) {
   const cutoff = new Date(today);
@@ -2104,9 +2167,8 @@ var ShareService = class {
     return created;
   }
   async autoAccept(ws, actor) {
-    const email = assertEmail(actor.email);
     const pending = ws.invites.filter(
-      (invite) => invite.status === "pending" && invite.email === email
+      (invite) => invite.status === "pending" && emailMatchesActor(invite.email, actor)
     );
     if (pending.length === 0) return ws;
     return locked(ws.ownerUserId, async () => {
@@ -2114,13 +2176,16 @@ var ShareService = class {
       let state = stateFromWorkspace(fresh, actor.userId);
       let changed = false;
       for (const invite of fresh.invites) {
-        if (invite.status !== "pending" || invite.email !== email) continue;
-        state = applyShareAction(state, actor, {
-          type: "acceptInvite",
-          token: invite.token,
-          now: (/* @__PURE__ */ new Date()).toISOString()
-        }).state;
-        changed = true;
+        if (invite.status !== "pending" || !emailMatchesActor(invite.email, actor)) continue;
+        try {
+          state = applyShareAction(state, actor, {
+            type: "acceptInvite",
+            token: invite.token,
+            now: (/* @__PURE__ */ new Date()).toISOString()
+          }).state;
+          changed = true;
+        } catch {
+        }
       }
       if (!changed) return fresh;
       const next = pruneWorkspace(
@@ -2131,10 +2196,14 @@ var ShareService = class {
       return next;
     });
   }
-  async snapshot(actor) {
+  async snapshot(actor, inviteToken) {
     const owners = new Set(await this.store.ownersForUser(actor.userId));
-    for (const ownerId of await this.store.ownersForEmail(assertEmail(actor.email))) {
-      owners.add(ownerId);
+    for (const emailKey of actorEmailKeys(actor)) {
+      for (const ownerId of await this.store.ownersForEmail(emailKey)) owners.add(ownerId);
+    }
+    if (inviteToken) {
+      const ownerId = await this.store.ownerForToken(inviteToken);
+      if (ownerId) owners.add(ownerId);
     }
     if (actor.isPro) owners.add(actor.userId);
     let proWorkspace = null;
@@ -2151,7 +2220,8 @@ var ShareService = class {
       if (view.children.length > 0) views.push(view);
     }
     if (proWorkspace) {
-      return { isPro: true, state: viewFor(proWorkspace, actor) };
+      const own = viewFor(proWorkspace, actor);
+      return { isPro: true, state: mergeInbound(own, views) };
     }
     return { isPro: false, state: mergeViews(views, actor) };
   }
@@ -2170,7 +2240,7 @@ var ShareService = class {
   }
   async act(actor, action, origin) {
     const ownerId = await ownerIdFor(this.store, action, actor);
-    return locked(ownerId, async () => {
+    const outcome = await locked(ownerId, async () => {
       let email = null;
       let inviteId = null;
       let saved = null;
@@ -2205,9 +2275,10 @@ var ShareService = class {
         }
       }
       if (!saved) throw new ShareError(500, "server_error", "Could not save.");
-      const state = actor.isPro && ownerId === actor.userId ? viewFor(saved, actor) : viewFor(saved, actor);
-      return { state, email, inviteId };
+      return { email, inviteId };
     });
+    const snap = await this.snapshot(actor);
+    return { state: snap.state, email: outcome.email, inviteId: outcome.inviteId };
   }
 };
 
@@ -2249,7 +2320,8 @@ function reindex(bag, previous, next) {
       if (membership.status === "active") listRemove(bag.user, membership.personId, ownerId);
     }
     for (const invite of previous.invites) {
-      if (invite.status === "pending") listRemove(bag.email, invite.email, ownerId);
+      if (invite.status !== "pending") continue;
+      for (const emailKey of emailIndexKeys(invite.email)) listRemove(bag.email, emailKey, ownerId);
     }
   }
   bag.workspaces[ownerId] = next;
@@ -2266,7 +2338,8 @@ function reindex(bag, previous, next) {
   activeUsers.add(ownerId);
   for (const userId of activeUsers) listAdd(bag.user, userId, ownerId);
   for (const invite of next.invites) {
-    if (invite.status === "pending") listAdd(bag.email, invite.email, ownerId);
+    if (invite.status !== "pending") continue;
+    for (const emailKey of emailIndexKeys(invite.email)) listAdd(bag.email, emailKey, ownerId);
   }
 }
 function createMemoryShareStore() {
@@ -2402,10 +2475,12 @@ function createRedisShareStore(conn) {
           }
           for (const invite of previous.invites) {
             if (invite.status !== "pending") continue;
-            const list = (await readList(`email:${invite.email}`)).filter(
-              (id) => id !== next.ownerUserId
-            );
-            await writeList(`email:${invite.email}`, list);
+            for (const emailKey of emailIndexKeys(invite.email)) {
+              const list = (await readList(`email:${emailKey}`)).filter(
+                (id) => id !== next.ownerUserId
+              );
+              await writeList(`email:${emailKey}`, list);
+            }
           }
         }
         await Promise.all([
@@ -2435,9 +2510,11 @@ function createRedisShareStore(conn) {
         }
         for (const invite of next.invites) {
           if (invite.status !== "pending") continue;
-          const list = await readList(`email:${invite.email}`);
-          if (!list.includes(next.ownerUserId)) {
-            await writeList(`email:${invite.email}`, [...list, next.ownerUserId]);
+          for (const emailKey of emailIndexKeys(invite.email)) {
+            const list = await readList(`email:${emailKey}`);
+            if (!list.includes(next.ownerUserId)) {
+              await writeList(`email:${emailKey}`, [...list, next.ownerUserId]);
+            }
           }
         }
       } finally {
@@ -2534,13 +2611,19 @@ async function clerkActor(req, secretKey, env) {
   const userId = payload.sub;
   if (!userId) return null;
   const user = await createClerkClient({ secretKey }).users.getUser(userId);
-  const email = user.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? "";
+  const verified = user.emailAddresses.filter(
+    (item) => item.id === user.primaryEmailAddressId || item.verification?.status === "verified"
+  ).map((item) => item.emailAddress);
+  const external = (user.externalAccounts ?? []).map((item) => item.emailAddress).filter((item) => Boolean(item));
+  const emails = [.../* @__PURE__ */ new Set([...verified, ...external])];
+  const email = user.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)?.emailAddress ?? emails[0] ?? "";
   if (!email) return null;
   const meta = user.publicMetadata;
   return {
     userId,
     email,
-    name: user.firstName || email.split("@")[0] || "Member",
+    emails,
+    name: user.firstName || user.fullName || email.split("@")[0] || "Member",
     isPro: meta?.isPro === true
   };
 }
@@ -2635,7 +2718,7 @@ async function handleShareApi(req, deps) {
     const actor = await deps.authenticate(req);
     if (!actor) return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
     if (route.name === "snapshot" && req.method === "GET") {
-      return json(await deps.service.snapshot(actor));
+      return json(await deps.service.snapshot(actor, req.headers.get("x-share-invite-token")));
     }
     if (route.name === "actions" && req.method === "POST") {
       const body = await readJson(req);

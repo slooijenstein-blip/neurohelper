@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+import { emailIndexKeys } from "./names.ts";
 import type { Workspace } from "./workspace.ts";
 
 export type ShareStore = {
@@ -64,7 +65,8 @@ function reindex(bag: Bag, previous: Workspace | null, next: Workspace) {
       if (membership.status === "active") listRemove(bag.user, membership.personId, ownerId);
     }
     for (const invite of previous.invites) {
-      if (invite.status === "pending") listRemove(bag.email, invite.email, ownerId);
+      if (invite.status !== "pending") continue;
+      for (const emailKey of emailIndexKeys(invite.email)) listRemove(bag.email, emailKey, ownerId);
     }
   }
   bag.workspaces[ownerId] = next;
@@ -83,7 +85,8 @@ function reindex(bag: Bag, previous: Workspace | null, next: Workspace) {
   activeUsers.add(ownerId);
   for (const userId of activeUsers) listAdd(bag.user, userId, ownerId);
   for (const invite of next.invites) {
-    if (invite.status === "pending") listAdd(bag.email, invite.email, ownerId);
+    if (invite.status !== "pending") continue;
+    for (const emailKey of emailIndexKeys(invite.email)) listAdd(bag.email, emailKey, ownerId);
   }
 }
 
@@ -237,10 +240,12 @@ export function createRedisShareStore(conn: RedisEnv): ShareStore {
           }
           for (const invite of previous.invites) {
             if (invite.status !== "pending") continue;
-            const list = (await readList(`email:${invite.email}`)).filter(
-              (id) => id !== next.ownerUserId,
-            );
-            await writeList(`email:${invite.email}`, list);
+            for (const emailKey of emailIndexKeys(invite.email)) {
+              const list = (await readList(`email:${emailKey}`)).filter(
+                (id) => id !== next.ownerUserId,
+              );
+              await writeList(`email:${emailKey}`, list);
+            }
           }
         }
         await Promise.all([
@@ -274,9 +279,11 @@ export function createRedisShareStore(conn: RedisEnv): ShareStore {
         }
         for (const invite of next.invites) {
           if (invite.status !== "pending") continue;
-          const list = await readList(`email:${invite.email}`);
-          if (!list.includes(next.ownerUserId)) {
-            await writeList(`email:${invite.email}`, [...list, next.ownerUserId]);
+          for (const emailKey of emailIndexKeys(invite.email)) {
+            const list = await readList(`email:${emailKey}`);
+            if (!list.includes(next.ownerUserId)) {
+              await writeList(`email:${emailKey}`, [...list, next.ownerUserId]);
+            }
           }
         }
       } finally {

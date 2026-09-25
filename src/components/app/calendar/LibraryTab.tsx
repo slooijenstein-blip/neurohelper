@@ -28,7 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import { presentPlanName, presentPlanStep } from "@/lib/activity-locale";
-import { canManageLibrary } from "@/lib/calendar/permissions";
+import { canManageLibrary, membershipOnChild } from "@/lib/calendar/permissions";
 import { thisWeekDates, useCalendarStore } from "@/lib/calendar/store";
 import type { LibraryPlan, PlanStep } from "@/lib/calendar/types";
 import { cn } from "@/lib/utils";
@@ -70,8 +70,20 @@ export function LibraryTab({
 
   const filteredPatients = useMemo(() => {
     const q = patientQuery.trim().toLowerCase();
-    return cal.myChildren.filter((c) => !q || c.displayName.toLowerCase().includes(q));
-  }, [cal.myChildren, patientQuery]);
+    return cal.myChildren.filter((c) => {
+      if (q && !c.displayName.toLowerCase().includes(q)) return false;
+      if (cal.activePerson.appRole !== "therapist") return true;
+      return (
+        membershipOnChild(cal.state.memberships, c.id, cal.activePerson.id)?.role === "therapist"
+      );
+    });
+  }, [
+    cal.activePerson.appRole,
+    cal.activePerson.id,
+    cal.myChildren,
+    cal.state.memberships,
+    patientQuery,
+  ]);
 
   if (browse) {
     return <BrowseActivitiesPanel onBack={() => setBrowse(false)} />;

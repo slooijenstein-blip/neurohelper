@@ -47,7 +47,10 @@ export function isLegacyDemoProfile(profile: Profile | null): boolean {
  */
 export function profileFromClerkUser(user: ClerkNameSource, existing: Profile | null): Profile {
   const sameUser = existing?.clerkUserId === user.id;
-  const keepLocalExtras = sameUser || (existing !== null && !isLegacyDemoProfile(existing));
+  // Continue as Pro writes isPro onto a profile that is not a Clerk user. Drop that overlay.
+  const demoOverlay = Boolean(existing && !existing.clerkUserId && existing.isPro === true);
+  const keepLocalExtras =
+    !demoOverlay && (sameUser || (existing !== null && !isLegacyDemoProfile(existing)));
   const clerkName = displayNameFromClerk(user);
   const localName = existing?.name?.trim();
 
@@ -68,6 +71,14 @@ export function profileFromClerkUser(user: ClerkNameSource, existing: Profile | 
     ...(existing?.helpCountry ? { helpCountry: existing.helpCountry } : {}),
     ...(isClerkPro(user) ? { isPro: true as const } : {}),
   };
+}
+
+/** Pro is Clerk public metadata only. A profile role tag cannot turn it on. */
+export function applyClerkProFlag(profile: Profile, user: ClerkNameSource): Profile {
+  if (isClerkPro(user)) return profile.isPro === true ? profile : { ...profile, isPro: true };
+  if (profile.isPro !== true) return profile;
+  const { isPro: _drop, ...rest } = profile;
+  return rest;
 }
 
 /**

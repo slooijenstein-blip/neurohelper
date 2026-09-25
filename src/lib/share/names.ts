@@ -12,6 +12,50 @@ export function assertEmail(email: string): string {
   return normalized;
 }
 
+/** Gmail ignores dots and +tags. Used only to match an invite to a Google sign-in. */
+export function canonicalEmail(email: string): string {
+  const normalized = normalizeEmail(email);
+  const at = normalized.lastIndexOf("@");
+  if (at <= 0) return normalized;
+  const domain = normalized.slice(at + 1);
+  const host = domain === "googlemail.com" ? "gmail.com" : domain;
+  if (host !== "gmail.com") return normalized;
+  const local = normalized.slice(0, at).split("+")[0]?.replace(/\./g, "") ?? "";
+  return `${local}@gmail.com`;
+}
+
+export function emailIndexKeys(email: string): string[] {
+  const normalized = assertEmail(email);
+  const canonical = canonicalEmail(normalized);
+  return canonical === normalized ? [normalized] : [normalized, canonical];
+}
+
+export function actorEmailKeys(actor: { email: string; emails?: string[] }): string[] {
+  const keys = new Set<string>();
+  for (const raw of [actor.email, ...(actor.emails ?? [])]) {
+    try {
+      for (const key of emailIndexKeys(raw)) keys.add(key);
+    } catch {
+      /* skip a blank or malformed address */
+    }
+  }
+  return [...keys];
+}
+
+export function emailMatchesActor(
+  inviteEmail: string,
+  actor: { email: string; emails?: string[] },
+): boolean {
+  let invite = "";
+  try {
+    invite = assertEmail(inviteEmail);
+  } catch {
+    return false;
+  }
+  const keys = new Set(actorEmailKeys(actor));
+  return keys.has(invite) || keys.has(canonicalEmail(invite));
+}
+
 /** First name / display label only. Rejects addresses so child rows stay minimal. */
 export function clipDisplayName(raw: string, fallback: string): string {
   let cleaned = "";

@@ -99,16 +99,26 @@ async function clerkActor(
   const userId = payload.sub;
   if (!userId) return null;
   const user = await createClerkClient({ secretKey }).users.getUser(userId);
+  const verified = user.emailAddresses
+    .filter(
+      (item) => item.id === user.primaryEmailAddressId || item.verification?.status === "verified",
+    )
+    .map((item) => item.emailAddress);
+  const external = (user.externalAccounts ?? [])
+    .map((item) => item.emailAddress)
+    .filter((item): item is string => Boolean(item));
+  const emails = [...new Set([...verified, ...external])];
   const email =
     user.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)?.emailAddress ??
-    user.emailAddresses[0]?.emailAddress ??
+    emails[0] ??
     "";
   if (!email) return null;
   const meta = user.publicMetadata as { isPro?: unknown } | null | undefined;
   return {
     userId,
     email,
-    name: user.firstName || email.split("@")[0] || "Member",
+    emails,
+    name: user.firstName || user.fullName || email.split("@")[0] || "Member",
     isPro: meta?.isPro === true,
   };
 }
@@ -212,7 +222,7 @@ export async function handleShareApi(req: Request, deps: ShareDeps): Promise<Res
     if (!actor) return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
 
     if (route.name === "snapshot" && req.method === "GET") {
-      return json(await deps.service.snapshot(actor));
+      return json(await deps.service.snapshot(actor, req.headers.get("x-share-invite-token")));
     }
     if (route.name === "actions" && req.method === "POST") {
       const body = await readJson(req);

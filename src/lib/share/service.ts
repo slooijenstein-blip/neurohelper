@@ -1,10 +1,11 @@
 import type { Actor, EmailResult, ShareAction } from "./actions.ts";
 import { ShareError } from "./errors.ts";
 import { applyShareAction } from "./mutate.ts";
-import { assertEmail } from "./names.ts";
+import { actorEmailKeys, emailMatchesActor } from "./names.ts";
 import type { ShareStore } from "./store.ts";
 import {
   createOwnerWorkspace,
+  mergeInbound,
   mergeViews,
   pruneWorkspace,
   stateFromWorkspace,
@@ -155,9 +156,8 @@ export class ShareService {
   }
 
   private async autoAccept(ws: Workspace, actor: Actor): Promise<Workspace> {
-    const email = assertEmail(actor.email);
     const pending = ws.invites.filter(
-      (invite) => invite.status === "pending" && invite.email === email,
+      (invite) => invite.status === "pending" && emailMatchesActor(invite.email, actor),
     );
     if (pending.length === 0) return ws;
     return locked(ws.ownerUserId, async () => {
@@ -165,13 +165,17 @@ export class ShareService {
       let state = stateFromWorkspace(fresh, actor.userId);
       let changed = false;
       for (const invite of fresh.invites) {
-        if (invite.status !== "pending" || invite.email !== email) continue;
-        state = applyShareAction(state, actor, {
-          type: "acceptInvite",
-          token: invite.token,
-          now: new Date().toISOString(),
-        }).state;
-        changed = true;
+        if (invite.status !== "pending" || !emailMatchesActor(invite.email, actor)) continue;
+        try {
+          state = applyShareAction(state, actor, {
+            type: "acceptInvite",
+            token: invite.token,
+            now: new Date().toISOString(),
+          }).state;
+          changed = true;
+        } catch {
+          /* a single bad invite must not hide the rest of the snapshot */
+        }
       }
       if (!changed) return fresh;
       const next = pruneWorkspace(
@@ -183,10 +187,14 @@ export class ShareService {
     });
   }
 
-  async snapshot(actor: Actor): Promise<ShareSnapshot> {
+  async snapshot(actor: Actor, inviteToken?: string | null): Promise<ShareSnapshot> {
     const owners = new Set(await this.store.ownersForUser(actor.userId));
-    for (const ownerId of await this.store.ownersForEmail(assertEmail(actor.email))) {
-      owners.add(ownerId);
+    for (const emailKey of actorEmailKeys(actor)) {
+      for (const ownerId of await this.store.ownersForEmail(emailKey)) owners.add(ownerId);
+    }
+    if (inviteToken) {
+      const ownerId = await this.store.ownerForToken(inviteToken);
+      if (ownerId) owners.add(ownerId);
     }
     if (actor.isPro) owners.add(actor.userId);
 
@@ -205,7 +213,8 @@ export class ShareService {
     }
 
     if (proWorkspace) {
-      return { isPro: true, state: viewFor(proWorkspace, actor) };
+      const own = viewFor(proWorkspace, actor);
+      return { isPro: true, state: mergeInbound(own, views) };
     }
     return { isPro: false, state: mergeViews(views, actor) };
   }
@@ -232,7 +241,7 @@ export class ShareService {
     origin: string,
   ): Promise<{ state: CalendarState; email: EmailResult | null; inviteId: string | null }> {
     const ownerId = await ownerIdFor(this.store, action, actor);
-    return locked(ownerId, async () => {
+    const outcome = await locked(ownerId, async () => {
       let email: EmailResult | null = null;
       let inviteId: string | null = null;
       let saved: Workspace | null = null;
@@ -267,9 +276,9 @@ export class ShareService {
         }
       }
       if (!saved) throw new ShareError(500, "server_error", "Could not save.");
-      const state =
-        actor.isPro && ownerId === actor.userId ? viewFor(saved, actor) : viewFor(saved, actor);
-      return { state, email, inviteId };
+      return { email, inviteId };
     });
+    const snap = await this.snapshot(actor);
+    return { state: snap.state, email: outcome.email, inviteId: outcome.inviteId };
   }
 }

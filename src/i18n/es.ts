@@ -45,7 +45,8 @@ export const es: DeepString<Messages> = {
     haveAccount: "¿Ya tienes una cuenta?",
     signIn: "Iniciar sesión",
     devDemo: "Continuar como Sam (solo desarrollo)",
-    demoHint: "Personas de vista previa. No cambia Clerk ni el inicio de sesión de producción.",
+    demoHint:
+      "Solo este navegador. Iniciar sesión con una cuenta real lo apaga. Una etiqueta de rol no te hace Pro.",
     continuePro: "Continuar como Pro",
     continueParent: "Continuar como padre/madre",
     setupLead:

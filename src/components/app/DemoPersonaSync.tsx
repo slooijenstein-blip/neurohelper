@@ -15,6 +15,7 @@ export function DemoPersonaSync() {
 
   useEffect(() => {
     if (!hydrated || !cal.hydrated || !prototypeDemo || !demoPersona) return;
+    if (cal.shareMode === "live") return;
     const personId = PERSON_FOR[demoPersona];
     if (cal.activePerson.id === personId) return;
     cal.switchPersona(personId);
