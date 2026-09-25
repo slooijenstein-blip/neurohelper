@@ -2,11 +2,15 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm install",
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build && npm run build:api",
   "outputDirectory": "dist/client",
   "rewrites": [
     {
-      "source": "/((?!assets/).*)",
+      "source": "/api/share/:path*",
+      "destination": "/api/share-handler"
+    },
+    {
+      "source": "/((?!assets/|api/).*)",
       "destination": "/index.html"
     }
   ]

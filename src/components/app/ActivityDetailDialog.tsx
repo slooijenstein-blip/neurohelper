@@ -1,6 +1,8 @@
 import { toast } from "sonner";
 
-import { ACTIVITIES, formatActivityDuration } from "@/lib/activities-data";
+import { useI18n } from "@/i18n/I18nProvider";
+import { ACTIVITIES } from "@/lib/activities-data";
+import { localizedActivity } from "@/lib/activity-locale";
 import { useAppStore, uid } from "@/lib/app-store";
 import { AgeTag, DurationTag, SkillTag } from "./ui-bits";
 import { Button } from "@/components/ui/button";
@@ -20,7 +22,9 @@ export function ActivityDetailDialog({
   onClose: () => void;
 }) {
   const { update } = useAppStore();
-  const detail = activityId ? ACTIVITIES.find((a) => a.id === activityId) ?? null : null;
+  const { t, locale } = useI18n();
+  const raw = activityId ? ACTIVITIES.find((a) => a.id === activityId) ?? null : null;
+  const detail = raw ? localizedActivity(raw, locale) : null;
 
   const addToSchedule = () => {
     if (!detail) return;
@@ -39,7 +43,7 @@ export function ActivityDetailDialog({
         },
       ],
     }));
-    toast.success(`${detail.title} added to today's schedule`);
+    toast.success(t("activities.added", { title: detail.title }));
     onClose();
   };
 
@@ -61,15 +65,7 @@ export function ActivityDetailDialog({
             </div>
             <div>
               <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                Duration
-              </p>
-              <p className="text-muted-foreground">
-                {formatActivityDuration(detail.minMinutes, detail.maxMinutes)}
-              </p>
-            </div>
-            <div>
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                What you need
+                {t("calendar.picker.materials")}
               </p>
               <ul className="list-inside list-disc text-muted-foreground">
                 {detail.materials.map((m) => (
@@ -79,7 +75,7 @@ export function ActivityDetailDialog({
             </div>
             <div>
               <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                How to play
+                {t("calendar.picker.howTo")}
               </p>
               <ol className="list-inside list-decimal space-y-1 text-muted-foreground">
                 {detail.steps.map((s) => (
@@ -88,7 +84,7 @@ export function ActivityDetailDialog({
               </ol>
             </div>
             <Button className="w-full" onClick={addToSchedule}>
-              Add to schedule
+              {t("activities.addToSchedule")}
             </Button>
           </div>
         ) : null}

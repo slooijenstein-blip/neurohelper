@@ -20,7 +20,6 @@ export type ScheduleItem = {
   fromTemplateId?: string;
 };
 
-
 export type Role =
   | "Parent"
   | "Legal Guardian"
@@ -81,8 +80,14 @@ export type Profile = {
   locale?: "en" | "es";
   /** ISO country the caregiver lives in. Help opens on this country. */
   helpCountry?: string;
+  /**
+   * Professional account. We set this from Clerk publicMetadata.isPro.
+   * A profile role tag cannot turn it on. Local development can still preview it.
+   */
+  isPro?: boolean;
 };
 
+export type DemoPersona = "pro" | "parent";
 
 export type Template = {
   id: string;
@@ -108,7 +113,6 @@ export type DayPlan = {
   name: string;
 };
 
-
 export type Comment = {
   id: string;
   authorId: string;
@@ -119,7 +123,6 @@ export type Comment = {
   parentId?: string;
   replies?: Comment[];
 };
-
 
 export type Post = {
   id: string;
@@ -141,7 +144,6 @@ export type Post = {
   repostNote?: string;
 };
 
-
 export type Article = {
   id: string;
   authorId: string;
@@ -159,7 +161,6 @@ export type Article = {
   comments: Comment[];
   createdAt: string;
 };
-
 
 export type Observation = {
   id: string;
@@ -185,11 +186,13 @@ export type AppState = {
   articles: Article[];
   dayPlans: DayPlan[];
   following: string[];
-
 };
 
 const STORAGE_KEY = "motor-skill-buddy-v1";
 const DEV_DEMO_KEY = "synlumae-dev-demo";
+/** Local development walkthrough. Cleared on preview and production builds. */
+const PROTOTYPE_DEMO_KEY = "synlumae-pro-demo";
+const DEMO_PERSONA_KEY = "synlumae-demo-persona";
 
 const MY_ID = "me";
 
@@ -206,8 +209,24 @@ const myProfile: Profile = {
   color: "bg-primary",
   favouriteActivityIds: ["color-matching-hunt"],
   followers: ["maya", "jonas"],
+  isPro: false,
 };
 
+export const proDemoProfile: Profile = {
+  id: MY_ID,
+  name: "Maya Chen",
+  role: "Therapist",
+  location: "Utrecht",
+  bio: "Pediatric therapist. I build activity plans from the catalog and share them with families.",
+  socials: { website: "https://example.com" },
+  color: "bg-primary",
+  isPro: true,
+};
+
+export function profileForDemoPersona(persona: DemoPersona): Profile {
+  if (persona === "pro") return { ...proDemoProfile };
+  return { ...myProfile, isPro: false };
+}
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -365,7 +384,10 @@ const memberProfiles: Profile[] = [
     role: "Therapist",
     location: "London",
     bio: "Paediatric occupational therapist. Sharing practical routines that build independence and confidence.",
-    socials: { instagram: "https://instagram.com/maya.ot", linkedin: "https://linkedin.com/in/maya-ot" },
+    socials: {
+      instagram: "https://instagram.com/maya.ot",
+      linkedin: "https://linkedin.com/in/maya-ot",
+    },
     color: "bg-teal-500",
     favouriteActivityIds: ["tape-rescue", "calming-glitter-bottle"],
     followers: ["jonas", "priya"],
@@ -377,7 +399,10 @@ const memberProfiles: Profile[] = [
     role: "Parent",
     location: "Berlin",
     bio: "Dad of two. Testing schedules that burn energy without melting down.",
-    socials: { tiktok: "https://tiktok.com/@jonas.dad", instagram: "https://instagram.com/jonas.dad" },
+    socials: {
+      tiktok: "https://tiktok.com/@jonas.dad",
+      instagram: "https://instagram.com/jonas.dad",
+    },
     color: "bg-orange-500",
     favouriteActivityIds: ["obstacle-course", "interactive-bubble-chase"],
     followers: ["maya", "tom"],
@@ -401,7 +426,10 @@ const memberProfiles: Profile[] = [
     role: "Creator",
     location: "Barcelona",
     bio: "Creating sensory play videos and printable activities for families.",
-    socials: { tiktok: "https://tiktok.com/@elena.plays", instagram: "https://instagram.com/elena.plays" },
+    socials: {
+      tiktok: "https://tiktok.com/@elena.plays",
+      instagram: "https://instagram.com/elena.plays",
+    },
     color: "bg-pink-500",
     favouriteActivityIds: ["sensory-rice-bin", "playdough-letters"],
     followers: ["maya", "jonas", "tom"],
@@ -430,7 +458,6 @@ const memberProfiles: Profile[] = [
     favouriteActivityIds: ["deep-pressure-sandwich", "mirror-emotions"],
     followers: ["priya"],
   },
-
 ];
 
 function buildScheduleSharePost(template: Template): Post {
@@ -457,7 +484,6 @@ function buildScheduleSharePost(template: Template): Post {
   };
 }
 
-
 const seedPosts: Post[] = [
   buildScheduleSharePost(seedTemplates.find((t) => t.id === "tpl-fine-motor")!),
   buildScheduleSharePost(seedTemplates.find((t) => t.id === "tpl-energy")!),
@@ -475,7 +501,6 @@ const seedPosts: Post[] = [
     reactions: { heart: 3, clap: 1 },
     myReactions: [],
     comments: [
-
       {
         id: uid(),
         authorId: "jonas",
@@ -502,7 +527,6 @@ const seedPosts: Post[] = [
     reactions: { heart: 1, helpful: 2 },
     myReactions: [],
     comments: [
-
       {
         id: uid(),
         authorId: "me",
@@ -546,7 +570,6 @@ const seedPosts: Post[] = [
     reactions: { heart: 2, clap: 1 },
     myReactions: [],
     comments: [
-
       {
         id: uid(),
         authorId: "zara",
@@ -560,8 +583,6 @@ const seedPosts: Post[] = [
     createdAt: "2026-08-19",
   },
 ];
-
-
 
 const seedArticles: Article[] = [
   {
@@ -660,7 +681,6 @@ When a child picks the order of two activities, compliance stops being a battle.
   },
 ];
 
-
 const demoObservations: Observation[] = [
   {
     id: "o1",
@@ -688,7 +708,13 @@ const seed: AppState = {
     ...t,
     likes: [6, 14, 9, 4][i] ?? 0,
     liked: false,
-    ratings: [[5, 4, 5], [5, 5, 4, 5], [4, 4, 5], [5, 3, 4]][i] ?? [],
+    ratings:
+      [
+        [5, 4, 5],
+        [5, 5, 4, 5],
+        [4, 4, 5],
+        [5, 3, 4],
+      ][i] ?? [],
     tries: [3, 11, 6, 2][i] ?? 0,
     repeatDays: i === 0 ? [1, 2, 3, 4, 5] : [],
   })),
@@ -704,16 +730,20 @@ const seed: AppState = {
   following: [],
 };
 
-
 type Ctx = {
   state: AppState;
   hydrated: boolean;
   devDemo: boolean;
+  /** Continue as Pro / Parent without a Clerk session. Local development only. */
+  prototypeDemo: boolean;
+  demoPersona: DemoPersona | null;
   update: (fn: (prev: AppState) => AppState) => void;
   logout: () => void;
   login: (profile: Profile) => void;
   enterDevDemo: () => void;
   exitDevDemo: () => void;
+  enterPrototypeDemo: (persona: DemoPersona) => void;
+  exitPrototypeDemo: () => void;
   tryTemplate: (templateId: string) => void;
   toggleTemplateLike: (templateId: string) => void;
   rateTemplate: (templateId: string, stars: number) => void;
@@ -732,13 +762,14 @@ export const toDateKey = (d: Date) =>
 export const averageRating = (t: Template) =>
   t.ratings?.length ? t.ratings.reduce((a, b) => a + b, 0) / t.ratings.length : 0;
 
-
 const AppContext = createContext<Ctx | null>(null);
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(seed);
   const [hydrated, setHydrated] = useState(false);
   const [devDemo, setDevDemo] = useState(false);
+  const [prototypeDemo, setPrototypeDemo] = useState(false);
+  const [demoPersona, setDemoPersona] = useState<DemoPersona | null>(null);
 
   useEffect(() => {
     try {
@@ -756,6 +787,24 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           following: parsed.following ?? prev.following,
           profile: parsed.profile ?? prev.profile,
         }));
+      }
+
+      if (!import.meta.env.DEV) {
+        window.sessionStorage.removeItem(PROTOTYPE_DEMO_KEY);
+        window.sessionStorage.removeItem(DEMO_PERSONA_KEY);
+      } else {
+        const storedPersona = window.sessionStorage.getItem(DEMO_PERSONA_KEY);
+        const persona: DemoPersona | null =
+          storedPersona === "pro" || storedPersona === "parent" ? storedPersona : null;
+        if (window.sessionStorage.getItem(PROTOTYPE_DEMO_KEY) === "1" && persona) {
+          setPrototypeDemo(true);
+          setDemoPersona(persona);
+          setState((prev) => ({
+            ...prev,
+            profile: profileForDemoPersona(persona),
+            loggedOut: false,
+          }));
+        }
       }
 
       if (import.meta.env.DEV && window.sessionStorage.getItem(DEV_DEMO_KEY) === "1") {
@@ -810,10 +859,14 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     try {
       window.sessionStorage.removeItem(DEV_DEMO_KEY);
+      window.sessionStorage.removeItem(PROTOTYPE_DEMO_KEY);
+      window.sessionStorage.removeItem(DEMO_PERSONA_KEY);
     } catch {
       /* ignore */
     }
     setDevDemo(false);
+    setPrototypeDemo(false);
+    setDemoPersona(null);
     update((prev) => ({ ...prev, profile: null, loggedOut: true }));
   }, [update]);
 
@@ -852,14 +905,52 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setDevDemo(false);
   }, []);
 
+  const enterPrototypeDemo = useCallback(
+    (persona: DemoPersona) => {
+      if (!import.meta.env.DEV) return;
+      try {
+        window.sessionStorage.setItem(PROTOTYPE_DEMO_KEY, "1");
+        window.sessionStorage.setItem(DEMO_PERSONA_KEY, persona);
+      } catch {
+        /* ignore */
+      }
+      setPrototypeDemo(true);
+      setDemoPersona(persona);
+      update((prev) => ({
+        ...prev,
+        profile: profileForDemoPersona(persona),
+        loggedOut: false,
+      }));
+    },
+    [update],
+  );
+
+  const exitPrototypeDemo = useCallback(() => {
+    try {
+      window.sessionStorage.removeItem(PROTOTYPE_DEMO_KEY);
+      window.sessionStorage.removeItem(DEMO_PERSONA_KEY);
+    } catch {
+      /* ignore */
+    }
+    setPrototypeDemo(false);
+    setDemoPersona(null);
+  }, []);
+
   const tryTemplate = useCallback(
     (templateId: string) => {
       update((prev) => {
-        const tpl = prev.templates.find((t) => t.id === templateId) ?? seed.templates.find((t) => t.id === templateId);
+        const tpl =
+          prev.templates.find((t) => t.id === templateId) ??
+          seed.templates.find((t) => t.id === templateId);
         if (!tpl) return prev;
         return {
           ...prev,
-          schedule: tpl.items.map((i) => ({ ...i, id: uid(), done: false, fromTemplateId: tpl.id })),
+          schedule: tpl.items.map((i) => ({
+            ...i,
+            id: uid(),
+            done: false,
+            fromTemplateId: tpl.id,
+          })),
           templates: prev.templates.map((t) =>
             t.id === templateId ? { ...t, tries: (t.tries ?? 0) + 1 } : t,
           ),
@@ -905,7 +996,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     (templateId: string, days: number[]) => {
       update((prev) => ({
         ...prev,
-        templates: prev.templates.map((t) => (t.id === templateId ? { ...t, repeatDays: days } : t)),
+        templates: prev.templates.map((t) =>
+          t.id === templateId ? { ...t, repeatDays: days } : t,
+        ),
       }));
     },
     [update],
@@ -957,11 +1050,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       state,
       hydrated,
       devDemo,
+      prototypeDemo,
+      demoPersona,
       update,
       logout,
       login,
       enterDevDemo,
       exitDevDemo,
+      enterPrototypeDemo,
+      exitPrototypeDemo,
       tryTemplate,
       toggleTemplateLike,
       rateTemplate,
@@ -975,11 +1072,15 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       state,
       hydrated,
       devDemo,
+      prototypeDemo,
+      demoPersona,
       update,
       logout,
       login,
       enterDevDemo,
       exitDevDemo,
+      enterPrototypeDemo,
+      exitPrototypeDemo,
       tryTemplate,
       toggleTemplateLike,
       rateTemplate,
@@ -999,5 +1100,3 @@ export function useAppStore() {
   if (!ctx) throw new Error("useAppStore must be used inside AppStoreProvider");
   return ctx;
 }
-
-

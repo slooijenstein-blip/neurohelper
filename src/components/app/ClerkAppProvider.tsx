@@ -28,8 +28,6 @@ function ClerkRouterProvider({ children }: { children: ReactNode }) {
       signUpUrl={urls.signUpUrl}
       signInFallbackRedirectUrl={urls.afterAuthUrl}
       signUpFallbackRedirectUrl={urls.afterAuthUrl}
-      signInForceRedirectUrl={urls.afterAuthUrl}
-      signUpForceRedirectUrl={urls.afterAuthUrl}
       routerPush={(to) => {
         const path = toRouterPath(to);
         if (path.startsWith("http://") || path.startsWith("https://")) {

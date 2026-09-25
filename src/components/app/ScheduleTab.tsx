@@ -15,6 +15,7 @@ import {
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAppStore, uid } from "@/lib/app-store";
 import { ACTIVITIES, type Activity } from "@/lib/activities-data";
+import { SharedPlansPanel } from "./SharedPlansPanel";
 import { ScreenHeader } from "./ui-bits";
 import { ScheduleCalendar } from "./ScheduleCalendar";
 import { Button } from "@/components/ui/button";
@@ -242,6 +243,7 @@ export function ScheduleTab() {
       />
 
       <div className="hide-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto bg-surface px-5 py-4 md:max-w-3xl md:px-8">
+        <SharedPlansPanel />
         <div className="flex gap-1 rounded-xl bg-card p-1">
           {(["list", "calendar"] as const).map((v) => (
             <button
