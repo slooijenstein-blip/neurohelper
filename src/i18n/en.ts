@@ -541,7 +541,7 @@ export const en = {
     redirectBlocked:
       "Invite saved, but Clerk rejected this preview address. Add it under allowed redirect URLs in the Clerk Dashboard, then resend.",
     notConfigured:
-      "Live email sharing is not turned on for this preview yet. Add the server keys from the pull request. Continue as Pro and Continue as Parent still work on this device.",
+      "Live email sharing is not turned on for this preview yet. Add the server keys from the pull request. Pro turns on only when we set it on the account.",
     liveOn: "Live sharing is on for this signed-in account.",
     sending: "Sending invite…",
     saveFailed: "Could not save that. If this is a live account, check that sharing is turned on.",

@@ -81,8 +81,8 @@ export type Profile = {
   /** ISO country the caregiver lives in. Help opens on this country. */
   helpCountry?: string;
   /**
-   * Professional account. We set this; the profile editor cannot turn it on.
-   * Demo: Continue as Pro. Parents stay unset.
+   * Professional account. We set this from Clerk publicMetadata.isPro.
+   * A profile role tag cannot turn it on. Local development can still preview it.
    */
   isPro?: boolean;
 };
@@ -190,7 +190,7 @@ export type AppState = {
 
 const STORAGE_KEY = "motor-skill-buddy-v1";
 const DEV_DEMO_KEY = "synlumae-dev-demo";
-/** Preview walkthrough — Continue as Pro / Parent, including on Vercel preview. */
+/** Local development walkthrough. Cleared on preview and production builds. */
 const PROTOTYPE_DEMO_KEY = "synlumae-pro-demo";
 const DEMO_PERSONA_KEY = "synlumae-demo-persona";
 
@@ -734,7 +734,7 @@ type Ctx = {
   state: AppState;
   hydrated: boolean;
   devDemo: boolean;
-  /** Continue as Pro / Parent without a Clerk session. Preview only. */
+  /** Continue as Pro / Parent without a Clerk session. Local development only. */
   prototypeDemo: boolean;
   demoPersona: DemoPersona | null;
   update: (fn: (prev: AppState) => AppState) => void;

@@ -551,7 +551,7 @@ export const es: DeepString<Messages> = {
     redirectBlocked:
       "Invitación guardada, pero Clerk rechazó esta dirección de la vista previa. Añádela en las URL de redirección permitidas del panel de Clerk y vuelve a enviarla.",
     notConfigured:
-      "El correo de invitaciones aún no está activo en esta vista previa. Hay que añadir las claves del servidor de la pull request. Continuar como Pro y Continuar como padre o madre siguen funcionando en este dispositivo.",
+      "El correo de invitaciones aún no está activo en esta vista previa. Hay que añadir las claves del servidor de la pull request. Pro solo se activa cuando lo marcamos en la cuenta.",
     liveOn: "El uso compartido en vivo está activo en esta cuenta.",
     sending: "Enviando invitación…",
     saveFailed: "No se pudo guardar. Si esta cuenta es real, revisa que el uso compartido esté activado.",
