@@ -1,13 +1,14 @@
 import { SignIn, SignUp, useAuth } from "@clerk/react";
-import { Link, Navigate } from "@tanstack/react-router";
+import { Link, Navigate, useNavigate } from "@tanstack/react-router";
 import { LogIn } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/I18nProvider";
-import { useAppStore } from "@/lib/app-store";
+import { useAppStore, type DemoPersona } from "@/lib/app-store";
 import { isClerkConfigured } from "@/lib/clerk";
 import { withBasePath } from "@/lib/paths";
+import { devShareEnabled, setDevShareUser } from "@/lib/share/dev-session";
 
 import { BrandLogo } from "./BrandLogo";
 
@@ -21,6 +22,73 @@ export function AuthLoading() {
           <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+function PersonaDemoButtons() {
+  const { enterPrototypeDemo } = useAppStore();
+  const { t } = useI18n();
+  const navigate = useNavigate();
+  if (!import.meta.env.DEV) return null;
+
+  const enter = (persona: DemoPersona) => {
+    enterPrototypeDemo(persona);
+    void navigate({ to: "/" });
+  };
+
+  return (
+    <div className="space-y-2">
+      <p className="text-center text-[11px] font-semibold text-muted-foreground">
+        {t("auth.demoHint")}
+      </p>
+      <Button
+        variant="default"
+        className="w-full"
+        data-testid="continue-pro"
+        onClick={() => enter("pro")}
+      >
+        {t("auth.continuePro")}
+      </Button>
+      <Button
+        variant="outline"
+        className="w-full"
+        data-testid="continue-parent"
+        onClick={() => enter("parent")}
+      >
+        {t("auth.continueParent")}
+      </Button>
+    </div>
+  );
+}
+
+function DevShareButtons() {
+  const navigate = useNavigate();
+  if (!devShareEnabled()) return null;
+
+  const enter = (value: string) => {
+    setDevShareUser(value);
+    void navigate({ to: "/" });
+  };
+
+  return (
+    <div className="space-y-2">
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        onClick={() => enter("user_maya0001|maya@example.com|Maya|1")}
+      >
+        Dev live Pro
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        onClick={() => enter("user_sam000001|sam.parent@example.com|Sam|0")}
+      >
+        Dev live Parent
+      </Button>
     </div>
   );
 }
@@ -89,9 +157,17 @@ function AuthChrome({ children }: { children: ReactNode }) {
   );
 }
 
+function afterAuthPath(): string {
+  if (typeof window === "undefined") return withBasePath("/");
+  const redirect = new URLSearchParams(window.location.search).get("redirect");
+  if (redirect && redirect.startsWith("/invite/")) return withBasePath(redirect);
+  return withBasePath("/");
+}
+
 export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
   const clerkReady = isClerkConfigured();
   const { t } = useI18n();
+  const nextUrl = afterAuthPath();
 
   return (
     <AuthChrome>
@@ -102,8 +178,8 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
               routing="path"
               path={withBasePath("/sign-in")}
               signUpUrl={withBasePath("/sign-up")}
-              forceRedirectUrl={withBasePath("/")}
-              fallbackRedirectUrl={withBasePath("/")}
+              forceRedirectUrl={nextUrl}
+              fallbackRedirectUrl={nextUrl}
               withSignUp
             />
           ) : (
@@ -111,8 +187,8 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
               routing="path"
               path={withBasePath("/sign-up")}
               signInUrl={withBasePath("/sign-in")}
-              forceRedirectUrl={withBasePath("/")}
-              fallbackRedirectUrl={withBasePath("/")}
+              forceRedirectUrl={nextUrl}
+              fallbackRedirectUrl={nextUrl}
             />
           )}
         </div>
@@ -121,6 +197,8 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
       )}
 
       <div className="mt-6 space-y-2">
+        <PersonaDemoButtons />
+        <DevShareButtons />
         <DevDemoButton />
         {mode === "sign-in" ? (
           <p className="text-center text-xs text-muted-foreground">
@@ -143,8 +221,8 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
 }
 
 export function SignedInRedirect({ children }: { children: ReactNode }) {
-  const { devDemo } = useAppStore();
-  if (import.meta.env.DEV && devDemo) return <Navigate to="/" />;
+  const { devDemo, prototypeDemo } = useAppStore();
+  if (import.meta.env.DEV && (prototypeDemo || devDemo)) return <Navigate to="/" />;
   if (!isClerkConfigured()) return <>{children}</>;
   return <SignedInRedirectInner>{children}</SignedInRedirectInner>;
 }

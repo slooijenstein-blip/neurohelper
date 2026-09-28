@@ -14,6 +14,9 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { ROLES, useAppStore, type Profile, type Role } from "@/lib/app-store";
+import { useCalendarStore } from "@/lib/calendar/store";
+import { setDevShareUser } from "@/lib/share/dev-session";
+import { isProAccount } from "@/lib/pro-access";
 import { isClerkConfigured } from "@/lib/clerk";
 import {
   applyCaregiverProfileEdits,
@@ -21,6 +24,7 @@ import {
   type CaregiverProfileEdits,
 } from "@/lib/clerk-profile";
 import { withBasePath } from "@/lib/paths";
+import { ProAccessCard } from "./ProAccessCard";
 import { ScreenHeader, ProfileAvatar, RoleTag, SocialBar } from "./ui-bits";
 
 const STORAGE_KEY = "motor-skill-buddy-v1";
@@ -137,6 +141,11 @@ export function ProfileTab() {
         >
           {t("profile.resetLocal")}
         </Button>
+
+        <ProAccessCard />
+
+        <DemoPersonaNote />
+        <LiveShareNote />
 
         {isClerkConfigured() ? <ClerkAwareSessionControls /> : <LocalLogoutButton />}
       </div>
@@ -418,6 +427,47 @@ function CaregiverIdentityCard({
   );
 }
 
+function LiveShareNote() {
+  const { prototypeDemo } = useAppStore();
+  const cal = useCalendarStore();
+  const { t } = useI18n();
+  if (prototypeDemo || cal.shareMode !== "live") return null;
+  return (
+    <div className="rounded-2xl bg-muted/50 p-4 ring-1 ring-border">
+      <p className="text-xs text-muted-foreground">
+        {cal.shareStatus === "ready" ? t("share.liveOn") : t("share.notConfigured")}
+      </p>
+    </div>
+  );
+}
+
+function DemoPersonaNote() {
+  const { prototypeDemo } = useAppStore();
+  const { state } = useAppStore();
+  const cal = useCalendarStore();
+  const { t } = useI18n();
+  if (!prototypeDemo) return null;
+
+  return (
+    <div className="rounded-2xl bg-warm/30 p-4 ring-1 ring-border">
+      <p className="text-xs text-muted-foreground">
+        {isProAccount(state.profile) ? t("pro.demoBanner") : t("shared.demoBanner")}
+      </p>
+      <Button
+        type="button"
+        variant="outline"
+        className="mt-3 h-10 w-full"
+        onClick={() => {
+          cal.resetDemo();
+          toast.success(t("calendar.prototype.reset"));
+        }}
+      >
+        {t("calendar.prototype.reset")}
+      </Button>
+    </div>
+  );
+}
+
 function LocalLogoutButton() {
   const { logout } = useAppStore();
   const { t } = useI18n();
@@ -428,6 +478,7 @@ function LocalLogoutButton() {
       variant="outline"
       className="h-11 w-full"
       onClick={() => {
+        setDevShareUser(null);
         logout();
         void navigate({ to: "/sign-in" });
       }}
@@ -480,6 +531,7 @@ function ClerkAccountControls() {
         variant="outline"
         className="h-11 w-full"
         onClick={() => {
+          setDevShareUser(null);
           logout();
           void signOut({ redirectUrl: withBasePath("/sign-in") });
         }}

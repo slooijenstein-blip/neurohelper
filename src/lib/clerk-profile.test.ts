@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import type { Profile } from "./app-store";
 import {
   applyCaregiverProfileEdits,
+  applyClerkProFlag,
   clerkNameUpdateFromDisplayName,
   displayNameFromClerk,
   isLegacyDemoProfile,
@@ -109,6 +110,58 @@ describe("profileFromClerkUser", () => {
     assert.equal(next.location, "");
     assert.equal(next.bio, "");
     assert.deepEqual(next.socials, {});
+  });
+
+  it("grants Pro only from Clerk public metadata", () => {
+    const on = profileFromClerkUser(
+      clerkUser({ publicMetadata: { isPro: true } }),
+      localProfile({ role: "Therapist" }),
+    );
+    assert.equal(on.isPro, true);
+    assert.equal(on.role, "Therapist");
+
+    const off = profileFromClerkUser(clerkUser(), localProfile({ isPro: true, role: "Therapist" }));
+    assert.equal(off.isPro, undefined);
+    assert.equal(off.role, "Therapist");
+  });
+
+  it("drops a Continue-as-Pro overlay that is not a Clerk user", () => {
+    const next = profileFromClerkUser(clerkUser(), {
+      id: "me",
+      name: "Maya Chen",
+      role: "Therapist",
+      location: "Utrecht",
+      bio: "Pediatric therapist.",
+      socials: {},
+      color: "bg-primary",
+      isPro: true,
+    });
+    assert.equal(next.isPro, undefined);
+    assert.equal(next.role, "Parent");
+    assert.equal(next.name, "Sam Looijenstein");
+  });
+
+  it("clears a stale Pro flag when Clerk metadata is off, and keeps the role tag", () => {
+    const next = applyClerkProFlag(
+      localProfile({ isPro: true, role: "Therapist" }),
+      clerkUser({ publicMetadata: { isPro: "true" } }),
+    );
+    assert.equal(next.isPro, undefined);
+    assert.equal(next.role, "Therapist");
+  });
+
+  it("does not grant Pro to the legacy demo profile", () => {
+    const next = profileFromClerkUser(clerkUser(), {
+      id: "me",
+      name: "Sam",
+      role: "Parent",
+      location: "Amsterdam",
+      bio: DEMO_BIO,
+      socials: {},
+      color: "bg-primary",
+      isPro: true,
+    });
+    assert.equal(next.isPro, undefined);
   });
 
   it("fills name from Clerk when the bound profile has a blank name", () => {

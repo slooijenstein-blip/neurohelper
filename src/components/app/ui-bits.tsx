@@ -1,13 +1,15 @@
 import { useI18n } from "@/i18n/I18nProvider";
 import { ROLE_MESSAGE_KEY } from "@/i18n/roles";
 import { cn } from "@/lib/utils";
-import { formatActivityDuration, skillTone, type Skill } from "@/lib/activities-data";
+import { skillMessageKey } from "@/lib/activity-locale";
+import { skillTone, type Skill } from "@/lib/activities-data";
 import { roleTone, type Role, type Socials } from "@/lib/app-store";
 import type { ReactNode } from "react";
 import { Clock, Music2, Instagram, Facebook, Linkedin, Globe } from "lucide-react";
 
 export function SkillTag({ skill }: { skill: Skill }) {
-  return <span className={cn("tag-base", skillTone[skill])}>{skill}</span>;
+  const { t } = useI18n();
+  return <span className={cn("tag-base", skillTone[skill])}>{t(skillMessageKey(skill))}</span>;
 }
 
 export function AgeTag({ children }: { children: ReactNode }) {
@@ -21,10 +23,15 @@ export function DurationTag({
   minMinutes: number;
   maxMinutes: number;
 }) {
+  const { t } = useI18n();
+  const label =
+    minMinutes === maxMinutes
+      ? t("activities.durationExact", { count: minMinutes })
+      : t("activities.durationRange", { min: minMinutes, max: maxMinutes });
   return (
     <span className="tag-base gap-1 bg-muted text-muted-foreground">
       <Clock className="size-3" />
-      {formatActivityDuration(minMinutes, maxMinutes)}
+      {label}
     </span>
   );
 }

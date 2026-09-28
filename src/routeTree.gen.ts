@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SignInRouteRouteImport } from './routes/sign-in/route'
 import { Route as SignUpRouteRouteImport } from './routes/sign-up/route'
+import { Route as InviteTokenRouteImport } from './routes/invite/$token'
 import { Route as SignInIndexRouteImport } from './routes/sign-in/index'
 import { Route as SignInSplatRouteImport } from './routes/sign-in/$'
 import { Route as SignUpIndexRouteImport } from './routes/sign-up/index'
@@ -30,6 +31,11 @@ const SignInRouteRoute = SignInRouteRouteImport.update({
 const SignUpRouteRoute = SignUpRouteRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInIndexRoute = SignInIndexRouteImport.update({
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRouteRouteWithChildren
   '/sign-up': typeof SignUpRouteRouteWithChildren
+  '/invite/$token': typeof InviteTokenRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
   '/sign-in/': typeof SignInIndexRoute
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/invite/$token': typeof InviteTokenRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
   '/sign-in': typeof SignInIndexRoute
@@ -74,6 +82,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/sign-in': typeof SignInRouteRouteWithChildren
   '/sign-up': typeof SignUpRouteRouteWithChildren
+  '/invite/$token': typeof InviteTokenRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
   '/sign-in/': typeof SignInIndexRoute
@@ -85,17 +94,25 @@ export interface FileRouteTypes {
     | '/'
     | '/sign-in'
     | '/sign-up'
+    | '/invite/$token'
     | '/sign-in/$'
     | '/sign-up/$'
     | '/sign-in/'
     | '/sign-up/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in/$' | '/sign-up/$' | '/sign-in' | '/sign-up'
+  to:
+    | '/'
+    | '/invite/$token'
+    | '/sign-in/$'
+    | '/sign-up/$'
+    | '/sign-in'
+    | '/sign-up'
   id:
     | '__root__'
     | '/'
     | '/sign-in'
     | '/sign-up'
+    | '/invite/$token'
     | '/sign-in/$'
     | '/sign-up/$'
     | '/sign-in/'
@@ -106,6 +123,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SignInRouteRoute: typeof SignInRouteRouteWithChildren
   SignUpRouteRoute: typeof SignUpRouteRouteWithChildren
+  InviteTokenRoute: typeof InviteTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -129,6 +147,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-up'
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in/': {
@@ -194,6 +219,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SignInRouteRoute: SignInRouteRouteWithChildren,
   SignUpRouteRoute: SignUpRouteRouteWithChildren,
+  InviteTokenRoute: InviteTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,15 +1,10 @@
 import { useMemo, useState } from "react";
-import { Clock, Filter, Plus, Search, X } from "lucide-react";
+import { Filter, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useI18n } from "@/i18n/I18nProvider";
-import {
-  ACTIVITIES,
-  SKILLS,
-  formatActivityDuration,
-  type Activity,
-  type Skill,
-} from "@/lib/activities-data";
+import { ACTIVITIES, SKILLS, type Activity, type Skill } from "@/lib/activities-data";
+import { localizedActivity, localizedCatalog, skillMessageKey } from "@/lib/activity-locale";
 import { useAppStore, uid } from "@/lib/app-store";
 import { AgeTag, DurationTag, ScreenHeader, SkillTag } from "./ui-bits";
 import { Button } from "@/components/ui/button";
@@ -26,24 +21,31 @@ import { cn } from "@/lib/utils";
 
 export function ActivitiesTab() {
   const { update } = useAppStore();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [range, setRange] = useState<number[]>([1, 10]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [query, setQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [detail, setDetail] = useState<Activity | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
-  const results = useMemo(
-    () =>
-      ACTIVITIES.filter((a) => a.maxAge >= (range[0] ?? 1) && a.minAge <= (range[1] ?? 10))
-        .filter((a) => (skills.length ? skills.includes(a.skill) : true))
-        .filter((a) =>
-          query.trim()
-            ? (a.title + a.description).toLowerCase().includes(query.trim().toLowerCase())
-            : true,
-        ),
-    [range, skills, query],
-  );
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return localizedCatalog(locale)
+      .filter((a) => a.maxAge >= (range[0] ?? 1) && a.minAge <= (range[1] ?? 10))
+      .filter((a) => (skills.length ? skills.includes(a.skill) : true))
+      .filter((a) => {
+        if (!q) return true;
+        const raw = ACTIVITIES.find((item) => item.id === a.id);
+        const haystack = `${a.title} ${a.description} ${raw?.title ?? ""} ${raw?.description ?? ""} ${t(skillMessageKey(a.skill))}`;
+        return haystack.toLowerCase().includes(q);
+      });
+  }, [range, skills, query, locale, t]);
+
+  const detail = useMemo(() => {
+    if (!detailId) return null;
+    const raw = ACTIVITIES.find((activity) => activity.id === detailId);
+    return raw ? localizedActivity(raw, locale) : null;
+  }, [detailId, locale]);
 
   const toggleSkill = (s: Skill) =>
     setSkills((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
@@ -121,7 +123,7 @@ export function ActivitiesTab() {
                     : "bg-card text-muted-foreground",
                 )}
               >
-                {s}
+                {t(skillMessageKey(s))}
               </button>
             ))}
           </div>
@@ -131,7 +133,7 @@ export function ActivitiesTab() {
           <div className="flex flex-wrap items-center gap-2">
             {skills.map((s) => (
               <span key={s} className="tag-base bg-accent text-accent-foreground gap-1">
-                {s}
+                {t(skillMessageKey(s))}
                 <X className="size-3 cursor-pointer" onClick={() => toggleSkill(s)} />
               </span>
             ))}
@@ -150,15 +152,12 @@ export function ActivitiesTab() {
         {results.map((a) => (
           <div key={a.id} className="soft-card flex flex-col p-4">
             <div className="mb-2 flex items-start justify-between">
-              <span className="tag-base bg-accent text-accent-foreground">{a.skill}</span>
-              <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                <Clock className="size-3" />
-                {formatActivityDuration(a.minMinutes, a.maxMinutes)}
-              </span>
+              <SkillTag skill={a.skill} />
+              <DurationTag minMinutes={a.minMinutes} maxMinutes={a.maxMinutes} />
             </div>
             <button
               type="button"
-              onClick={() => setDetail(a)}
+              onClick={() => setDetailId(a.id)}
               className="block text-left text-base font-semibold hover:text-primary"
             >
               {a.title}
@@ -186,7 +185,7 @@ export function ActivitiesTab() {
         ) : null}
       </div>
 
-      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetailId(null)}>
         <DialogContent className="max-w-sm md:max-w-lg">
           <DialogHeader>
             <DialogTitle>{detail?.title}</DialogTitle>
@@ -203,15 +202,7 @@ export function ActivitiesTab() {
               </div>
               <div>
                 <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  Duration
-                </p>
-                <p className="text-muted-foreground">
-                  {formatActivityDuration(detail.minMinutes, detail.maxMinutes)}
-                </p>
-              </div>
-              <div>
-                <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  What you need
+                  {t("calendar.picker.materials")}
                 </p>
                 <ul className="list-inside list-disc text-muted-foreground">
                   {detail.materials.map((m) => (
@@ -221,7 +212,7 @@ export function ActivitiesTab() {
               </div>
               <div>
                 <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-                  How to play
+                  {t("calendar.picker.howTo")}
                 </p>
                 <ol className="list-inside list-decimal space-y-1 text-muted-foreground">
                   {detail.steps.map((s) => (
@@ -233,10 +224,10 @@ export function ActivitiesTab() {
                 className="w-full"
                 onClick={() => {
                   addToSchedule(detail);
-                  setDetail(null);
+                  setDetailId(null);
                 }}
               >
-                Add to schedule
+                {t("activities.addToSchedule")}
               </Button>
             </div>
           ) : null}
