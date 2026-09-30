@@ -604,6 +604,7 @@ export const en = {
       privacyNote: "Parents only ever see their own child. Group names stay on your desk.",
       empty: "No patients match.",
       added: "{{name}} added",
+      progress: "{{done}} of {{total}} done",
     },
     children: {
       title: "Children",

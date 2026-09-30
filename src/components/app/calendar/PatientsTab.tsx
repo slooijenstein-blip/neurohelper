@@ -13,10 +13,22 @@ import {
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import { membershipOnChild } from "@/lib/calendar/permissions";
-import { useCalendarStore } from "@/lib/calendar/store";
+import { toDateKey, useCalendarStore } from "@/lib/calendar/store";
+import type { DayPlan } from "@/lib/calendar/types";
 import { AGE_BANDS, type AgeBand } from "@/lib/calendar/types";
 import { cn } from "@/lib/utils";
 import { ScreenHeader } from "../ui-bits";
+
+function progressFor(plans: DayPlan[], childId: string, today: string) {
+  const plan =
+    plans.find((item) => item.childId === childId && item.date === today) ??
+    plans.filter((item) => item.childId === childId).sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+  if (!plan?.steps.length) return null;
+  return {
+    done: plan.steps.filter((step) => step.done).length,
+    total: plan.steps.length,
+  };
+}
 
 export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
   const { t } = useI18n();
@@ -29,6 +41,7 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
   const [newTag, setNewTag] = useState("");
 
   const tags = cal.therapistTagsForActive();
+  const today = toDateKey(new Date());
 
   const patients = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -150,6 +163,7 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
               .filter((ct) => ct.childId === child.id)
               .map((ct) => tags.find((tg) => tg.id === ct.tagId)?.name)
               .filter(Boolean);
+            const progress = progressFor(cal.state.dayPlans, child.id, today);
             return (
               <button
                 key={child.id}
@@ -170,6 +184,17 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
                     {t(`calendar.ageBands.${child.ageBand.replace("-", "_")}`)}
                     {childTagNames.length ? ` · ${childTagNames.join(", ")}` : ""}
                   </p>
+                  {progress ? (
+                    <p
+                      className="mt-0.5 text-[11px] font-semibold text-primary"
+                      data-testid={`patient-progress-${child.id}`}
+                    >
+                      {t("calendar.patients.progress", {
+                        done: progress.done,
+                        total: progress.total,
+                      })}
+                    </p>
+                  ) : null}
                 </div>
               </button>
             );

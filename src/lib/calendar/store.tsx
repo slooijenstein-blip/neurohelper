@@ -13,7 +13,7 @@ import type { Actor, EmailResult, ShareAction } from "@/lib/share/actions";
 import { postShareAction } from "@/lib/share/client";
 import { applyShareAction } from "@/lib/share/mutate";
 import { membershipOnChild } from "./permissions";
-import { createSeedState, DEMO_PERSON_IDS } from "./seed";
+import { createSeedState, DEMO_PERSON_IDS, withDemoFamily } from "./seed";
 import { normalizePlanStep } from "./activity-steps";
 import {
   addDays,
@@ -320,8 +320,8 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
     selectedChild,
     resetDemo: () => update(() => createSeedState()),
     loadDemoPersona: (personId) =>
-      update(() => {
-        const next = createSeedState();
+      update((prev) => {
+        const next = withDemoFamily(prev);
         const person = next.people.find((item) => item.id === personId);
         if (!person) return next;
         const mine = next.memberships.filter(

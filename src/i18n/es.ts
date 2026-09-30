@@ -616,6 +616,7 @@ export const es: DeepString<Messages> = {
         "Los padres solo ven a su propio hijo. Los nombres de grupo se quedan en tu escritorio.",
       empty: "No hay pacientes que coincidan.",
       added: "{{name}} añadido/a",
+      progress: "{{done}} de {{total}} hechas",
     },
     children: {
       title: "Niños",

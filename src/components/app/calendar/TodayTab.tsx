@@ -153,6 +153,8 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
                       <button
                         type="button"
                         disabled={!canMarkDone(role)}
+                        aria-pressed={step.done}
+                        data-testid={`today-step-${child.id}-${index}`}
                         aria-label={t("calendar.stepDetail.markDone")}
                         onClick={() => cal.toggleStepDone(child.id, date, step.id)}
                         className={cn(

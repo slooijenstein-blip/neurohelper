@@ -114,13 +114,15 @@ export function SharedPlansPanel() {
 
             {day ? (
               <ul className="mt-3 space-y-2">
-                {day.steps.map((step) => {
+                {day.steps.map((step, index) => {
                   const shown = presentPlanStep(step, locale);
                   return (
                     <li key={step.id} className="flex items-start gap-2">
                       <button
                         type="button"
                         className="mt-0.5 shrink-0"
+                        aria-pressed={step.done}
+                        data-testid={`shared-step-${child.id}-${index}`}
                         aria-label={
                           step.done
                             ? t("calendar.stepDetail.markUndone")
