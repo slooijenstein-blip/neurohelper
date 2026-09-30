@@ -15,8 +15,10 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 import { isClerkConfigured } from "@/lib/clerk";
 import { isClerkPro, type ClerkNameSource } from "@/lib/clerk-profile";
+import { demoRolesAllowed } from "@/lib/demo-roles";
 import { isProAccount, showProChrome, tabsForAccount, type AppTabKey } from "@/lib/pro-access";
 import { useDevShareUser } from "@/lib/share/dev-session";
+import { useAppStore } from "@/lib/app-store";
 import { ActivitiesTab } from "./ActivitiesTab";
 import { ScheduleTab } from "./ScheduleTab";
 import { JourneyTab } from "./JourneyTab";
@@ -28,7 +30,7 @@ import { ProfileView } from "./ProfileView";
 import { ArticleView } from "./ArticleView";
 import { AuthLoading } from "./AuthScreen";
 import { BrandLogo } from "./BrandLogo";
-import { useAppStore } from "@/lib/app-store";
+import { DemoRoleBar } from "./DemoRoleBar";
 
 export type TabKey = AppTabKey;
 
@@ -56,8 +58,11 @@ function AppShell({
   const [profileId, setProfileId] = useState<string | null>(null);
   const [articleId, setArticleId] = useState<string | null>(null);
   const [helpNonce, setHelpNonce] = useState(0);
-  const deviceDemo = import.meta.env.DEV && prototypeDemo && isProAccount(state.profile);
-  const isPro = showProChrome({ clerkIsPro, deviceDemo });
+  const demoOverlay =
+    prototypeDemo && (import.meta.env.DEV || demoRolesAllowed(window.location.hostname));
+  const isPro = demoOverlay
+    ? isProAccount(state.profile)
+    : showProChrome({ clerkIsPro, deviceDemo: false });
   const tabs = tabsForAccount(isPro);
 
   useEffect(() => {
@@ -144,6 +149,12 @@ function AppShell({
 
       <div className="app-main">
         <div className="app-screen min-h-0">{screen}</div>
+        <DemoRoleBar
+          onChoose={() => {
+            setArticleId(null);
+            setProfileId(null);
+          }}
+        />
       </div>
 
       <nav
@@ -184,20 +195,26 @@ function ClerkGatedApp(props: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const { user } = useUser();
   const { devDemo, prototypeDemo, hydrated } = useAppStore();
   const devShare = useDevShareUser();
-  const deviceDemo = import.meta.env.DEV && (prototypeDemo || devDemo);
+  const demoOverlay =
+    hydrated &&
+    ((import.meta.env.DEV && (prototypeDemo || devDemo)) ||
+      (prototypeDemo && demoRolesAllowed(window.location.hostname)));
   const clerkIsPro = user ? isClerkPro(user as ClerkNameSource) : false;
 
   if (!isLoaded || !hydrated) return <AuthLoading />;
-  if (isSignedIn || deviceDemo || devShare) return <AppShell {...props} clerkIsPro={clerkIsPro} />;
+  if (isSignedIn || demoOverlay || devShare) return <AppShell {...props} clerkIsPro={clerkIsPro} />;
   return <Navigate to="/sign-in" />;
 }
 
 function LocalGatedApp(props: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const { devDemo, prototypeDemo, hydrated } = useAppStore();
   const devShare = useDevShareUser();
-  const deviceDemo = import.meta.env.DEV && (prototypeDemo || devDemo);
+  const demoOverlay =
+    hydrated &&
+    ((import.meta.env.DEV && (prototypeDemo || devDemo)) ||
+      (prototypeDemo && demoRolesAllowed(window.location.hostname)));
   if (!hydrated) return <AuthLoading />;
-  if (deviceDemo || devShare) return <AppShell {...props} clerkIsPro={false} />;
+  if (demoOverlay || devShare) return <AppShell {...props} clerkIsPro={false} />;
   return <Navigate to="/sign-in" />;
 }
 

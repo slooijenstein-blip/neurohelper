@@ -8,6 +8,14 @@ import {
   type ReactNode,
 } from "react";
 import { ACTIVITIES, type Activity, type Skill } from "./activities-data";
+import type { CommunityCard } from "./community";
+import { demoRolesAllowed, parseDemoPersona, type DemoPersona } from "./demo-roles";
+import {
+  addRoutineToMyCalendar,
+  isOnMyCalendar,
+  removeRoutineFromMyCalendar,
+  type RoutineDraft,
+} from "./my-calendar";
 
 export type ScheduleItem = {
   id: string;
@@ -18,6 +26,8 @@ export type ScheduleItem = {
   minutes: number;
   done: boolean;
   fromTemplateId?: string;
+  /** Demo role or account that placed this activity on their calendar. */
+  viewerKey?: string;
 };
 
 export type Role =
@@ -87,7 +97,7 @@ export type Profile = {
   isPro?: boolean;
 };
 
-export type DemoPersona = "pro" | "parent";
+export type { DemoPersona };
 
 export type Template = {
   id: string;
@@ -111,6 +121,8 @@ export type DayPlan = {
   date: string; // YYYY-MM-DD
   templateId: string;
   name: string;
+  /** Demo role or account that placed this routine on their calendar. */
+  viewerKey?: string;
 };
 
 export type Comment = {
@@ -119,6 +131,8 @@ export type Comment = {
   authorName: string;
   authorRole: Role;
   text: string;
+  /** Seed comments use a message key so English and Spanish stay in sync. */
+  textKey?: string;
   createdAt: string;
   parentId?: string;
   replies?: Comment[];
@@ -132,6 +146,9 @@ export type Post = {
   authorLocation: string;
   kind: "Schedule Share" | "Story" | "Question" | "Promotion" | "Repost";
   body: string;
+  /** Seed posts use a message key so English and Spanish stay in sync. */
+  bodyKey?: string;
+  card?: CommunityCard;
   likes: number;
   liked: boolean;
   reactions: Record<string, number>;
@@ -214,18 +231,45 @@ const myProfile: Profile = {
 
 export const proDemoProfile: Profile = {
   id: MY_ID,
-  name: "Maya Chen",
+  name: "Demo Therapist",
   role: "Therapist",
   location: "Utrecht",
-  bio: "Pediatric therapist. I build activity plans from the catalog and share them with families.",
+  bio: "Demo therapist with Pro. Alex and Jordan are the two patients on this device.",
   socials: { website: "https://example.com" },
   color: "bg-primary",
   isPro: true,
 };
 
+const parentDemoProfile: Profile = {
+  id: MY_ID,
+  name: "Demo Parent",
+  role: "Parent",
+  location: "Amsterdam",
+  bio: "Demo parent linked to Alex, the same child as the demo therapist.",
+  socials: {},
+  color: "bg-primary",
+  isPro: false,
+};
+
+const grandparentDemoProfile: Profile = {
+  id: MY_ID,
+  name: "Demo Grandparent",
+  role: "Grandparent",
+  location: "Amsterdam",
+  bio: "Demo grandparent linked to Alex. There is no Pro tab on this account.",
+  socials: {},
+  color: "bg-primary",
+  isPro: false,
+};
+
 export function profileForDemoPersona(persona: DemoPersona): Profile {
-  if (persona === "pro") return { ...proDemoProfile };
-  return { ...myProfile, isPro: false };
+  if (persona === "therapist") return { ...proDemoProfile };
+  if (persona === "grandparent") return { ...grandparentDemoProfile };
+  return { ...parentDemoProfile };
+}
+
+function demoChildName(persona: DemoPersona): string {
+  return persona === "therapist" ? "" : "Alex";
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -460,127 +504,152 @@ const memberProfiles: Profile[] = [
   },
 ];
 
-function buildScheduleSharePost(template: Template): Post {
-  const owner = memberProfiles.find((m) => m.id === template.ownerId) ?? myProfile;
-  const items = template.items.map(
-    (it, i) => `${i + 1}. ${it.title} (${it.minutes} mins)\n   - ${it.description}`,
-  );
-  return {
-    id: `post-${template.id}`,
-    authorId: template.ownerId,
-    authorName: owner.name,
-    authorRole: owner.role,
-    authorLocation: owner.location,
-    kind: "Schedule Share",
-    body: `I just shared a new schedule: **${template.name}**\n\n${items.join("\n")}`,
-    likes: template.ownerId === "maya" ? 12 : template.ownerId === "priya" ? 7 : 3,
+const seedPosts: Post[] = [
+  {
+    id: "p-down-priya",
+    authorId: "priya",
+    authorName: "Priya",
+    authorRole: "Teacher",
+    authorLocation: "Mumbai",
+    kind: "Story",
+    body: "",
+    bodyKey: "community.seed.downPriya",
+    likes: 11,
     liked: false,
     reactions: {},
     myReactions: [],
     comments: [],
     reposts: [],
-    createdAt: template.createdAt,
-    templateId: template.id,
-  };
-}
-
-const seedPosts: Post[] = [
-  buildScheduleSharePost(seedTemplates.find((t) => t.id === "tpl-fine-motor")!),
-  buildScheduleSharePost(seedTemplates.find((t) => t.id === "tpl-energy")!),
-  buildScheduleSharePost(seedTemplates.find((t) => t.id === "tpl-classroom")!),
-  {
-    id: "p4",
-    authorId: "maya",
-    authorName: "Maya",
-    authorRole: "Therapist",
-    authorLocation: "London",
-    kind: "Story",
-    body: "Reminder: shorter is better. Three 5-minute blocks beat one 20-minute block for most toddlers in a regulation dip.",
-    likes: 24,
-    liked: false,
-    reactions: { heart: 3, clap: 1 },
-    myReactions: [],
-    comments: [
-      {
-        id: uid(),
-        authorId: "jonas",
-        authorName: "Jonas",
-        authorRole: "Parent",
-        text: "This changed our whole afternoon routine.",
-        createdAt: "2026-08-22",
-      },
-    ],
-    reposts: [],
-    createdAt: "2026-08-22",
+    createdAt: "2026-09-28",
   },
-
   {
-    id: "p5",
-    authorId: "jonas",
-    authorName: "Jonas",
-    authorRole: "Parent",
-    authorLocation: "Berlin",
+    id: "p-adhd-zara",
+    authorId: "zara",
+    authorName: "Zara",
+    authorRole: "Caregiver",
+    authorLocation: "Toronto",
     kind: "Question",
-    body: "Any tips for making Tape Rescue last longer than two minutes? Ours peels everything in a flash.",
-    likes: 5,
+    body: "",
+    bodyKey: "community.seed.adhdZara",
+    card: "sky",
+    likes: 16,
     liked: false,
-    reactions: { heart: 1, helpful: 2 },
+    reactions: {},
     myReactions: [],
     comments: [
       {
-        id: uid(),
-        authorId: "me",
-        authorName: "Sam",
-        authorRole: "Parent",
-        text: "Try taping around corners so it needs two hands.",
-        createdAt: "2026-08-21",
+        id: "c-adhd-maya",
+        authorId: "maya",
+        authorName: "Maya",
+        authorRole: "Therapist",
+        text: "",
+        textKey: "community.seed.adhdZaraComment",
+        createdAt: "2026-09-26",
       },
     ],
     reposts: [],
-    createdAt: "2026-08-21",
+    createdAt: "2026-09-26",
   },
-
   {
-    id: "p6",
+    id: "p-wins-elena",
     authorId: "elena",
     authorName: "Elena",
     authorRole: "Creator",
     authorLocation: "Barcelona",
-    kind: "Promotion",
-    body: "I just posted a new printable set of scissor skills strips on my site. Link in bio. Grab it for free this week! Great for 3–5 year olds building fine motor control.",
-    likes: 18,
+    kind: "Story",
+    body: "",
+    bodyKey: "community.seed.winsElena",
+    card: "warm",
+    likes: 22,
     liked: false,
-    reactions: { heart: 5, celebrate: 1 },
+    reactions: {},
     myReactions: [],
-    comments: [],
+    comments: [
+      {
+        id: "c-wins-priya",
+        authorId: "priya",
+        authorName: "Priya",
+        authorRole: "Teacher",
+        text: "",
+        textKey: "community.seed.winsElenaComment",
+        createdAt: "2026-09-22",
+      },
+    ],
     reposts: [],
-    createdAt: "2026-08-20",
+    createdAt: "2026-09-22",
   },
-
   {
-    id: "p7",
+    id: "p-autism-jonas",
+    authorId: "jonas",
+    authorName: "Jonas",
+    authorRole: "Parent",
+    authorLocation: "Berlin",
+    kind: "Story",
+    body: "",
+    bodyKey: "community.seed.autismJonas",
+    likes: 19,
+    liked: false,
+    reactions: {},
+    myReactions: [],
+    comments: [
+      {
+        id: "c-autism-zara",
+        authorId: "zara",
+        authorName: "Zara",
+        authorRole: "Caregiver",
+        text: "",
+        textKey: "community.seed.autismJonasComment",
+        createdAt: "2026-09-18",
+      },
+    ],
+    reposts: [],
+    createdAt: "2026-09-18",
+  },
+  {
+    id: "p-calm-tom",
     authorId: "tom",
     authorName: "Tom",
     authorRole: "Grandparent",
     authorLocation: "Sydney",
     kind: "Story",
-    body: "We tried the living room obstacle course today. Used cushions and a blanket tunnel. The grandkids were exhausted and happy.",
-    likes: 9,
+    body: "",
+    bodyKey: "community.seed.calmTom",
+    card: "calm",
+    likes: 14,
     liked: false,
-    reactions: { heart: 2, clap: 1 },
+    reactions: {},
+    myReactions: [],
+    comments: [],
+    reposts: [],
+    createdAt: "2026-09-14",
+  },
+  {
+    id: "p-tips-maya",
+    authorId: "maya",
+    authorName: "Maya",
+    authorRole: "Therapist",
+    authorLocation: "London",
+    kind: "Story",
+    body: "",
+    bodyKey: "community.seed.tipsMaya",
+    card: "leaf",
+    likes: 24,
+    liked: false,
+    reactions: {},
     myReactions: [],
     comments: [
       {
-        id: uid(),
-        authorId: "zara",
-        authorName: "Zara",
-        authorRole: "Caregiver",
-        text: "Love this. So easy to set up anywhere.",
-        createdAt: "2026-08-19",
+        id: "c-tips-jonas",
+        authorId: "jonas",
+        authorName: "Jonas",
+        authorRole: "Parent",
+        text: "",
+        textKey: "community.seed.tipsMayaComment",
+        createdAt: "2026-09-10",
       },
     ],
     reposts: [],
-    createdAt: "2026-08-19",
+    createdAt: "2026-09-10",
   },
 ];
 
@@ -750,6 +819,9 @@ type Ctx = {
   setTemplateRepeat: (templateId: string, days: number[]) => void;
   addDayPlan: (date: string, templateId: string) => void;
   removeDayPlan: (id: string) => void;
+  /** Place or remove a routine on this viewer's calendar. Same path for own and shared schedules. */
+  toggleRoutineOnCalendar: (routine: RoutineDraft, date: string) => void;
+  routineOnCalendar: (templateId: string, date: string) => boolean;
   toggleFollow: (memberId: string) => void;
   isFollowing: (memberId: string) => boolean;
 };
@@ -789,13 +861,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         }));
       }
 
-      if (!import.meta.env.DEV) {
+      const allowDemo = import.meta.env.DEV || demoRolesAllowed(window.location.hostname);
+      if (!allowDemo) {
         window.sessionStorage.removeItem(PROTOTYPE_DEMO_KEY);
         window.sessionStorage.removeItem(DEMO_PERSONA_KEY);
       } else {
-        const storedPersona = window.sessionStorage.getItem(DEMO_PERSONA_KEY);
-        const persona: DemoPersona | null =
-          storedPersona === "pro" || storedPersona === "parent" ? storedPersona : null;
+        const persona = parseDemoPersona(window.sessionStorage.getItem(DEMO_PERSONA_KEY));
         if (window.sessionStorage.getItem(PROTOTYPE_DEMO_KEY) === "1" && persona) {
           setPrototypeDemo(true);
           setDemoPersona(persona);
@@ -803,6 +874,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             ...prev,
             profile: profileForDemoPersona(persona),
             loggedOut: false,
+            childName: demoChildName(persona),
           }));
         }
       }
@@ -907,7 +979,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const enterPrototypeDemo = useCallback(
     (persona: DemoPersona) => {
-      if (!import.meta.env.DEV) return;
+      if (!import.meta.env.DEV && !demoRolesAllowed(window.location.hostname)) return;
       try {
         window.sessionStorage.setItem(PROTOTYPE_DEMO_KEY, "1");
         window.sessionStorage.setItem(DEMO_PERSONA_KEY, persona);
@@ -920,6 +992,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         ...prev,
         profile: profileForDemoPersona(persona),
         loggedOut: false,
+        childName: demoChildName(persona),
       }));
     },
     [update],
@@ -1025,6 +1098,28 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     [update],
   );
 
+  const viewerKey = demoPersona ?? state.profile?.id ?? "me";
+
+  const toggleRoutineOnCalendar = useCallback(
+    (routine: RoutineDraft, date: string) => {
+      const today = toDateKey(new Date());
+      update((prev) => {
+        const key = demoPersona ?? prev.profile?.id ?? "me";
+        if (isOnMyCalendar(prev.dayPlans, routine.templateId, date, key)) {
+          return removeRoutineFromMyCalendar(prev, routine.templateId, date, today, key);
+        }
+        return addRoutineToMyCalendar(prev, routine, date, today, key, uid);
+      });
+    },
+    [demoPersona, update],
+  );
+
+  const routineOnCalendar = useCallback(
+    (templateId: string, date: string) =>
+      isOnMyCalendar(state.dayPlans, templateId, date, viewerKey),
+    [state.dayPlans, viewerKey],
+  );
+
   const toggleFollow = useCallback(
     (memberId: string) => {
       update((prev) => {
@@ -1065,6 +1160,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       setTemplateRepeat,
       addDayPlan,
       removeDayPlan,
+      toggleRoutineOnCalendar,
+      routineOnCalendar,
       toggleFollow,
       isFollowing,
     }),
@@ -1087,6 +1184,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       setTemplateRepeat,
       addDayPlan,
       removeDayPlan,
+      toggleRoutineOnCalendar,
+      routineOnCalendar,
       toggleFollow,
       isFollowing,
     ],

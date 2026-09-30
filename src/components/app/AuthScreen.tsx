@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAppStore, type DemoPersona } from "@/lib/app-store";
 import { isClerkConfigured } from "@/lib/clerk";
+import { demoRolesAllowed } from "@/lib/demo-roles";
 import { withBasePath } from "@/lib/paths";
 import { devShareEnabled, setDevShareUser } from "@/lib/share/dev-session";
 
 import { BrandLogo } from "./BrandLogo";
+import { DemoRoleBar } from "./DemoRoleBar";
 
 export function AuthLoading() {
   const { t } = useI18n();
@@ -46,7 +48,7 @@ function PersonaDemoButtons() {
         variant="default"
         className="w-full"
         data-testid="continue-pro"
-        onClick={() => enter("pro")}
+        onClick={() => enter("therapist")}
       >
         {t("auth.continuePro")}
       </Button>
@@ -138,6 +140,7 @@ function SetupInstructions() {
 
 function AuthChrome({ children }: { children: ReactNode }) {
   const { t } = useI18n();
+  const navigate = useNavigate();
   return (
     <div className="phone-shell">
       <div className="app-main min-h-0 flex-1 md:items-center md:justify-center md:p-10">
@@ -150,6 +153,13 @@ function AuthChrome({ children }: { children: ReactNode }) {
               <p className="text-sm text-muted-foreground">{t("brand.authTagline")}</p>
             </div>
             {children}
+            <div className="mt-4">
+              <DemoRoleBar
+                onChoose={() => {
+                  void navigate({ to: "/" });
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -222,7 +232,10 @@ export function AuthScreen({ mode }: { mode: "sign-in" | "sign-up" }) {
 
 export function SignedInRedirect({ children }: { children: ReactNode }) {
   const { devDemo, prototypeDemo } = useAppStore();
-  if (import.meta.env.DEV && (prototypeDemo || devDemo)) return <Navigate to="/" />;
+  const previewDemo =
+    prototypeDemo && typeof window !== "undefined" && demoRolesAllowed(window.location.hostname);
+  if ((import.meta.env.DEV && (prototypeDemo || devDemo)) || previewDemo)
+    return <Navigate to="/" />;
   if (!isClerkConfigured()) return <>{children}</>;
   return <SignedInRedirectInner>{children}</SignedInRedirectInner>;
 }

@@ -71,7 +71,12 @@ export type Person = {
 export type Child = {
   id: string;
   displayName: string;
+  /** Kept for older saves and the parent add-child flow. */
   ageBand: AgeBand;
+  /** Whole years typed by a therapist. Demo patients leave this unset. */
+  ageYears?: number;
+  /** ISO date YYYY-MM-DD typed by a therapist. */
+  birthDate?: string;
   createdAt: string;
   createdById: string;
 };

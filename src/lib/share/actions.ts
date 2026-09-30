@@ -7,6 +7,8 @@ export type ShareAction =
       membershipId: string;
       displayName: string;
       ageBand: AgeBand;
+      ageYears?: number;
+      birthDate?: string;
       tagIds: string[];
       now: string;
     }
