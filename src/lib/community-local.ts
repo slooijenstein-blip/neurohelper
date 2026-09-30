@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { isCommunityTopic, type CommunityTopic } from "./community";
-
-const JOINED_KEY = "synlumae-community-joined";
 const REPORTED_KEY = "synlumae-community-reported";
 const STORY_KEY = "synlumae-community-my-story";
 const SEEN_KEY = "synlumae-community-stories-seen";
@@ -29,14 +26,6 @@ function writeJson(key: string, value: unknown) {
   }
 }
 
-function readJoined(): CommunityTopic[] {
-  const value = readJson(JOINED_KEY);
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (item): item is CommunityTopic => typeof item === "string" && isCommunityTopic(item),
-  );
-}
-
 function readIds(key: string): string[] {
   const value = readJson(key);
   if (!Array.isArray(value)) return [];
@@ -52,26 +41,16 @@ function readStory(): MyStory | null {
   return { text, createdAt };
 }
 
-/** Join, report, and your story stay on this device. Preview only. */
+/** Report and your story stay on this device. Preview only. */
 export function useCommunityPrefs() {
-  const [joined, setJoined] = useState<CommunityTopic[]>([]);
   const [reported, setReported] = useState<string[]>([]);
   const [myStory, setMyStory] = useState<MyStory | null>(null);
   const [seen, setSeen] = useState<string[]>([]);
 
   useEffect(() => {
-    setJoined(readJoined());
     setReported(readIds(REPORTED_KEY));
     setMyStory(readStory());
     setSeen(readIds(SEEN_KEY));
-  }, []);
-
-  const toggleJoined = useCallback((topic: CommunityTopic) => {
-    setJoined((prev) => {
-      const next = prev.includes(topic) ? prev.filter((item) => item !== topic) : [...prev, topic];
-      writeJson(JOINED_KEY, next);
-      return next;
-    });
   }, []);
 
   const reportPost = useCallback((postId: string) => {
@@ -99,5 +78,5 @@ export function useCommunityPrefs() {
     });
   }, []);
 
-  return { joined, reported, myStory, seen, toggleJoined, reportPost, saveStory, markSeen };
+  return { reported, myStory, seen, reportPost, saveStory, markSeen };
 }

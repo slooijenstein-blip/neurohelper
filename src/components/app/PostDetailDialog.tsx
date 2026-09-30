@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Heart, MessageCircle, UserPlus, UserCheck, CalendarDays, Clock } from "lucide-react";
 
+import { useI18n } from "@/i18n/I18nProvider";
+import { plainPostBody } from "@/lib/community";
 import { useAppStore, type Post } from "@/lib/app-store";
 import { RoleTag, ProfileAvatar } from "./ui-bits";
 import { Button } from "@/components/ui/button";
@@ -29,10 +31,13 @@ export function PostDetailDialog({
   onOpenProfile: (id: string) => void;
 }) {
   const { state, tryTemplate, toggleFollow, isFollowing } = useAppStore();
+  const { t } = useI18n();
   const [comment, setComment] = useState("");
   const [activityId, setActivityId] = useState<string | null>(null);
 
   if (!post) return null;
+
+  const body = post.bodyKey ? t(post.bodyKey) : plainPostBody(post.body);
 
   const author =
     state.members.find((m) => m.id === post.authorId) ??
@@ -81,7 +86,7 @@ export function PostDetailDialog({
           </div>
 
           <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-foreground">
-            {post.body}
+            {body}
           </pre>
 
           {templates.length ? (
@@ -111,11 +116,7 @@ export function PostDetailDialog({
                       </li>
                     ))}
                   </ol>
-                  <Button
-                    size="sm"
-                    className="mt-2 h-7 w-full"
-                    onClick={() => tryTemplate(t.id)}
-                  >
+                  <Button size="sm" className="mt-2 h-7 w-full" onClick={() => tryTemplate(t.id)}>
                     Try this schedule
                   </Button>
                 </div>
@@ -140,7 +141,8 @@ export function PostDetailDialog({
             <div className="space-y-1 border-l-2 border-border pl-3">
               {post.comments.map((c) => (
                 <p key={c.id} className="text-xs text-muted-foreground">
-                  <span className="font-semibold text-foreground">{c.authorName}</span>: {c.text}
+                  <span className="font-semibold text-foreground">{c.authorName}</span>:{" "}
+                  {c.textKey ? t(c.textKey) : c.text}
                 </p>
               ))}
             </div>

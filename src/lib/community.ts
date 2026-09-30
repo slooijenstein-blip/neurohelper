@@ -1,9 +1,3 @@
-export const COMMUNITY_TOPICS = ["autism", "adhd", "down", "calm", "wins", "tips"] as const;
-
-export type CommunityTopic = (typeof COMMUNITY_TOPICS)[number];
-
-export type CommunityFilter = "all" | CommunityTopic;
-
 export const COMMUNITY_CARDS = ["warm", "calm", "leaf", "sky"] as const;
 
 export type CommunityCard = (typeof COMMUNITY_CARDS)[number];
@@ -52,13 +46,43 @@ export const COMMUNITY_STORIES: CommunityStory[] = [
   },
 ];
 
-export function isCommunityTopic(value: string): value is CommunityTopic {
-  return (COMMUNITY_TOPICS as readonly string[]).includes(value);
+export type TextPart = { type: "text"; value: string } | { type: "tag"; value: string };
+
+const HASHTAG = /#[\p{L}\p{N}_]+/gu;
+
+/** Any #word in the text. There is no approved list. */
+export function splitHashtags(text: string): TextPart[] {
+  const parts: TextPart[] = [];
+  let last = 0;
+  for (const match of text.matchAll(HASHTAG)) {
+    const index = match.index ?? 0;
+    const prev = index > 0 ? text[index - 1] : "";
+    if (prev && /[\p{L}\p{N}_]/u.test(prev)) continue;
+    if (index > last) parts.push({ type: "text", value: text.slice(last, index) });
+    parts.push({ type: "tag", value: match[0].slice(1) });
+    last = index + match[0].length;
+  }
+  if (last < text.length) parts.push({ type: "text", value: text.slice(last) });
+  if (!parts.length) parts.push({ type: "text", value: text });
+  return parts;
 }
 
-export function postMatchesTopic(topic: string | undefined, filter: CommunityFilter): boolean {
-  if (filter === "all") return true;
-  return topic === filter;
+export function hashtagsIn(text: string): string[] {
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const part of splitHashtags(text)) {
+    if (part.type !== "tag") continue;
+    const key = part.value.toLocaleLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    tags.push(key);
+  }
+  return tags;
+}
+
+export function postMatchesHashtag(body: string, tag: string | null): boolean {
+  if (!tag) return true;
+  return hashtagsIn(body).includes(tag.toLocaleLowerCase());
 }
 
 export function parsePostDate(iso: string): Date {

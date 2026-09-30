@@ -182,7 +182,6 @@ export function ScheduleTab() {
           authorLocation: state.profile!.location,
           kind: "Schedule Share" as const,
           body,
-          topic: "tips",
           likes: 0,
           liked: false,
           reactions: {},

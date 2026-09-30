@@ -1,21 +1,35 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { postMatchesTopic, postTimeParts, plainPostBody } from "./community.ts";
+import {
+  hashtagsIn,
+  postMatchesHashtag,
+  postTimeParts,
+  plainPostBody,
+  splitHashtags,
+} from "./community.ts";
 
 describe("community feed", () => {
   const now = new Date(2026, 8, 30, 9, 0, 0);
 
-  it("filters posts by topic and keeps untagged posts on All", () => {
-    assert.equal(postMatchesTopic(undefined, "all"), true);
-    assert.equal(postMatchesTopic("wins", "all"), true);
-    assert.equal(postMatchesTopic("wins", "wins"), true);
-    assert.equal(postMatchesTopic("wins", "tips"), false);
-    assert.equal(postMatchesTopic(undefined, "tips"), false);
+  it("reads any hashtag and ignores a fixed topic list", () => {
+    assert.deepEqual(hashtagsIn("A quiet hour #autism #ADHD #autism"), ["autism", "adhd"]);
+    assert.deepEqual(
+      splitHashtags("Hello #calma").map((part) => part.type),
+      ["text", "tag"],
+    );
+    assert.equal(postMatchesHashtag("Evening song #autism", null), true);
+    assert.equal(postMatchesHashtag("Evening song #autism", "autism"), true);
+    assert.equal(postMatchesHashtag("Evening song #Autism", "autism"), true);
+    assert.equal(postMatchesHashtag("No tag here", "wins"), false);
+    assert.equal(postMatchesHashtag("email well#adhd", "adhd"), false);
   });
 
   it("describes how long ago a post was", () => {
-    assert.equal(postTimeParts(new Date(2026, 8, 30, 8, 59, 30).toISOString(), now).kind, "justNow");
+    assert.equal(
+      postTimeParts(new Date(2026, 8, 30, 8, 59, 30).toISOString(), now).kind,
+      "justNow",
+    );
     assert.deepEqual(postTimeParts(new Date(2026, 8, 30, 8, 40, 0).toISOString(), now), {
       kind: "minutes",
       count: 20,
@@ -24,7 +38,10 @@ describe("community feed", () => {
       kind: "hours",
       count: 3,
     });
-    assert.equal(postTimeParts(new Date(2026, 8, 29, 8, 0, 0).toISOString(), now).kind, "yesterday");
+    assert.equal(
+      postTimeParts(new Date(2026, 8, 29, 8, 0, 0).toISOString(), now).kind,
+      "yesterday",
+    );
     assert.equal(postTimeParts("2026-09-10", now).kind, "date");
   });
 

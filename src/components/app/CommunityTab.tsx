@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,27 +9,34 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
-  COMMUNITY_TOPICS,
   REPORT_REASONS,
   comparePostsNewestFirst,
-  postMatchesTopic,
-  type CommunityFilter,
-  type CommunityTopic,
+  plainPostBody,
+  postMatchesHashtag,
   type ReportReason,
 } from "@/lib/community";
 import { useCommunityPrefs } from "@/lib/community-local";
-import { uid, useAppStore, type Comment, type Post } from "@/lib/app-store";
+import { uid, useAppStore, type Article, type Comment, type Post } from "@/lib/app-store";
 import { cn } from "@/lib/utils";
-import { ScreenHeader } from "./ui-bits";
+import { ActivityDetailDialog } from "./ActivityDetailDialog";
+import { PostDetailDialog } from "./PostDetailDialog";
+import { ArticlesPane, FollowingPane, SchedulesPane } from "./community/CommunityPanes";
 import { ComposeBox } from "./community/ComposeBox";
 import { FeedPost } from "./community/FeedPost";
 import { StoriesStrip } from "./community/StoriesStrip";
 import { StoryViewer } from "./community/StoryViewer";
+import { ScreenHeader } from "./ui-bits";
+
+const PANES = ["feed", "articles", "following", "schedules"] as const;
+type CommunityPane = (typeof PANES)[number];
 
 export function CommunityTab({
   onProfile,
+  onArticle,
 }: {
   onProfile: (id: string) => void;
   onArticle: (id: string) => void;
@@ -38,20 +44,27 @@ export function CommunityTab({
   const { state, update } = useAppStore();
   const { t } = useI18n();
   const prefs = useCommunityPrefs();
-  const [filter, setFilter] = useState<CommunityFilter>("all");
+  const [pane, setPane] = useState<CommunityPane>("feed");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
   const [storyIndex, setStoryIndex] = useState<number | null>(null);
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [reportId, setReportId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState<ReportReason>("unkind");
+  const [postId, setPostId] = useState<string | null>(null);
+  const [activityId, setActivityId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [articleOpen, setArticleOpen] = useState(false);
+  const [articleTitle, setArticleTitle] = useState("");
+  const [articleTags, setArticleTags] = useState("");
+  const [articleBody, setArticleBody] = useState("");
 
-  const posts = useMemo(
-    () =>
-      state.posts
-        .filter((post) => postMatchesTopic(post.topic, filter))
-        .sort(comparePostsNewestFirst),
-    [state.posts, filter],
-  );
+  const posts = useMemo(() => {
+    const bodyOf = (post: Post) => (post.bodyKey ? t(post.bodyKey) : plainPostBody(post.body));
+    return state.posts
+      .filter((post) => postMatchesHashtag(bodyOf(post), activeTag))
+      .sort(comparePostsNewestFirst);
+  }, [state.posts, activeTag, t]);
 
   const toggleLike = (id: string) =>
     update((prev) => ({
@@ -63,15 +76,14 @@ export function CommunityTab({
       ),
     }));
 
-  const addComment = (id: string) => {
-    const text = (drafts[id] ?? "").trim();
-    if (!text || !state.profile) return;
+  const addCommentText = (id: string, text: string) => {
+    if (!text.trim() || !state.profile) return;
     const comment: Comment = {
       id: uid(),
       authorId: state.profile.id,
       authorName: state.profile.name,
       authorRole: state.profile.role,
-      text,
+      text: text.trim(),
       createdAt: new Date().toISOString(),
     };
     update((prev) => ({
@@ -80,10 +92,16 @@ export function CommunityTab({
         post.id === id ? { ...post, comments: [...post.comments, comment] } : post,
       ),
     }));
+  };
+
+  const addComment = (id: string) => {
+    const text = drafts[id] ?? "";
+    if (!text.trim()) return;
+    addCommentText(id, text);
     setDrafts((prev) => ({ ...prev, [id]: "" }));
   };
 
-  const publish = (draft: { body: string; topic: CommunityTopic; card?: Post["card"] }) => {
+  const publish = (draft: { body: string; card?: Post["card"] }) => {
     if (!state.profile) return;
     const post: Post = {
       id: uid(),
@@ -93,7 +111,6 @@ export function CommunityTab({
       authorLocation: state.profile.location,
       kind: "Story",
       body: draft.body,
-      topic: draft.topic,
       ...(draft.card ? { card: draft.card } : {}),
       likes: 0,
       liked: false,
@@ -104,8 +121,39 @@ export function CommunityTab({
       createdAt: new Date().toISOString(),
     };
     update((prev) => ({ ...prev, posts: [post, ...prev.posts] }));
-    setFilter(draft.topic);
+    setActiveTag(null);
     toast.success(t("community.posted"));
+  };
+
+  const publishArticle = () => {
+    if (!articleTitle.trim() || !articleBody.trim() || !state.profile) return;
+    const words = articleBody.trim().split(/\s+/).length;
+    const article: Article = {
+      id: uid(),
+      authorId: state.profile.id,
+      authorName: state.profile.name,
+      authorRole: state.profile.role,
+      title: articleTitle.trim(),
+      excerpt: articleBody.trim().slice(0, 140),
+      body: articleBody.trim(),
+      tags: articleTags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+      readMinutes: Math.max(1, Math.round(words / 200)),
+      likes: 0,
+      liked: false,
+      reactions: {},
+      myReactions: [],
+      comments: [],
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    update((prev) => ({ ...prev, articles: [article, ...prev.articles] }));
+    setArticleTitle("");
+    setArticleTags("");
+    setArticleBody("");
+    setArticleOpen(false);
+    toast.success(t("community.articlePublished"));
   };
 
   const submitReport = () => {
@@ -116,100 +164,118 @@ export function CommunityTab({
     setReportReason("unkind");
   };
 
-  const toggleTopic = (topic: CommunityTopic) => {
-    const joined = prefs.joined.includes(topic);
-    prefs.toggleJoined(topic);
-    toast.success(
-      t(joined ? "community.leftToast" : "community.joinedToast", {
-        topic: t(`community.topics.${topic}`),
-      }),
-    );
+  const chooseTag = (tag: string) => {
+    setActiveTag((current) => (current === tag ? null : tag));
   };
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <ScreenHeader title={t("community.title")} subtitle={t("community.subtitle")} />
 
-      <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto bg-surface">
-        <div className="mx-auto flex w-full max-w-xl flex-col pb-8">
-          <StoriesStrip myStory={prefs.myStory} seen={prefs.seen} onOpen={setStoryIndex} />
-
-          <div className="sticky top-0 z-10 border-b border-border bg-surface/95 px-4 py-2 backdrop-blur">
-            <div
-              role="radiogroup"
-              aria-label={t("community.topicsLabel")}
-              className="hide-scrollbar flex gap-2 overflow-x-auto pb-1"
+      <div className="border-b border-border bg-surface px-4 py-2 md:px-8">
+        <div
+          role="tablist"
+          aria-label={t("community.tabsLabel")}
+          className="mx-auto grid max-w-xl grid-cols-4 gap-1 rounded-full bg-muted p-1"
+        >
+          {PANES.map((key) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={pane === key}
+              data-testid={`community-tab-${key}`}
+              onClick={() => setPane(key)}
+              className={cn(
+                "rounded-full px-1 py-1.5 text-[11px] font-semibold",
+                pane === key ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+              )}
             >
-              <TopicChip
-                label={t("community.topics.all")}
-                active={filter === "all"}
-                testId="topic-all"
-                onClick={() => setFilter("all")}
-              />
-              {COMMUNITY_TOPICS.map((topic) => (
-                <TopicChip
-                  key={topic}
-                  label={t(`community.topics.${topic}`)}
-                  active={filter === topic}
-                  joined={prefs.joined.includes(topic)}
-                  testId={`topic-${topic}`}
-                  onClick={() => setFilter(topic)}
-                />
-              ))}
-            </div>
-            {filter !== "all" ? (
-              <div className="mt-2 flex items-start gap-2">
-                <p className="min-w-0 flex-1 text-[11px] leading-snug text-muted-foreground">
-                  {t(`community.topicHint.${filter}`)}
-                </p>
-                <Button
-                  size="sm"
-                  variant={prefs.joined.includes(filter) ? "outline" : "default"}
-                  className="h-7 shrink-0"
-                  data-testid="topic-join"
-                  onClick={() => toggleTopic(filter)}
-                >
-                  {prefs.joined.includes(filter) ? t("community.joined") : t("community.join")}
-                </Button>
-              </div>
-            ) : null}
-          </div>
-
-          <ComposeBox filter={filter} onPublish={publish} />
-
-          <div
-            className="space-y-3 px-4"
-            data-testid="community-feed"
-            aria-label={t("community.feedLabel")}
-          >
-            {posts.map((post) => (
-              <FeedPost
-                key={post.id}
-                post={post}
-                commentsOpen={!!openComments[post.id]}
-                draft={drafts[post.id] ?? ""}
-                reported={prefs.reported.includes(post.id)}
-                onToggleLike={toggleLike}
-                onToggleComments={(id) => setOpenComments((prev) => ({ ...prev, [id]: !prev[id] }))}
-                onDraft={(id, value) => setDrafts((prev) => ({ ...prev, [id]: value }))}
-                onSubmitComment={addComment}
-                onReport={(id) => {
-                  setReportReason("unkind");
-                  setReportId(id);
-                }}
-                onOpenProfile={onProfile}
-              />
-            ))}
-            {!posts.length ? (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                {t("community.empty")}
-              </p>
-            ) : null}
-          </div>
+              {t(`community.tabs.${key}`)}
+            </button>
+          ))}
         </div>
       </div>
 
-      {storyIndex !== null ? (
+      <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto bg-surface">
+        {pane === "feed" ? (
+          <div className="mx-auto flex w-full max-w-xl flex-col pb-8">
+            <StoriesStrip myStory={prefs.myStory} seen={prefs.seen} onOpen={setStoryIndex} />
+            {activeTag ? (
+              <div className="flex items-center justify-between gap-2 px-4 pt-3">
+                <p className="text-xs font-semibold">
+                  {t("community.filteredBy", { tag: activeTag })}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7"
+                  data-testid="clear-hashtag"
+                  onClick={() => setActiveTag(null)}
+                >
+                  {t("community.showAll")}
+                </Button>
+              </div>
+            ) : null}
+            <ComposeBox onPublish={publish} />
+            <div
+              className="space-y-3 px-4"
+              data-testid="community-feed"
+              aria-label={t("community.feedLabel")}
+            >
+              {posts.map((post) => (
+                <FeedPost
+                  key={post.id}
+                  post={post}
+                  commentsOpen={!!openComments[post.id]}
+                  draft={drafts[post.id] ?? ""}
+                  reported={prefs.reported.includes(post.id)}
+                  activeTag={activeTag}
+                  onToggleLike={toggleLike}
+                  onToggleComments={(id) =>
+                    setOpenComments((prev) => ({ ...prev, [id]: !prev[id] }))
+                  }
+                  onDraft={(id, value) => setDrafts((prev) => ({ ...prev, [id]: value }))}
+                  onSubmitComment={addComment}
+                  onReport={(id) => {
+                    setReportReason("unkind");
+                    setReportId(id);
+                  }}
+                  onOpenProfile={onProfile}
+                  onHashtag={chooseTag}
+                />
+              ))}
+              {!posts.length ? (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  {activeTag
+                    ? t("community.emptyHashtag", { tag: activeTag })
+                    : t("community.empty")}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        {pane === "articles" ? (
+          <ArticlesPane
+            query={query}
+            onQuery={setQuery}
+            onWrite={() => setArticleOpen(true)}
+            onArticle={onArticle}
+            onProfile={onProfile}
+          />
+        ) : null}
+
+        {pane === "following" ? (
+          <FollowingPane onProfile={onProfile} onOpenPost={setPostId} />
+        ) : null}
+
+        {pane === "schedules" ? (
+          <SchedulesPane onProfile={onProfile} onActivity={setActivityId} />
+        ) : null}
+      </div>
+
+      {storyIndex !== null && pane === "feed" ? (
         <StoryViewer
           storyIndex={storyIndex}
           myStory={prefs.myStory}
@@ -219,6 +285,34 @@ export function CommunityTab({
           onSeen={prefs.markSeen}
         />
       ) : null}
+
+      <Dialog open={articleOpen} onOpenChange={setArticleOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("community.writeArticle")}</DialogTitle>
+            <DialogDescription>{t("community.writeArticleHelp")}</DialogDescription>
+          </DialogHeader>
+          <Input
+            value={articleTitle}
+            onChange={(event) => setArticleTitle(event.target.value)}
+            placeholder={t("community.articleTitle")}
+          />
+          <Input
+            value={articleTags}
+            onChange={(event) => setArticleTags(event.target.value)}
+            placeholder={t("community.articleTags")}
+          />
+          <Textarea
+            value={articleBody}
+            onChange={(event) => setArticleBody(event.target.value)}
+            placeholder={t("community.articleBody")}
+            rows={8}
+          />
+          <Button data-testid="publish-article" onClick={publishArticle}>
+            {t("community.publishArticle")}
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={reportId !== null} onOpenChange={(open) => !open && setReportId(null)}>
         <DialogContent className="max-w-sm">
@@ -250,39 +344,15 @@ export function CommunityTab({
           </Button>
         </DialogContent>
       </Dialog>
-    </div>
-  );
-}
 
-function TopicChip({
-  label,
-  active,
-  joined,
-  testId,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  joined?: boolean;
-  testId: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      data-testid={testId}
-      onClick={onClick}
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold",
-        active
-          ? "bg-primary text-primary-foreground"
-          : "bg-card text-foreground ring-1 ring-border",
-      )}
-    >
-      {joined ? <Check className="size-3" /> : null}
-      {label}
-    </button>
+      <ActivityDetailDialog activityId={activityId} onClose={() => setActivityId(null)} />
+      <PostDetailDialog
+        post={state.posts.find((post) => post.id === postId) ?? null}
+        onClose={() => setPostId(null)}
+        onLike={toggleLike}
+        onComment={addCommentText}
+        onOpenProfile={onProfile}
+      />
+    </div>
   );
 }

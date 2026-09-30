@@ -1,4 +1,4 @@
-import { Flag, Heart, MessageCircle, MoreHorizontal } from "lucide-react";
+import { Flag, Heart, MessageCircle, MoreHorizontal, UserCheck, UserPlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
-import { plainPostBody, postTimeParts, type CommunityTopic } from "@/lib/community";
+import { plainPostBody, postTimeParts, splitHashtags } from "@/lib/community";
 import { useAppStore, type Comment, type Post } from "@/lib/app-store";
 import { cn } from "@/lib/utils";
 import { ProfileAvatar, RoleTag } from "../ui-bits";
@@ -34,6 +34,45 @@ function PostTime({ iso }: { iso: string }) {
   return <time dateTime={iso}>{label}</time>;
 }
 
+function PostText({
+  postId,
+  body,
+  activeTag,
+  onHashtag,
+}: {
+  postId: string;
+  body: string;
+  activeTag: string | null;
+  onHashtag: (tag: string) => void;
+}) {
+  const parts = splitHashtags(body);
+  return (
+    <p className="whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed">
+      {parts.map((part, index) =>
+        part.type === "text" ? (
+          <span key={index}>{part.value}</span>
+        ) : (
+          <button
+            key={index}
+            type="button"
+            data-testid={`hashtag-${postId}-${part.value.toLocaleLowerCase()}`}
+            aria-pressed={activeTag === part.value.toLocaleLowerCase()}
+            onClick={() => onHashtag(part.value.toLocaleLowerCase())}
+            className={cn(
+              "mx-0.5 inline-flex rounded-full px-2 py-0.5 align-baseline text-xs font-semibold",
+              activeTag === part.value.toLocaleLowerCase()
+                ? "bg-primary text-primary-foreground"
+                : "bg-accent text-accent-foreground",
+            )}
+          >
+            #{part.value}
+          </button>
+        ),
+      )}
+    </p>
+  );
+}
+
 function commentText(comment: Comment, t: (key: string) => string) {
   return comment.textKey ? t(comment.textKey) : comment.text;
 }
@@ -43,26 +82,30 @@ export function FeedPost({
   commentsOpen,
   draft,
   reported,
+  activeTag,
   onToggleLike,
   onToggleComments,
   onDraft,
   onSubmitComment,
   onReport,
   onOpenProfile,
+  onHashtag,
 }: {
   post: Post;
   commentsOpen: boolean;
   draft: string;
   reported: boolean;
+  activeTag: string | null;
   onToggleLike: (id: string) => void;
   onToggleComments: (id: string) => void;
   onDraft: (id: string, value: string) => void;
   onSubmitComment: (id: string) => void;
   onReport: (id: string) => void;
   onOpenProfile: (id: string) => void;
+  onHashtag: (tag: string) => void;
 }) {
   const { t } = useI18n();
-  const { state } = useAppStore();
+  const { state, toggleFollow, isFollowing } = useAppStore();
   const isMe = state.profile?.id === post.authorId;
   const color =
     state.members.find((member) => member.id === post.authorId)?.color ??
@@ -93,6 +136,25 @@ export function FeedPost({
           </span>
         </button>
         {!isMe ? (
+          <Button
+            size="sm"
+            variant={isFollowing(post.authorId) ? "outline" : "default"}
+            className="h-7 shrink-0"
+            data-testid={`follow-${post.id}`}
+            onClick={() => toggleFollow(post.authorId)}
+          >
+            {isFollowing(post.authorId) ? (
+              <>
+                <UserCheck className="size-3.5" /> {t("profile.following")}
+              </>
+            ) : (
+              <>
+                <UserPlus className="size-3.5" /> {t("community.follow")}
+              </>
+            )}
+          </Button>
+        ) : null}
+        {!isMe ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -119,23 +181,22 @@ export function FeedPost({
         ) : null}
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-1.5 px-4">
-        {post.topic ? (
-          <span className="tag-base bg-accent text-accent-foreground">
-            {t(`community.topics.${post.topic as CommunityTopic}`)}
-          </span>
-        ) : null}
-        {post.kind === "Schedule Share" ? (
-          <span className="tag-base bg-secondary text-secondary-foreground">
-            {t("community.scheduleShare")}
-          </span>
-        ) : null}
-        {reported ? (
-          <span className="tag-base bg-muted text-muted-foreground">{t("community.reported")}</span>
-        ) : null}
-      </div>
+      {post.kind === "Schedule Share" || reported ? (
+        <div className="mt-2 flex flex-wrap gap-1.5 px-4">
+          {post.kind === "Schedule Share" ? (
+            <span className="tag-base bg-secondary text-secondary-foreground">
+              {t("community.scheduleShare")}
+            </span>
+          ) : null}
+          {reported ? (
+            <span className="tag-base bg-muted text-muted-foreground">
+              {t("community.reported")}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
-      <p className="whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed">{body}</p>
+      <PostText postId={post.id} body={body} activeTag={activeTag} onHashtag={onHashtag} />
       {post.card ? <ColorCard card={post.card} className="mx-4 mb-3" /> : null}
 
       <div className="flex border-t border-border">

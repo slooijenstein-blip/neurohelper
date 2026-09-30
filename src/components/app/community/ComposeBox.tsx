@@ -1,41 +1,28 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ImagePlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n/I18nProvider";
-import {
-  COMMUNITY_TOPICS,
-  type CommunityCard,
-  type CommunityFilter,
-  type CommunityTopic,
-} from "@/lib/community";
+import type { CommunityCard } from "@/lib/community";
 import { useAppStore } from "@/lib/app-store";
-import { cn } from "@/lib/utils";
 import { ProfileAvatar } from "../ui-bits";
 import { ColorCard } from "./ColorCard";
 
 export function ComposeBox({
-  filter,
   onPublish,
 }: {
-  filter: CommunityFilter;
-  onPublish: (draft: { body: string; topic: CommunityTopic; card?: CommunityCard }) => void;
+  onPublish: (draft: { body: string; card?: CommunityCard }) => void;
 }) {
   const { t } = useI18n();
   const { state } = useAppStore();
   const [body, setBody] = useState("");
-  const [topic, setTopic] = useState<CommunityTopic>(filter === "all" ? "tips" : filter);
   const [card, setCard] = useState<CommunityCard | null>(null);
   const profile = state.profile;
 
-  useEffect(() => {
-    if (!body.trim() && filter !== "all") setTopic(filter);
-  }, [filter, body]);
-
   const publish = () => {
     if (!body.trim() || !profile) return;
-    onPublish({ body: body.trim(), topic, ...(card ? { card } : {}) });
+    onPublish({ body: body.trim(), ...(card ? { card } : {}) });
     setBody("");
     setCard(null);
   };
@@ -58,27 +45,9 @@ export function ComposeBox({
             className="min-h-16 resize-none border-0 bg-muted shadow-none"
           />
         </div>
-        <p className="mt-3 text-[11px] font-semibold text-muted-foreground">
-          {t("community.topicLabel")}
+        <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
+          {t("community.hashtagHint")}
         </p>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {COMMUNITY_TOPICS.map((item) => (
-            <button
-              key={item}
-              type="button"
-              aria-pressed={topic === item}
-              onClick={() => setTopic(item)}
-              className={cn(
-                "rounded-full px-2.5 py-1 text-[11px] font-semibold",
-                topic === item
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground",
-              )}
-            >
-              {t(`community.topics.${item}`)}
-            </button>
-          ))}
-        </div>
         {card ? (
           <div className="mt-3">
             <ColorCard card={card} />

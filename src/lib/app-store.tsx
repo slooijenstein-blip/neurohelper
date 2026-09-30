@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { ACTIVITIES, type Activity, type Skill } from "./activities-data";
-import type { CommunityCard, CommunityTopic } from "./community";
+import type { CommunityCard } from "./community";
 
 export type ScheduleItem = {
   id: string;
@@ -137,7 +137,6 @@ export type Post = {
   body: string;
   /** Seed posts use a message key so English and Spanish stay in sync. */
   bodyKey?: string;
-  topic?: CommunityTopic;
   card?: CommunityCard;
   likes: number;
   liked: boolean;
@@ -477,7 +476,6 @@ const seedPosts: Post[] = [
     kind: "Story",
     body: "",
     bodyKey: "community.seed.downPriya",
-    topic: "down",
     likes: 11,
     liked: false,
     reactions: {},
@@ -495,7 +493,6 @@ const seedPosts: Post[] = [
     kind: "Question",
     body: "",
     bodyKey: "community.seed.adhdZara",
-    topic: "adhd",
     card: "sky",
     likes: 16,
     liked: false,
@@ -524,7 +521,6 @@ const seedPosts: Post[] = [
     kind: "Story",
     body: "",
     bodyKey: "community.seed.winsElena",
-    topic: "wins",
     card: "warm",
     likes: 22,
     liked: false,
@@ -553,7 +549,6 @@ const seedPosts: Post[] = [
     kind: "Story",
     body: "",
     bodyKey: "community.seed.autismJonas",
-    topic: "autism",
     likes: 19,
     liked: false,
     reactions: {},
@@ -581,7 +576,6 @@ const seedPosts: Post[] = [
     kind: "Story",
     body: "",
     bodyKey: "community.seed.calmTom",
-    topic: "calm",
     card: "calm",
     likes: 14,
     liked: false,
@@ -600,7 +594,6 @@ const seedPosts: Post[] = [
     kind: "Story",
     body: "",
     bodyKey: "community.seed.tipsMaya",
-    topic: "tips",
     card: "leaf",
     likes: 24,
     liked: false,
