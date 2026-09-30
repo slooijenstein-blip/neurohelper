@@ -74,7 +74,7 @@ function StoryBubble({
       type="button"
       data-testid={testId}
       onClick={onClick}
-      className="flex w-[4.5rem] shrink-0 flex-col items-center gap-1"
+      className="flex w-20 shrink-0 flex-col items-center gap-1"
     >
       <span className="relative">
         <span
@@ -102,7 +102,7 @@ function StoryBubble({
           </span>
         ) : null}
       </span>
-      <span className="w-full truncate text-center text-[10px] font-semibold text-foreground">
+      <span className="line-clamp-2 w-full text-center text-[10px] font-semibold leading-tight text-foreground">
         {label}
       </span>
     </button>

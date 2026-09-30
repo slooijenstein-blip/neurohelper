@@ -185,7 +185,7 @@ export function StoryViewer({
           <p className="flex flex-1 items-center px-8 text-center font-display text-2xl leading-snug">
             {slides[slide]}
           </p>
-          <div className="flex justify-between px-4 pb-6">
+          <div className="relative z-10 flex justify-between px-4 pb-6">
             <Button
               variant="ghost"
               className="text-white hover:bg-white/10 hover:text-white"
