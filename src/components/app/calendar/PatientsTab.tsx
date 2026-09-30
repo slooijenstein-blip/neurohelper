@@ -11,13 +11,31 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useI18n } from "@/i18n/I18nProvider";
+import {
+  childAgeDisplay,
+  formatBirthDate,
+  parseAgeYears,
+  parseBirthDate,
+} from "@/lib/calendar/child-age";
 import { membershipOnChild } from "@/lib/calendar/permissions";
 import { toDateKey, useCalendarStore } from "@/lib/calendar/store";
-import type { DayPlan } from "@/lib/calendar/types";
+import type { Child, DayPlan } from "@/lib/calendar/types";
 import { AGE_BANDS, type AgeBand } from "@/lib/calendar/types";
 import { cn } from "@/lib/utils";
 import { ScreenHeader } from "../ui-bits";
+
+function PatientAge({ child }: { child: Child }) {
+  const { t, locale } = useI18n();
+  const shown = childAgeDisplay(child);
+  if (shown.kind === "band") {
+    return t(`calendar.ageBands.${shown.band.replace("-", "_")}`);
+  }
+  const years = t("calendar.patients.ageYears", { count: shown.years });
+  if (!shown.born) return years;
+  return `${years} · ${t("calendar.patients.born", { date: formatBirthDate(shown.born, locale) })}`;
+}
 
 function progressFor(plans: DayPlan[], childId: string, today: string) {
   const plan =
@@ -37,7 +55,8 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
-  const [ageBand, setAgeBand] = useState<AgeBand>("3-5");
+  const [ageYears, setAgeYears] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [newTag, setNewTag] = useState("");
 
   const tags = cal.therapistTagsForActive();
@@ -67,14 +86,48 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
     tagFilter,
   ]);
 
+  const resetForm = () => {
+    setName("");
+    setAgeYears("");
+    setBirthDate("");
+  };
+
   const addPatient = () => {
-    const child = cal.addChild(name, ageBand, tagFilter ? [tagFilter] : []);
+    const trimmed = name.trim();
+    if (!trimmed) {
+      toast.error(t("calendar.patients.nameRequired"));
+      return;
+    }
+    const yearsRaw = ageYears.trim();
+    const dobRaw = birthDate.trim();
+    if (!yearsRaw && !dobRaw) {
+      toast.error(t("calendar.patients.ageOrDobRequired"));
+      return;
+    }
+    const parsedYears = yearsRaw ? parseAgeYears(yearsRaw) : null;
+    if (yearsRaw && parsedYears == null) {
+      toast.error(t("calendar.patients.ageInvalid"));
+      return;
+    }
+    const parsedDob = dobRaw ? parseBirthDate(dobRaw) : null;
+    if (dobRaw && !parsedDob) {
+      toast.error(t("calendar.patients.dobInvalid"));
+      return;
+    }
+    const child = cal.addChild(
+      trimmed,
+      {
+        ...(parsedYears != null ? { ageYears: parsedYears } : {}),
+        ...(parsedDob ? { birthDate: parsedDob } : {}),
+      },
+      tagFilter ? [tagFilter] : [],
+    );
     if (!child) {
       toast.error(t("share.saveFailed"));
       return;
     }
     setAdding(false);
-    setName("");
+    resetForm();
     toast.success(t("calendar.patients.added", { name: child.displayName }));
     onOpenChild();
   };
@@ -180,8 +233,11 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold">{child.displayName}</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    {t(`calendar.ageBands.${child.ageBand.replace("-", "_")}`)}
+                  <p
+                    className="text-[11px] text-muted-foreground"
+                    data-testid={`patient-age-${child.id}`}
+                  >
+                    <PatientAge child={child} />
                     {childTagNames.length ? ` · ${childTagNames.join(", ")}` : ""}
                   </p>
                   {progress ? (
@@ -205,34 +261,57 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
         </div>
       </div>
 
-      <Dialog open={adding} onOpenChange={setAdding}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog
+        open={adding}
+        onOpenChange={(open) => {
+          setAdding(open);
+          if (!open) resetForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-md" data-testid="add-patient-dialog">
           <DialogHeader>
             <DialogTitle>{t("calendar.patients.addTitle")}</DialogTitle>
             <DialogDescription>{t("calendar.patients.addBody")}</DialogDescription>
           </DialogHeader>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("calendar.patients.namePlaceholder")}
-          />
-          <div className="flex flex-wrap gap-2">
-            {AGE_BANDS.map((band) => (
-              <button
-                key={band.id}
-                type="button"
-                onClick={() => setAgeBand(band.id)}
-                className={
-                  ageBand === band.id
-                    ? "rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground"
-                    : "rounded-full bg-muted px-3 py-1 text-xs font-bold text-muted-foreground"
-                }
-              >
-                {t(band.labelKey)}
-              </button>
-            ))}
+          <div className="space-y-1">
+            <Label htmlFor="patient-name">{t("calendar.patients.namePlaceholder")}</Label>
+            <Input
+              id="patient-name"
+              data-testid="patient-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={t("calendar.patients.namePlaceholder")}
+            />
           </div>
-          <Button type="button" className="w-full" onClick={addPatient}>
+          <div className="space-y-1">
+            <Label htmlFor="patient-age">{t("calendar.patients.ageLabel")}</Label>
+            <Input
+              id="patient-age"
+              data-testid="patient-age"
+              inputMode="numeric"
+              value={ageYears}
+              onChange={(e) => setAgeYears(e.target.value)}
+              placeholder="4"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="patient-dob">{t("calendar.patients.dobLabel")}</Label>
+            <Input
+              id="patient-dob"
+              data-testid="patient-dob"
+              type="date"
+              max={today}
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">{t("calendar.patients.ageOrDob")}</p>
+          <Button
+            type="button"
+            className="w-full"
+            data-testid="patient-add-confirm"
+            onClick={addPatient}
+          >
             {t("calendar.patients.addConfirm")}
           </Button>
         </DialogContent>
@@ -280,7 +359,7 @@ export function ChildrenHome({ onOpenChild }: { onOpenChild: () => void }) {
             <div>
               <p className="text-sm font-semibold">{child.displayName}</p>
               <p className="text-[11px] text-muted-foreground">
-                {t(`calendar.ageBands.${child.ageBand.replace("-", "_")}`)}
+                <PatientAge child={child} />
               </p>
             </div>
           </button>
