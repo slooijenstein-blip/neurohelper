@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { ACTIVITIES, type Activity, type Skill } from "./activities-data";
+import type { CommunityCard, CommunityTopic } from "./community";
 
 export type ScheduleItem = {
   id: string;
@@ -119,6 +120,8 @@ export type Comment = {
   authorName: string;
   authorRole: Role;
   text: string;
+  /** Seed comments use a message key so English and Spanish stay in sync. */
+  textKey?: string;
   createdAt: string;
   parentId?: string;
   replies?: Comment[];
@@ -132,6 +135,10 @@ export type Post = {
   authorLocation: string;
   kind: "Schedule Share" | "Story" | "Question" | "Promotion" | "Repost";
   body: string;
+  /** Seed posts use a message key so English and Spanish stay in sync. */
+  bodyKey?: string;
+  topic?: CommunityTopic;
+  card?: CommunityCard;
   likes: number;
   liked: boolean;
   reactions: Record<string, number>;
@@ -460,127 +467,158 @@ const memberProfiles: Profile[] = [
   },
 ];
 
-function buildScheduleSharePost(template: Template): Post {
-  const owner = memberProfiles.find((m) => m.id === template.ownerId) ?? myProfile;
-  const items = template.items.map(
-    (it, i) => `${i + 1}. ${it.title} (${it.minutes} mins)\n   - ${it.description}`,
-  );
-  return {
-    id: `post-${template.id}`,
-    authorId: template.ownerId,
-    authorName: owner.name,
-    authorRole: owner.role,
-    authorLocation: owner.location,
-    kind: "Schedule Share",
-    body: `I just shared a new schedule: **${template.name}**\n\n${items.join("\n")}`,
-    likes: template.ownerId === "maya" ? 12 : template.ownerId === "priya" ? 7 : 3,
+const seedPosts: Post[] = [
+  {
+    id: "p-down-priya",
+    authorId: "priya",
+    authorName: "Priya",
+    authorRole: "Teacher",
+    authorLocation: "Mumbai",
+    kind: "Story",
+    body: "",
+    bodyKey: "community.seed.downPriya",
+    topic: "down",
+    likes: 11,
     liked: false,
     reactions: {},
     myReactions: [],
     comments: [],
     reposts: [],
-    createdAt: template.createdAt,
-    templateId: template.id,
-  };
-}
-
-const seedPosts: Post[] = [
-  buildScheduleSharePost(seedTemplates.find((t) => t.id === "tpl-fine-motor")!),
-  buildScheduleSharePost(seedTemplates.find((t) => t.id === "tpl-energy")!),
-  buildScheduleSharePost(seedTemplates.find((t) => t.id === "tpl-classroom")!),
-  {
-    id: "p4",
-    authorId: "maya",
-    authorName: "Maya",
-    authorRole: "Therapist",
-    authorLocation: "London",
-    kind: "Story",
-    body: "Reminder: shorter is better. Three 5-minute blocks beat one 20-minute block for most toddlers in a regulation dip.",
-    likes: 24,
-    liked: false,
-    reactions: { heart: 3, clap: 1 },
-    myReactions: [],
-    comments: [
-      {
-        id: uid(),
-        authorId: "jonas",
-        authorName: "Jonas",
-        authorRole: "Parent",
-        text: "This changed our whole afternoon routine.",
-        createdAt: "2026-08-22",
-      },
-    ],
-    reposts: [],
-    createdAt: "2026-08-22",
+    createdAt: "2026-09-28",
   },
-
   {
-    id: "p5",
-    authorId: "jonas",
-    authorName: "Jonas",
-    authorRole: "Parent",
-    authorLocation: "Berlin",
+    id: "p-adhd-zara",
+    authorId: "zara",
+    authorName: "Zara",
+    authorRole: "Caregiver",
+    authorLocation: "Toronto",
     kind: "Question",
-    body: "Any tips for making Tape Rescue last longer than two minutes? Ours peels everything in a flash.",
-    likes: 5,
+    body: "",
+    bodyKey: "community.seed.adhdZara",
+    topic: "adhd",
+    card: "sky",
+    likes: 16,
     liked: false,
-    reactions: { heart: 1, helpful: 2 },
+    reactions: {},
     myReactions: [],
     comments: [
       {
-        id: uid(),
-        authorId: "me",
-        authorName: "Sam",
-        authorRole: "Parent",
-        text: "Try taping around corners so it needs two hands.",
-        createdAt: "2026-08-21",
+        id: "c-adhd-maya",
+        authorId: "maya",
+        authorName: "Maya",
+        authorRole: "Therapist",
+        text: "",
+        textKey: "community.seed.adhdZaraComment",
+        createdAt: "2026-09-26",
       },
     ],
     reposts: [],
-    createdAt: "2026-08-21",
+    createdAt: "2026-09-26",
   },
-
   {
-    id: "p6",
+    id: "p-wins-elena",
     authorId: "elena",
     authorName: "Elena",
     authorRole: "Creator",
     authorLocation: "Barcelona",
-    kind: "Promotion",
-    body: "I just posted a new printable set of scissor skills strips on my site. Link in bio. Grab it for free this week! Great for 3–5 year olds building fine motor control.",
-    likes: 18,
+    kind: "Story",
+    body: "",
+    bodyKey: "community.seed.winsElena",
+    topic: "wins",
+    card: "warm",
+    likes: 22,
     liked: false,
-    reactions: { heart: 5, celebrate: 1 },
+    reactions: {},
     myReactions: [],
-    comments: [],
+    comments: [
+      {
+        id: "c-wins-priya",
+        authorId: "priya",
+        authorName: "Priya",
+        authorRole: "Teacher",
+        text: "",
+        textKey: "community.seed.winsElenaComment",
+        createdAt: "2026-09-22",
+      },
+    ],
     reposts: [],
-    createdAt: "2026-08-20",
+    createdAt: "2026-09-22",
   },
-
   {
-    id: "p7",
+    id: "p-autism-jonas",
+    authorId: "jonas",
+    authorName: "Jonas",
+    authorRole: "Parent",
+    authorLocation: "Berlin",
+    kind: "Story",
+    body: "",
+    bodyKey: "community.seed.autismJonas",
+    topic: "autism",
+    likes: 19,
+    liked: false,
+    reactions: {},
+    myReactions: [],
+    comments: [
+      {
+        id: "c-autism-zara",
+        authorId: "zara",
+        authorName: "Zara",
+        authorRole: "Caregiver",
+        text: "",
+        textKey: "community.seed.autismJonasComment",
+        createdAt: "2026-09-18",
+      },
+    ],
+    reposts: [],
+    createdAt: "2026-09-18",
+  },
+  {
+    id: "p-calm-tom",
     authorId: "tom",
     authorName: "Tom",
     authorRole: "Grandparent",
     authorLocation: "Sydney",
     kind: "Story",
-    body: "We tried the living room obstacle course today. Used cushions and a blanket tunnel. The grandkids were exhausted and happy.",
-    likes: 9,
+    body: "",
+    bodyKey: "community.seed.calmTom",
+    topic: "calm",
+    card: "calm",
+    likes: 14,
     liked: false,
-    reactions: { heart: 2, clap: 1 },
+    reactions: {},
+    myReactions: [],
+    comments: [],
+    reposts: [],
+    createdAt: "2026-09-14",
+  },
+  {
+    id: "p-tips-maya",
+    authorId: "maya",
+    authorName: "Maya",
+    authorRole: "Therapist",
+    authorLocation: "London",
+    kind: "Story",
+    body: "",
+    bodyKey: "community.seed.tipsMaya",
+    topic: "tips",
+    card: "leaf",
+    likes: 24,
+    liked: false,
+    reactions: {},
     myReactions: [],
     comments: [
       {
-        id: uid(),
-        authorId: "zara",
-        authorName: "Zara",
-        authorRole: "Caregiver",
-        text: "Love this. So easy to set up anywhere.",
-        createdAt: "2026-08-19",
+        id: "c-tips-jonas",
+        authorId: "jonas",
+        authorName: "Jonas",
+        authorRole: "Parent",
+        text: "",
+        textKey: "community.seed.tipsMayaComment",
+        createdAt: "2026-09-10",
       },
     ],
     reposts: [],
-    createdAt: "2026-08-19",
+    createdAt: "2026-09-10",
   },
 ];
 
