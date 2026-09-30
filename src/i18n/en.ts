@@ -51,6 +51,14 @@ export const en = {
     setupNote:
       "Clerk development keys only work on localhost. Production sign-in needs a production Clerk instance (for example on Vercel at synlumae.com), not GitHub Pages with test keys.",
   },
+  demoRoles: {
+    label: "Demo roles",
+    hint: "Preview only. Therapist has Pro plus Alex and Jordan. Parent and grandparent share Alex. This does not change real sign-in.",
+    therapist: "Demo Therapist",
+    parent: "Demo Parent",
+    grandparent: "Demo Grandparent",
+    useAccount: "Use my account",
+  },
   language: {
     label: "Language",
     help: "Synlumae keeps this choice on this device. If you have a profile, it is saved there too. English fills any gap.",

@@ -58,6 +58,14 @@ export const es: DeepString<Messages> = {
     setupNote:
       "Las claves de desarrollo de Clerk solo funcionan en localhost. El inicio de sesión en producción necesita una instancia de Clerk de producción (por ejemplo en Vercel, en synlumae.com), no GitHub Pages con claves de prueba.",
   },
+  demoRoles: {
+    label: "Roles de demo",
+    hint: "Solo vista previa. El terapeuta tiene Pro y a Alex y Jordan. El padre/madre y el abuelo/a comparten a Alex. No cambia el acceso real.",
+    therapist: "Demo Therapist",
+    parent: "Demo Parent",
+    grandparent: "Demo Grandparent",
+    useAccount: "Usar mi cuenta",
+  },
   language: {
     label: "Idioma",
     help: "Synlumae guarda esta elección en este dispositivo. Si tienes un perfil, también se guarda ahí. El inglés cubre lo que aún no esté traducido.",

@@ -45,6 +45,8 @@ type CalendarContextValue = {
   selectedChild: Child | null;
   resetDemo: () => void;
   switchPersona: (personId: string) => void;
+  /** Replace local calendar state with the labeled demo family, then select this person. */
+  loadDemoPersona: (personId: string) => void;
   selectChild: (childId: string | null) => void;
   addChild: (displayName: string, ageBand: AgeBand, tagIds?: string[]) => Child | null;
   addTherapistTag: (name: string) => void;
@@ -317,6 +319,21 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
     myChildren,
     selectedChild,
     resetDemo: () => update(() => createSeedState()),
+    loadDemoPersona: (personId) =>
+      update(() => {
+        const next = createSeedState();
+        const person = next.people.find((item) => item.id === personId);
+        if (!person) return next;
+        const mine = next.memberships.filter(
+          (membership) => membership.personId === person.id && membership.status === "active",
+        );
+        const only = mine.length === 1 ? mine[0] : undefined;
+        return {
+          ...next,
+          activePersonId: person.id,
+          selectedChildId: person.appRole === "therapist" ? null : (only?.childId ?? null),
+        };
+      }),
     switchPersona: (personId) =>
       update((prev) => {
         const person = prev.people.find((p) => p.id === personId);

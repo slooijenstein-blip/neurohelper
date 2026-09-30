@@ -19,12 +19,19 @@ describe("calendar permissions", () => {
 });
 
 describe("calendar seed", () => {
-  it("keeps Alex membership private to therapist + parent (no Jordan bleed)", () => {
+  it("links parent and grandparent to Alex, and keeps Jordan with the therapist", () => {
     const state = createSeedState();
     const alexMembers = state.memberships.filter((m) => m.childId === "child_alex");
     const jordanMembers = state.memberships.filter((m) => m.childId === "child_jordan");
-    assert.ok(alexMembers.some((m) => m.personId === "person_sam"));
+    assert.ok(alexMembers.some((m) => m.personId === "person_sam" && m.role === "caregiver"));
+    assert.ok(alexMembers.some((m) => m.personId === "person_grandma" && m.role === "helper"));
     assert.ok(!jordanMembers.some((m) => m.personId === "person_sam"));
+    assert.ok(!jordanMembers.some((m) => m.personId === "person_grandma"));
+    assert.equal(
+      state.memberships.filter((m) => m.personId === "person_maya" && m.role === "therapist")
+        .length,
+      2,
+    );
     assert.ok(
       state.therapistTags.every((tag) => tag.therapistId === "person_maya"),
       "tags are therapist-desk only in seed",

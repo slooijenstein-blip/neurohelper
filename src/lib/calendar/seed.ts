@@ -171,19 +171,19 @@ export function createSeedState(): CalendarState {
     people: [
       {
         id: THERAPIST_ID,
-        name: "Maya (Therapist)",
+        name: "Demo Therapist",
         email: "maya@example.com",
         appRole: "therapist",
       },
       {
         id: PARENT_ID,
-        name: "Sam (Parent)",
+        name: "Demo Parent",
         email: "sam@example.com",
         appRole: "caregiver",
       },
       {
         id: HELPER_ID,
-        name: "Grandma (Helper)",
+        name: "Demo Grandparent",
         email: "grandma@example.com",
         appRole: "helper",
       },
@@ -224,6 +224,13 @@ export function createSeedState(): CalendarState {
         childId: CHILD_ALEX,
         personId: PARENT_ID,
         role: "caregiver",
+        status: "active",
+      },
+      {
+        id: "mem_grandma_alex",
+        childId: CHILD_ALEX,
+        personId: HELPER_ID,
+        role: "helper",
         status: "active",
       },
     ],

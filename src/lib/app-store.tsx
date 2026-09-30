@@ -9,6 +9,7 @@ import {
 } from "react";
 import { ACTIVITIES, type Activity, type Skill } from "./activities-data";
 import type { CommunityCard } from "./community";
+import { demoRolesAllowed, parseDemoPersona, type DemoPersona } from "./demo-roles";
 
 export type ScheduleItem = {
   id: string;
@@ -88,7 +89,7 @@ export type Profile = {
   isPro?: boolean;
 };
 
-export type DemoPersona = "pro" | "parent";
+export type { DemoPersona };
 
 export type Template = {
   id: string;
@@ -220,18 +221,45 @@ const myProfile: Profile = {
 
 export const proDemoProfile: Profile = {
   id: MY_ID,
-  name: "Maya Chen",
+  name: "Demo Therapist",
   role: "Therapist",
   location: "Utrecht",
-  bio: "Pediatric therapist. I build activity plans from the catalog and share them with families.",
+  bio: "Demo therapist with Pro. Alex and Jordan are the two patients on this device.",
   socials: { website: "https://example.com" },
   color: "bg-primary",
   isPro: true,
 };
 
+const parentDemoProfile: Profile = {
+  id: MY_ID,
+  name: "Demo Parent",
+  role: "Parent",
+  location: "Amsterdam",
+  bio: "Demo parent linked to Alex, the same child as the demo therapist.",
+  socials: {},
+  color: "bg-primary",
+  isPro: false,
+};
+
+const grandparentDemoProfile: Profile = {
+  id: MY_ID,
+  name: "Demo Grandparent",
+  role: "Grandparent",
+  location: "Amsterdam",
+  bio: "Demo grandparent linked to Alex. There is no Pro tab on this account.",
+  socials: {},
+  color: "bg-primary",
+  isPro: false,
+};
+
 export function profileForDemoPersona(persona: DemoPersona): Profile {
-  if (persona === "pro") return { ...proDemoProfile };
-  return { ...myProfile, isPro: false };
+  if (persona === "therapist") return { ...proDemoProfile };
+  if (persona === "grandparent") return { ...grandparentDemoProfile };
+  return { ...parentDemoProfile };
+}
+
+function demoChildName(persona: DemoPersona): string {
+  return persona === "therapist" ? "" : "Alex";
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 10);
@@ -820,13 +848,12 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         }));
       }
 
-      if (!import.meta.env.DEV) {
+      const allowDemo = import.meta.env.DEV || demoRolesAllowed(window.location.hostname);
+      if (!allowDemo) {
         window.sessionStorage.removeItem(PROTOTYPE_DEMO_KEY);
         window.sessionStorage.removeItem(DEMO_PERSONA_KEY);
       } else {
-        const storedPersona = window.sessionStorage.getItem(DEMO_PERSONA_KEY);
-        const persona: DemoPersona | null =
-          storedPersona === "pro" || storedPersona === "parent" ? storedPersona : null;
+        const persona = parseDemoPersona(window.sessionStorage.getItem(DEMO_PERSONA_KEY));
         if (window.sessionStorage.getItem(PROTOTYPE_DEMO_KEY) === "1" && persona) {
           setPrototypeDemo(true);
           setDemoPersona(persona);
@@ -834,6 +861,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
             ...prev,
             profile: profileForDemoPersona(persona),
             loggedOut: false,
+            childName: demoChildName(persona),
           }));
         }
       }
@@ -938,7 +966,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const enterPrototypeDemo = useCallback(
     (persona: DemoPersona) => {
-      if (!import.meta.env.DEV) return;
+      if (!import.meta.env.DEV && !demoRolesAllowed(window.location.hostname)) return;
       try {
         window.sessionStorage.setItem(PROTOTYPE_DEMO_KEY, "1");
         window.sessionStorage.setItem(DEMO_PERSONA_KEY, persona);
@@ -951,6 +979,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         ...prev,
         profile: profileForDemoPersona(persona),
         loggedOut: false,
+        childName: demoChildName(persona),
       }));
     },
     [update],
