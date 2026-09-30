@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import { plainPostBody } from "@/lib/community";
-import { useAppStore, type Post } from "@/lib/app-store";
+import { toDateKey, useAppStore, type Post } from "@/lib/app-store";
+import { AddToMyCalendarButton } from "../AddToMyCalendarButton";
 import { ProfileAvatar, RoleTag } from "../ui-bits";
 
 function postText(post: Post, t: (key: string) => string) {
@@ -100,7 +101,8 @@ export function SchedulesPane({
   onActivity: (id: string) => void;
 }) {
   const { t } = useI18n();
-  const { state, tryTemplate } = useAppStore();
+  const { state } = useAppStore();
+  const today = toDateKey(new Date());
   const templates = state.templates.filter((template) => template.isPublic);
 
   return (
@@ -134,14 +136,23 @@ export function SchedulesPane({
               </li>
             ))}
           </ol>
-          <Button
-            size="sm"
+          <AddToMyCalendarButton
             className="mt-3 h-7 w-full"
-            data-testid={`try-schedule-${template.id}`}
-            onClick={() => tryTemplate(template.id)}
-          >
-            {t("community.trySchedule")}
-          </Button>
+            testId={`try-schedule-${template.id}`}
+            date={today}
+            idleLabel={t("community.trySchedule")}
+            routine={{
+              templateId: template.id,
+              name: template.name,
+              items: template.items.map((item) => ({
+                activityId: item.activityId,
+                title: item.title,
+                description: item.description,
+                minutes: item.minutes,
+                time: item.time,
+              })),
+            }}
+          />
         </div>
       ))}
       {!templates.length ? (

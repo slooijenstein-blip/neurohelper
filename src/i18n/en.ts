@@ -132,6 +132,9 @@ export const en = {
     today: "Today",
     calendar: "Calendar",
     addToCalendar: "Add today’s routine to Google Calendar",
+    addToMyCalendar: "Add to my calendar",
+    addedToMyCalendar: "Added to my calendar",
+    removedFromMyCalendar: "Removed from my calendar",
     calendarHint:
       "Opens Google Calendar with one combined event for today (not one event per activity)",
     empty: "No activities yet.",

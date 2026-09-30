@@ -10,6 +10,12 @@ import {
 import { ACTIVITIES, type Activity, type Skill } from "./activities-data";
 import type { CommunityCard } from "./community";
 import { demoRolesAllowed, parseDemoPersona, type DemoPersona } from "./demo-roles";
+import {
+  addRoutineToMyCalendar,
+  isOnMyCalendar,
+  removeRoutineFromMyCalendar,
+  type RoutineDraft,
+} from "./my-calendar";
 
 export type ScheduleItem = {
   id: string;
@@ -20,6 +26,8 @@ export type ScheduleItem = {
   minutes: number;
   done: boolean;
   fromTemplateId?: string;
+  /** Demo role or account that placed this activity on their calendar. */
+  viewerKey?: string;
 };
 
 export type Role =
@@ -113,6 +121,8 @@ export type DayPlan = {
   date: string; // YYYY-MM-DD
   templateId: string;
   name: string;
+  /** Demo role or account that placed this routine on their calendar. */
+  viewerKey?: string;
 };
 
 export type Comment = {
@@ -809,6 +819,9 @@ type Ctx = {
   setTemplateRepeat: (templateId: string, days: number[]) => void;
   addDayPlan: (date: string, templateId: string) => void;
   removeDayPlan: (id: string) => void;
+  /** Place or remove a routine on this viewer's calendar. Same path for own and shared schedules. */
+  toggleRoutineOnCalendar: (routine: RoutineDraft, date: string) => void;
+  routineOnCalendar: (templateId: string, date: string) => boolean;
   toggleFollow: (memberId: string) => void;
   isFollowing: (memberId: string) => boolean;
 };
@@ -1085,6 +1098,28 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     [update],
   );
 
+  const viewerKey = demoPersona ?? state.profile?.id ?? "me";
+
+  const toggleRoutineOnCalendar = useCallback(
+    (routine: RoutineDraft, date: string) => {
+      const today = toDateKey(new Date());
+      update((prev) => {
+        const key = demoPersona ?? prev.profile?.id ?? "me";
+        if (isOnMyCalendar(prev.dayPlans, routine.templateId, date, key)) {
+          return removeRoutineFromMyCalendar(prev, routine.templateId, date, today, key);
+        }
+        return addRoutineToMyCalendar(prev, routine, date, today, key, uid);
+      });
+    },
+    [demoPersona, update],
+  );
+
+  const routineOnCalendar = useCallback(
+    (templateId: string, date: string) =>
+      isOnMyCalendar(state.dayPlans, templateId, date, viewerKey),
+    [state.dayPlans, viewerKey],
+  );
+
   const toggleFollow = useCallback(
     (memberId: string) => {
       update((prev) => {
@@ -1125,6 +1160,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       setTemplateRepeat,
       addDayPlan,
       removeDayPlan,
+      toggleRoutineOnCalendar,
+      routineOnCalendar,
       toggleFollow,
       isFollowing,
     }),
@@ -1147,6 +1184,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       setTemplateRepeat,
       addDayPlan,
       removeDayPlan,
+      toggleRoutineOnCalendar,
+      routineOnCalendar,
       toggleFollow,
       isFollowing,
     ],

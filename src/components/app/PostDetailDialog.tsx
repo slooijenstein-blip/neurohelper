@@ -3,7 +3,8 @@ import { Heart, MessageCircle, UserPlus, UserCheck, CalendarDays, Clock } from "
 
 import { useI18n } from "@/i18n/I18nProvider";
 import { plainPostBody } from "@/lib/community";
-import { useAppStore, type Post } from "@/lib/app-store";
+import { toDateKey, useAppStore, type Post } from "@/lib/app-store";
+import { AddToMyCalendarButton } from "./AddToMyCalendarButton";
 import { RoleTag, ProfileAvatar } from "./ui-bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,7 +31,8 @@ export function PostDetailDialog({
   onComment: (id: string, text: string) => void;
   onOpenProfile: (id: string) => void;
 }) {
-  const { state, tryTemplate, toggleFollow, isFollowing } = useAppStore();
+  const { state, toggleFollow, isFollowing } = useAppStore();
+  const today = toDateKey(new Date());
   const { t } = useI18n();
   const [comment, setComment] = useState("");
   const [activityId, setActivityId] = useState<string | null>(null);
@@ -94,31 +96,45 @@ export function PostDetailDialog({
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 Shared schedules
               </p>
-              {templates.map((t) => (
-                <div key={t.id} className="rounded-lg border border-border bg-card p-3">
-                  <p className="text-sm font-semibold">{t.name}</p>
+              {templates.map((template) => (
+                <div key={template.id} className="rounded-lg border border-border bg-card p-3">
+                  <p className="text-sm font-semibold">{template.name}</p>
                   <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <CalendarDays className="size-3" /> {t.items.length} activities
+                    <CalendarDays className="size-3" /> {template.items.length} activities
                     <span className="mx-1">·</span>
                     <Clock className="size-3" />
-                    {t.items.reduce((a, i) => a + i.minutes, 0)} mins
+                    {template.items.reduce((sum, item) => sum + item.minutes, 0)} mins
                   </div>
                   <ol className="mt-2 list-inside list-decimal space-y-0.5 text-xs text-muted-foreground">
-                    {t.items.map((i) => (
-                      <li key={i.id}>
+                    {template.items.map((item) => (
+                      <li key={item.id}>
                         <button
                           type="button"
-                          onClick={() => setActivityId(i.activityId)}
+                          onClick={() => setActivityId(item.activityId)}
                           className="text-left underline-offset-2 hover:text-primary hover:underline"
                         >
-                          {i.title} ({i.minutes} mins)
+                          {item.title} ({item.minutes} mins)
                         </button>
                       </li>
                     ))}
                   </ol>
-                  <Button size="sm" className="mt-2 h-7 w-full" onClick={() => tryTemplate(t.id)}>
-                    Try this schedule
-                  </Button>
+                  <AddToMyCalendarButton
+                    className="mt-2 h-7 w-full"
+                    testId={`try-schedule-${template.id}`}
+                    date={today}
+                    idleLabel={t("community.trySchedule")}
+                    routine={{
+                      templateId: template.id,
+                      name: template.name,
+                      items: template.items.map((item) => ({
+                        activityId: item.activityId,
+                        title: item.title,
+                        description: item.description,
+                        minutes: item.minutes,
+                        time: item.time,
+                      })),
+                    }}
+                  />
                 </div>
               ))}
             </div>

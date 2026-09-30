@@ -140,6 +140,9 @@ export const es: DeepString<Messages> = {
     today: "Hoy",
     calendar: "Calendario",
     addToCalendar: "Añadir la rutina de hoy a Google Calendar",
+    addToMyCalendar: "Añadir a mi calendario",
+    addedToMyCalendar: "Añadido a mi calendario",
+    removedFromMyCalendar: "Quitado de mi calendario",
     calendarHint:
       "Abre Google Calendar con un solo evento combinado para hoy (no un evento por actividad)",
     empty: "Todavía no hay actividades.",
