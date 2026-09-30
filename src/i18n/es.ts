@@ -256,6 +256,8 @@ export const es: DeepString<Messages> = {
     empty: "Todavía no hay publicaciones. Comparte algo arriba.",
     emptyHashtag: "Todavía no hay publicaciones con #{{tag}}.",
     follow: "Seguir",
+    openPost: "Abrir publicación",
+    openPostSchedule: "Abrir la publicación y los horarios",
     tabsLabel: "Secciones de la comunidad",
     tabs: {
       feed: "Muro",

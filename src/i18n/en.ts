@@ -247,6 +247,8 @@ export const en = {
     empty: "No posts yet. Share something above.",
     emptyHashtag: "No posts with #{{tag}} yet.",
     follow: "Follow",
+    openPost: "Open post",
+    openPostSchedule: "Open post and shared schedules",
     tabsLabel: "Community sections",
     tabs: {
       feed: "Feed",

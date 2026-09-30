@@ -39,15 +39,29 @@ function PostText({
   body,
   activeTag,
   onHashtag,
+  onOpen,
 }: {
   postId: string;
   body: string;
   activeTag: string | null;
   onHashtag: (tag: string) => void;
+  onOpen: () => void;
 }) {
   const parts = splitHashtags(body);
   return (
-    <p className="whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed">
+    <div
+      role="button"
+      tabIndex={0}
+      data-testid={`open-post-body-${postId}`}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+      className="cursor-pointer whitespace-pre-wrap px-4 py-3 text-left text-sm leading-relaxed"
+    >
       {parts.map((part, index) =>
         part.type === "text" ? (
           <span key={index}>{part.value}</span>
@@ -57,7 +71,10 @@ function PostText({
             type="button"
             data-testid={`hashtag-${postId}-${part.value.toLocaleLowerCase()}`}
             aria-pressed={activeTag === part.value.toLocaleLowerCase()}
-            onClick={() => onHashtag(part.value.toLocaleLowerCase())}
+            onClick={(event) => {
+              event.stopPropagation();
+              onHashtag(part.value.toLocaleLowerCase());
+            }}
             className={cn(
               "mx-0.5 inline-flex rounded-full px-2 py-0.5 align-baseline text-xs font-semibold",
               activeTag === part.value.toLocaleLowerCase()
@@ -69,7 +86,7 @@ function PostText({
           </button>
         ),
       )}
-    </p>
+    </div>
   );
 }
 
@@ -90,6 +107,7 @@ export function FeedPost({
   onReport,
   onOpenProfile,
   onHashtag,
+  onOpen,
 }: {
   post: Post;
   commentsOpen: boolean;
@@ -103,6 +121,7 @@ export function FeedPost({
   onReport: (id: string) => void;
   onOpenProfile: (id: string) => void;
   onHashtag: (tag: string) => void;
+  onOpen: () => void;
 }) {
   const { t } = useI18n();
   const { state, toggleFollow, isFollowing } = useAppStore();
@@ -112,6 +131,9 @@ export function FeedPost({
     (isMe ? state.profile?.color : undefined) ??
     "bg-primary";
   const body = post.bodyKey ? t(post.bodyKey) : plainPostBody(post.body);
+  const hasSharedSchedule =
+    Boolean(post.templateId) ||
+    state.templates.some((template) => template.ownerId === post.authorId && template.isPublic);
 
   const colorFor = (authorId: string) =>
     state.members.find((member) => member.id === authorId)?.color ??
@@ -196,7 +218,23 @@ export function FeedPost({
         </div>
       ) : null}
 
-      <PostText postId={post.id} body={body} activeTag={activeTag} onHashtag={onHashtag} />
+      <PostText
+        postId={post.id}
+        body={body}
+        activeTag={activeTag}
+        onHashtag={onHashtag}
+        onOpen={onOpen}
+      />
+      <div className="px-4 pb-3">
+        <button
+          type="button"
+          data-testid={`open-post-${post.id}`}
+          onClick={onOpen}
+          className="text-xs font-semibold text-primary"
+        >
+          {hasSharedSchedule ? t("community.openPostSchedule") : t("community.openPost")} →
+        </button>
+      </div>
       {post.card ? <ColorCard card={post.card} className="mx-4 mb-3" /> : null}
 
       <div className="flex border-t border-border">

@@ -243,6 +243,7 @@ export function CommunityTab({
                   }}
                   onOpenProfile={onProfile}
                   onHashtag={chooseTag}
+                  onOpen={() => setPostId(post.id)}
                 />
               ))}
               {!posts.length ? (
