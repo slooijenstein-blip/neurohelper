@@ -1,0 +1,1 @@
+import{t as e}from"./StatementPage-BoMY-lci.js";export{e as StatementPage};
