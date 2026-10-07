@@ -16,9 +16,11 @@ import { presentPlanName, presentPlanStep } from "@/lib/activity-locale";
 import { canInvite, inviteRolesFor, membershipOnChild } from "@/lib/calendar/permissions";
 import { toDateKey, useCalendarStore } from "@/lib/calendar/store";
 import type { DayPlan } from "@/lib/calendar/types";
+import { sharedTemplateId } from "@/lib/my-calendar";
 import { withBasePath } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 
+import { AddToMyCalendarButton } from "./AddToMyCalendarButton";
 import { StepDetailDialog } from "./calendar/StepDetailDialog";
 
 function planForChild(plans: DayPlan[], childId: string, today: string): DayPlan | null {
@@ -112,13 +114,15 @@ export function SharedPlansPanel() {
 
             {day ? (
               <ul className="mt-3 space-y-2">
-                {day.steps.map((step) => {
+                {day.steps.map((step, index) => {
                   const shown = presentPlanStep(step, locale);
                   return (
                     <li key={step.id} className="flex items-start gap-2">
                       <button
                         type="button"
                         className="mt-0.5 shrink-0"
+                        aria-pressed={step.done}
+                        data-testid={`shared-step-${child.id}-${index}`}
                         aria-label={
                           step.done
                             ? t("calendar.stepDetail.markUndone")
@@ -153,6 +157,28 @@ export function SharedPlansPanel() {
                   );
                 })}
               </ul>
+            ) : null}
+
+            {day ? (
+              <AddToMyCalendarButton
+                className="mt-3 w-full"
+                testId={`add-shared-calendar-${child.id}`}
+                date={day.date}
+                idleLabel={t("schedule.addToMyCalendar")}
+                routine={{
+                  templateId: sharedTemplateId(day.libraryPlanId ?? day.id),
+                  name: presentPlanName(day, (key) => t(key)),
+                  items: day.steps.map((step) => {
+                    const shown = presentPlanStep(step, locale);
+                    return {
+                      activityId: step.activityId || "shared-step",
+                      title: shown.title,
+                      description: shown.description,
+                      minutes: step.minutes || 10,
+                    };
+                  }),
+                }}
+              />
             ) : null}
 
             <div className="mt-3">

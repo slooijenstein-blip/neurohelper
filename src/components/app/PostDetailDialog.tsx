@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Heart, MessageCircle, UserPlus, UserCheck, CalendarDays, Clock } from "lucide-react";
 
-import { useAppStore, type Post } from "@/lib/app-store";
+import { useI18n } from "@/i18n/I18nProvider";
+import { plainPostBody } from "@/lib/community";
+import { toDateKey, useAppStore, type Post } from "@/lib/app-store";
+import { AddToMyCalendarButton } from "./AddToMyCalendarButton";
 import { RoleTag, ProfileAvatar } from "./ui-bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,11 +31,15 @@ export function PostDetailDialog({
   onComment: (id: string, text: string) => void;
   onOpenProfile: (id: string) => void;
 }) {
-  const { state, tryTemplate, toggleFollow, isFollowing } = useAppStore();
+  const { state, toggleFollow, isFollowing } = useAppStore();
+  const today = toDateKey(new Date());
+  const { t } = useI18n();
   const [comment, setComment] = useState("");
   const [activityId, setActivityId] = useState<string | null>(null);
 
   if (!post) return null;
+
+  const body = post.bodyKey ? t(post.bodyKey) : plainPostBody(post.body);
 
   const author =
     state.members.find((m) => m.id === post.authorId) ??
@@ -81,7 +88,7 @@ export function PostDetailDialog({
           </div>
 
           <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-foreground">
-            {post.body}
+            {body}
           </pre>
 
           {templates.length ? (
@@ -89,35 +96,45 @@ export function PostDetailDialog({
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 Shared schedules
               </p>
-              {templates.map((t) => (
-                <div key={t.id} className="rounded-lg border border-border bg-card p-3">
-                  <p className="text-sm font-semibold">{t.name}</p>
+              {templates.map((template) => (
+                <div key={template.id} className="rounded-lg border border-border bg-card p-3">
+                  <p className="text-sm font-semibold">{template.name}</p>
                   <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                    <CalendarDays className="size-3" /> {t.items.length} activities
+                    <CalendarDays className="size-3" /> {template.items.length} activities
                     <span className="mx-1">·</span>
                     <Clock className="size-3" />
-                    {t.items.reduce((a, i) => a + i.minutes, 0)} mins
+                    {template.items.reduce((sum, item) => sum + item.minutes, 0)} mins
                   </div>
                   <ol className="mt-2 list-inside list-decimal space-y-0.5 text-xs text-muted-foreground">
-                    {t.items.map((i) => (
-                      <li key={i.id}>
+                    {template.items.map((item) => (
+                      <li key={item.id}>
                         <button
                           type="button"
-                          onClick={() => setActivityId(i.activityId)}
+                          onClick={() => setActivityId(item.activityId)}
                           className="text-left underline-offset-2 hover:text-primary hover:underline"
                         >
-                          {i.title} ({i.minutes} mins)
+                          {item.title} ({item.minutes} mins)
                         </button>
                       </li>
                     ))}
                   </ol>
-                  <Button
-                    size="sm"
+                  <AddToMyCalendarButton
                     className="mt-2 h-7 w-full"
-                    onClick={() => tryTemplate(t.id)}
-                  >
-                    Try this schedule
-                  </Button>
+                    testId={`try-schedule-${template.id}`}
+                    date={today}
+                    idleLabel={t("community.trySchedule")}
+                    routine={{
+                      templateId: template.id,
+                      name: template.name,
+                      items: template.items.map((item) => ({
+                        activityId: item.activityId,
+                        title: item.title,
+                        description: item.description,
+                        minutes: item.minutes,
+                        time: item.time,
+                      })),
+                    }}
+                  />
                 </div>
               ))}
             </div>
@@ -140,7 +157,8 @@ export function PostDetailDialog({
             <div className="space-y-1 border-l-2 border-border pl-3">
               {post.comments.map((c) => (
                 <p key={c.id} className="text-xs text-muted-foreground">
-                  <span className="font-semibold text-foreground">{c.authorName}</span>: {c.text}
+                  <span className="font-semibold text-foreground">{c.authorName}</span>:{" "}
+                  {c.textKey ? t(c.textKey) : c.text}
                 </p>
               ))}
             </div>

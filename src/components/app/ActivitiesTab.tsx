@@ -6,6 +6,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { ACTIVITIES, SKILLS, type Activity, type Skill } from "@/lib/activities-data";
 import { localizedActivity, localizedCatalog, skillMessageKey } from "@/lib/activity-locale";
 import { useAppStore, uid } from "@/lib/app-store";
+import { HelperLaunch } from "./HelperChat";
 import { AgeTag, DurationTag, ScreenHeader, SkillTag } from "./ui-bits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +75,7 @@ export function ActivitiesTab() {
       <ScreenHeader
         title={t("activities.title")}
         subtitle={t("activities.count", { count: results.length })}
+        right={<HelperLaunch />}
       />
 
       <div className="space-y-3 border-b border-border bg-surface px-5 py-3 md:px-8">

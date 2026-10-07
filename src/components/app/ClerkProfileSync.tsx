@@ -2,6 +2,7 @@ import { useUser } from "@clerk/react";
 import { useEffect } from "react";
 
 import { useAppStore } from "@/lib/app-store";
+import { demoRolesAllowed } from "@/lib/demo-roles";
 import { isClerkConfigured } from "@/lib/clerk";
 import {
   applyClerkProFlag,
@@ -18,7 +19,10 @@ function ClerkProfileSyncInner() {
 
   useEffect(() => {
     if (!isLoaded || !user || !hydrated) return;
-    if (prototypeDemo) exitPrototypeDemo();
+    const demoOverlay =
+      prototypeDemo && (import.meta.env.DEV || demoRolesAllowed(window.location.hostname));
+    if (prototypeDemo && !demoOverlay) exitPrototypeDemo();
+    if (demoOverlay) return;
 
     const plan = planClerkProfileSync({
       existing: prototypeDemo ? null : state.profile,

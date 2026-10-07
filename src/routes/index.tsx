@@ -36,7 +36,7 @@ function Index() {
       <main className="min-h-dvh bg-background">
         <PhoneApp tab={tab} onTab={setTab} />
       </main>
-      <Toaster />
+      <Toaster position="top-center" />
     </>
   );
 }

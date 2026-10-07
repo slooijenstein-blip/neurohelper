@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   Ban,
@@ -24,9 +24,12 @@ import {
   HelpDisclaimer,
 } from "./CountryResources";
 import { useHelpCountry } from "./useHelpCountry";
+import { HelperLaunch } from "./HelperChat";
 import { ScreenHeader } from "./ui-bits";
 
 type UtilityView = "support" | "clinician" | null;
+
+export type HelpFocus = { kind: "item"; hub: HelpHub; itemId: string } | { kind: "support" };
 
 function hubCopy(id: HelpHub, t: (key: string) => string) {
   if (id === "child_overwhelm") {
@@ -35,12 +38,32 @@ function hubCopy(id: HelpHub, t: (key: string) => string) {
   return { title: t("help.hubs.caregiverTitle"), subtitle: t("help.hubs.caregiverSubtitle") };
 }
 
-export function HelpTab() {
+export function HelpTab({
+  focus,
+  onFocusHandled,
+}: {
+  focus?: HelpFocus | null;
+  onFocusHandled?: () => void;
+}) {
   const { t, locale } = useI18n();
   const { countryCode, setCountry, residenceCode, useResidence } = useHelpCountry();
   const [hub, setHub] = useState<HelpHub | null>(null);
   const [itemId, setItemId] = useState<string | null>(null);
   const [utility, setUtility] = useState<UtilityView>(null);
+
+  useEffect(() => {
+    if (!focus) return;
+    if (focus.kind === "support") {
+      setHub(null);
+      setItemId(null);
+      setUtility("support");
+    } else {
+      setUtility(null);
+      setHub(focus.hub);
+      setItemId(focus.itemId);
+    }
+    onFocusHandled?.();
+  }, [focus, onFocusHandled]);
 
   const country = getCountry(countryCode);
   const primaryNumber = country?.emergencyNumber;
@@ -126,6 +149,12 @@ export function HelpTab() {
           </div>
         ) : (
           <div className="space-y-3">
+            <div className="soft-card space-y-2 p-4">
+              <HelperLaunch testId="open-helper-help" />
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                {t("helper.askCardBody")}
+              </p>
+            </div>
             <HelpDisclaimer />
             <CountryPicker countryCode={countryCode} onCountry={setCountry} />
             <CountryContextNote

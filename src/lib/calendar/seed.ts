@@ -171,19 +171,19 @@ export function createSeedState(): CalendarState {
     people: [
       {
         id: THERAPIST_ID,
-        name: "Maya (Therapist)",
+        name: "Demo Therapist",
         email: "maya@example.com",
         appRole: "therapist",
       },
       {
         id: PARENT_ID,
-        name: "Sam (Parent)",
+        name: "Demo Parent",
         email: "sam@example.com",
         appRole: "caregiver",
       },
       {
         id: HELPER_ID,
-        name: "Grandma (Helper)",
+        name: "Demo Grandparent",
         email: "grandma@example.com",
         appRole: "helper",
       },
@@ -226,6 +226,13 @@ export function createSeedState(): CalendarState {
         role: "caregiver",
         status: "active",
       },
+      {
+        id: "mem_grandma_alex",
+        childId: CHILD_ALEX,
+        personId: HELPER_ID,
+        role: "helper",
+        status: "active",
+      },
     ],
     invites: [],
     libraryPlans: [calm, morning, movement, homework, fineMotor, alexCopy, parentEvening],
@@ -252,6 +259,60 @@ export function createSeedState(): CalendarState {
     ],
     selectedChildId: null,
   };
+}
+
+/** True when this device already has the shared demo family, including Alex’s saved plan. */
+export function demoFamilyReady(state: CalendarState): boolean {
+  const people = new Set(state.people.map((person) => person.id));
+  const children = new Set(state.children.map((child) => child.id));
+  return (
+    people.has(THERAPIST_ID) &&
+    people.has(PARENT_ID) &&
+    people.has(HELPER_ID) &&
+    children.has(CHILD_ALEX) &&
+    children.has(CHILD_JORDAN) &&
+    state.memberships.some(
+      (membership) =>
+        membership.childId === CHILD_ALEX &&
+        membership.personId === HELPER_ID &&
+        membership.status === "active",
+    ) &&
+    state.memberships.some(
+      (membership) =>
+        membership.childId === CHILD_ALEX &&
+        membership.personId === PARENT_ID &&
+        membership.status === "active",
+    ) &&
+    !state.memberships.some(
+      (membership) => membership.childId === CHILD_JORDAN && membership.personId === PARENT_ID,
+    ) &&
+    !state.memberships.some(
+      (membership) => membership.childId === CHILD_JORDAN && membership.personId === HELPER_ID,
+    )
+  );
+}
+
+/**
+ * Keep Alex’s plan, check-offs, and edits. Fill in any missing demo family.
+ * Jordan stays on the therapist only.
+ */
+export function withDemoFamily(prev: CalendarState): CalendarState {
+  if (demoFamilyReady(prev)) return prev;
+  const seed = createSeedState();
+  const alexPlans = new Map(
+    prev.dayPlans.filter((plan) => plan.childId === CHILD_ALEX).map((plan) => [plan.id, plan]),
+  );
+  const dayPlans = seed.dayPlans.map((plan) => alexPlans.get(plan.id) ?? plan);
+  for (const plan of prev.dayPlans) {
+    if (plan.childId === CHILD_ALEX && !dayPlans.some((item) => item.id === plan.id)) {
+      dayPlans.push(plan);
+    }
+  }
+  const library = new Map(seed.libraryPlans.map((plan) => [plan.id, plan]));
+  for (const plan of prev.libraryPlans) {
+    if (plan.childId === CHILD_ALEX && library.has(plan.id)) library.set(plan.id, plan);
+  }
+  return { ...seed, libraryPlans: [...library.values()], dayPlans };
 }
 
 export { CHILD_ALEX, CHILD_JORDAN, MASTER_CALM, PARENT_ID, THERAPIST_ID, HELPER_ID };
