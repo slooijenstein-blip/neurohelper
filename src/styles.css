@@ -353,6 +353,10 @@
   background: oklch(0.96 0.012 60);
   color: oklch(0.53 0.028 30);
 }
+@utility tag-role-founder {
+  background: oklch(0.95 0.07 85);
+  color: oklch(0.42 0.12 70);
+}
 
 @utility hide-scrollbar {
   scrollbar-width: thin;

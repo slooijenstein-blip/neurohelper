@@ -14,6 +14,11 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
 import { ROLES, useAppStore, type Profile, type Role } from "@/lib/app-store";
+import {
+  founderEmailsFromClerk,
+  roleChoiceForEmails,
+  rolesVisibleToEmails,
+} from "@/lib/founder-role";
 import { useCalendarStore } from "@/lib/calendar/store";
 import { setDevShareUser } from "@/lib/share/dev-session";
 import { isProAccount } from "@/lib/pro-access";
@@ -154,24 +159,34 @@ export function ProfileTab() {
 }
 
 function ClerkBackedIdentity({ profile }: { profile: Profile | null }) {
-  const { user } = useUser();
+  const { isLoaded, user } = useUser();
 
-  if (!user) return <CaregiverIdentityCard profile={profile} />;
+  if (!isLoaded) return <CaregiverIdentityCard profile={profile} clerkEmails={null} />;
+  if (!user) return <CaregiverIdentityCard profile={profile} clerkEmails={[]} />;
 
   const persistNameToClerk = async (name: string) => {
     const { firstName, lastName } = clerkNameUpdateFromDisplayName(name);
     await user.update({ firstName, lastName });
   };
 
-  return <CaregiverIdentityCard profile={profile} persistNameToClerk={persistNameToClerk} />;
+  return (
+    <CaregiverIdentityCard
+      profile={profile}
+      persistNameToClerk={persistNameToClerk}
+      clerkEmails={founderEmailsFromClerk(user)}
+    />
+  );
 }
 
 function CaregiverIdentityCard({
   profile,
   persistNameToClerk,
+  clerkEmails,
 }: {
   profile: Profile | null;
   persistNameToClerk?: (name: string) => Promise<void>;
+  /** `null` while Clerk is still loading. Omit when there is no signed-in account. */
+  clerkEmails?: readonly (string | null | undefined)[] | null;
 }) {
   const { update } = useAppStore();
   const { t, locale, setLocale } = useI18n();
@@ -204,6 +219,7 @@ function CaregiverIdentityCard({
 
   const residence = listedCountryCode(profile.helpCountry);
   const residenceCountry = residence ? getCountry(residence) : undefined;
+  const roleOptions = rolesVisibleToEmails(clerkEmails, ROLES);
 
   const startEdit = () => {
     setLocaleWhenOpened(locale);
@@ -211,7 +227,7 @@ function CaregiverIdentityCard({
     setDraftCountry(residence ?? "");
     setDraft({
       name: profile.name,
-      role: profile.role,
+      role: roleChoiceForEmails(profile.role, clerkEmails, "Parent"),
       location: profile.location,
       bio: profile.bio,
     });
@@ -233,10 +249,11 @@ function CaregiverIdentityCard({
 
     writeStoredResidence(draftCountry || null);
     let savedName = name;
+    const role = roleChoiceForEmails(draft.role, clerkEmails, profile.role);
     update((prev) => {
       if (!prev.profile) return prev;
       const next = {
-        ...applyCaregiverProfileEdits(prev.profile, { ...draft, name }),
+        ...applyCaregiverProfileEdits(prev.profile, { ...draft, name, role }),
         locale,
         ...(draftCountry ? { helpCountry: draftCountry } : {}),
       };
@@ -266,7 +283,7 @@ function CaregiverIdentityCard({
           <div className="min-w-0 flex-1">
             <p className="text-base font-semibold">{profile.name}</p>
             <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <RoleTag role={profile.role} />
+              <RoleTag role={roleChoiceForEmails(profile.role, clerkEmails, "Parent")} />
               {profile.location ? (
                 <>
                   <MapPin className="ml-1 size-3" /> {profile.location}
@@ -371,10 +388,20 @@ function CaregiverIdentityCard({
         <select
           id="caregiver-role"
           className={selectClass}
-          value={draft.role}
-          onChange={(e) => setDraft((prev) => ({ ...prev, role: e.target.value as Role }))}
+          value={
+            roleOptions.includes(draft.role)
+              ? draft.role
+              : roleChoiceForEmails(draft.role, clerkEmails, "Parent")
+          }
+          onChange={(e) => {
+            const next = e.target.value;
+            if (!(ROLES as readonly string[]).includes(next)) return;
+            const role = next as Role;
+            if (!roleOptions.includes(role)) return;
+            setDraft((prev) => ({ ...prev, role }));
+          }}
         >
-          {ROLES.map((role) => (
+          {roleOptions.map((role) => (
             <option key={role} value={role}>
               {t(ROLE_MESSAGE_KEY[role])}
             </option>
