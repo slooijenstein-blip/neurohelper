@@ -11,13 +11,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { useI18n } from "@/i18n/I18nProvider";
 import {
   childAgeDisplay,
   formatBirthDate,
-  parseAgeYears,
+  monthsFromSliderIndex,
   parseBirthDate,
+  sliderIndexFromMonths,
+  SLIDER_MAX_INDEX,
+  wholeMonths,
 } from "@/lib/calendar/child-age";
 import { membershipOnChild } from "@/lib/calendar/permissions";
 import { toDateKey, useCalendarStore } from "@/lib/calendar/store";
@@ -26,15 +30,27 @@ import { AGE_BANDS, type AgeBand } from "@/lib/calendar/types";
 import { cn } from "@/lib/utils";
 import { ScreenHeader } from "../ui-bits";
 
+function formatExactAge(
+  t: (key: string, vars?: Record<string, string | number>) => string,
+  years: number,
+  months: number,
+) {
+  if (years === 0) return t("calendar.patients.ageMonths", { count: months });
+  if (months === 0 && years === 1) return t("calendar.patients.ageYearOne");
+  if (months === 0) return t("calendar.patients.ageYears", { count: years });
+  if (years === 1) return t("calendar.patients.ageOneAndMonths", { months });
+  return t("calendar.patients.ageYearsAndMonths", { years, months });
+}
+
 function PatientAge({ child }: { child: Child }) {
   const { t, locale } = useI18n();
   const shown = childAgeDisplay(child);
   if (shown.kind === "band") {
     return t(`calendar.ageBands.${shown.band.replace("-", "_")}`);
   }
-  const years = t("calendar.patients.ageYears", { count: shown.years });
-  if (!shown.born) return years;
-  return `${years} · ${t("calendar.patients.born", { date: formatBirthDate(shown.born, locale) })}`;
+  const age = formatExactAge(t, shown.years, shown.months);
+  if (!shown.born) return age;
+  return `${age} · ${t("calendar.patients.born", { date: formatBirthDate(shown.born, locale) })}`;
 }
 
 function progressFor(plans: DayPlan[], childId: string, today: string) {
@@ -55,7 +71,7 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState("");
-  const [ageYears, setAgeYears] = useState("");
+  const [ageIndex, setAgeIndex] = useState(6);
   const [birthDate, setBirthDate] = useState("");
   const [newTag, setNewTag] = useState("");
 
@@ -88,9 +104,12 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
 
   const resetForm = () => {
     setName("");
-    setAgeYears("");
+    setAgeIndex(6);
     setBirthDate("");
   };
+
+  const parsedDob = birthDate.trim() ? parseBirthDate(birthDate) : null;
+  const shownMonths = parsedDob ? wholeMonths(parsedDob) : monthsFromSliderIndex(ageIndex);
 
   const addPatient = () => {
     const trimmed = name.trim();
@@ -98,18 +117,7 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
       toast.error(t("calendar.patients.nameRequired"));
       return;
     }
-    const yearsRaw = ageYears.trim();
     const dobRaw = birthDate.trim();
-    if (!yearsRaw && !dobRaw) {
-      toast.error(t("calendar.patients.ageOrDobRequired"));
-      return;
-    }
-    const parsedYears = yearsRaw ? parseAgeYears(yearsRaw) : null;
-    if (yearsRaw && parsedYears == null) {
-      toast.error(t("calendar.patients.ageInvalid"));
-      return;
-    }
-    const parsedDob = dobRaw ? parseBirthDate(dobRaw) : null;
     if (dobRaw && !parsedDob) {
       toast.error(t("calendar.patients.dobInvalid"));
       return;
@@ -117,7 +125,7 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
     const child = cal.addChild(
       trimmed,
       {
-        ...(parsedYears != null ? { ageYears: parsedYears } : {}),
+        ageMonths: shownMonths,
         ...(parsedDob ? { birthDate: parsedDob } : {}),
       },
       tagFilter ? [tagFilter] : [],
@@ -283,16 +291,35 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
               placeholder={t("calendar.patients.namePlaceholder")}
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="patient-age">{t("calendar.patients.ageLabel")}</Label>
-            <Input
-              id="patient-age"
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <Label id="patient-age-label">{t("calendar.patients.ageLabel")}</Label>
+              <p className="text-sm font-semibold" data-testid="patient-age-value">
+                {formatExactAge(t, Math.floor(shownMonths / 12), shownMonths % 12)}
+              </p>
+            </div>
+            <Slider
+              min={0}
+              max={SLIDER_MAX_INDEX}
+              step={1}
+              value={[parsedDob ? sliderIndexFromMonths(shownMonths) : ageIndex]}
+              onValueChange={(next) => {
+                setAgeIndex(next[0] ?? 0);
+                setBirthDate("");
+              }}
+              thumbClassName="size-8"
+              aria-labelledby="patient-age-label"
               data-testid="patient-age"
-              inputMode="numeric"
-              value={ageYears}
-              onChange={(e) => setAgeYears(e.target.value)}
-              placeholder="4"
             />
+            <div className="flex justify-between text-[11px] text-muted-foreground">
+              <span>{formatExactAge(t, 0, 0)}</span>
+              <span>{t("calendar.patients.ageYears", { count: 10 })}</span>
+            </div>
+            {parsedDob ? (
+              <p className="text-[11px] text-muted-foreground">
+                {t("calendar.patients.ageFromDob")}
+              </p>
+            ) : null}
           </div>
           <div className="space-y-1">
             <Label htmlFor="patient-dob">{t("calendar.patients.dobLabel")}</Label>

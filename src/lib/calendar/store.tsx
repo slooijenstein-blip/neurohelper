@@ -51,7 +51,7 @@ type CalendarContextValue = {
   selectChild: (childId: string | null) => void;
   addChild: (
     displayName: string,
-    age: AgeBand | { ageYears?: number; birthDate?: string },
+    age: AgeBand | { ageYears?: number; ageMonths?: number; birthDate?: string },
     tagIds?: string[],
   ) => Child | null;
   addTherapistTag: (name: string) => void;
@@ -382,6 +382,7 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
         displayName,
         ageBand: resolved.ageBand,
         ...(resolved.ageYears != null ? { ageYears: resolved.ageYears } : {}),
+        ...(resolved.ageMonths != null ? { ageMonths: resolved.ageMonths } : {}),
         ...(resolved.birthDate ? { birthDate: resolved.birthDate } : {}),
         tagIds,
         now: new Date().toISOString(),

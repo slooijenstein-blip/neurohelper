@@ -73,8 +73,10 @@ export type Child = {
   displayName: string;
   /** Kept for older saves and the parent add-child flow. */
   ageBand: AgeBand;
-  /** Whole years typed by a therapist. Demo patients leave this unset. */
+  /** Whole years from an older save. Demo patients leave this unset. */
   ageYears?: number;
+  /** Age in months, including half-years (6, 18, 42). A date of birth can override this on screen. */
+  ageMonths?: number;
   /** ISO date YYYY-MM-DD typed by a therapist. */
   birthDate?: string;
   createdAt: string;

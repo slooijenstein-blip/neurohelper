@@ -4,7 +4,7 @@ import {
   inviteRolesFor,
   membershipOnChild,
 } from "../calendar/permissions.ts";
-import { isStoredAgeYears, isStoredBirthDate } from "../calendar/child-age.ts";
+import { isStoredAgeMonths, isStoredAgeYears, isStoredBirthDate } from "../calendar/child-age.ts";
 import {
   isAgeBand,
   type AppRole,
@@ -89,6 +89,9 @@ export function applyShareAction(
       if (action.ageYears !== undefined && !isStoredAgeYears(action.ageYears)) {
         throw new ShareError(400, "invalid_age", "Enter a whole age in years.");
       }
+      if (action.ageMonths !== undefined && !isStoredAgeMonths(action.ageMonths)) {
+        throw new ShareError(400, "invalid_age", "Enter an age in months.");
+      }
       if (action.birthDate !== undefined && !isStoredBirthDate(action.birthDate)) {
         throw new ShareError(400, "invalid_age", "Enter a valid date of birth.");
       }
@@ -98,6 +101,7 @@ export function applyShareAction(
         displayName: clipDisplayName(action.displayName, "Child"),
         ageBand: action.ageBand,
         ...(action.ageYears !== undefined ? { ageYears: action.ageYears } : {}),
+        ...(action.ageMonths !== undefined ? { ageMonths: action.ageMonths } : {}),
         ...(action.birthDate ? { birthDate: action.birthDate } : {}),
         createdAt: now,
         createdById: actor.userId,

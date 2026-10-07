@@ -7,9 +7,11 @@ import { ShareError } from "../share/errors.ts";
 import {
   bandForYears,
   childAgeDisplay,
+  monthsFromSliderIndex,
   parseAgeYears,
   parseBirthDate,
   resolveTherapistAge,
+  sliderIndexFromMonths,
   wholeYears,
 } from "./child-age.ts";
 
@@ -61,6 +63,13 @@ describe("therapist patient age", () => {
     assert.equal(both?.ageBand, "3-5");
 
     assert.equal(resolveTherapistAge({}, today), null);
+
+    assert.equal(monthsFromSliderIndex(7), 42);
+    assert.equal(sliderIndexFromMonths(44), 7);
+    const half = resolveTherapistAge({ ageMonths: 42 }, today);
+    assert.equal(half?.ageBand, "3-5");
+    assert.equal(half?.ageMonths, 42);
+    assert.equal(half?.ageYears, undefined);
   });
 
   it("shows a band for demo patients and years or a birth date when those were saved", () => {
@@ -69,13 +78,25 @@ describe("therapist patient age", () => {
     assert.deepEqual(childAgeDisplay({ ageBand: "3-5", ageYears: 4 }, today), {
       kind: "exact",
       years: 4,
+      months: 0,
+      born: null,
+    });
+    assert.deepEqual(childAgeDisplay({ ageBand: "3-5", ageMonths: 42 }, today), {
+      kind: "exact",
+      years: 3,
+      months: 6,
       born: null,
     });
     assert.deepEqual(childAgeDisplay({ ageBand: "6-8", birthDate: "2020-01-15" }, today), {
       kind: "exact",
       years: 6,
+      months: 8,
       born: "2020-01-15",
     });
+    assert.deepEqual(
+      childAgeDisplay({ ageBand: "3-5", ageMonths: 36, birthDate: "2020-01-15" }, today),
+      { kind: "exact", years: 6, months: 8, born: "2020-01-15" },
+    );
   });
 
   it("persists age and date of birth and still accepts a band on its own", () => {

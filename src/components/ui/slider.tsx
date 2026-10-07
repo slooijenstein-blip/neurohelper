@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 
 const Slider = React.forwardRef<
   React.ElementRef<typeof SliderPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>
->(({ className, defaultValue, value, min = 0, max = 100, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> & { thumbClassName?: string }
+>(({ className, thumbClassName, defaultValue, value, min = 0, max = 100, ...props }, ref) => {
   const thumbCount = Array.isArray(value)
     ? value.length
     : Array.isArray(defaultValue)
@@ -29,7 +29,10 @@ const Slider = React.forwardRef<
       {Array.from({ length: thumbCount }, (_, index) => (
         <SliderPrimitive.Thumb
           key={index}
-          className="block size-4 shrink-0 rounded-full border-2 border-primary bg-card shadow-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+          className={cn(
+            "block size-4 shrink-0 rounded-full border-2 border-primary bg-card shadow-sm ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+            thumbClassName,
+          )}
         />
       ))}
     </SliderPrimitive.Root>
