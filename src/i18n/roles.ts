@@ -10,4 +10,5 @@ export const ROLE_MESSAGE_KEY: Record<Role, string> = {
   "Family Member": "roles.familyMember",
   Caregiver: "roles.caregiver",
   Other: "roles.other",
+  Founder: "roles.founder",
 };
