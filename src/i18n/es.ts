@@ -414,7 +414,8 @@ export const es: DeepString<Messages> = {
   helper: {
     open: "Helper",
     title: "Helper",
-    subtitle: "Ideas de Synlumae. Tu pregunta se queda en este dispositivo.",
+    subtitle: "Ideas de Synlumae. Las preguntas no se guardan.",
+    startOver: "Empezar de nuevo",
     disclaimer:
       "Orientación general, no es consejo médico. Sigue a las personas que conocen a tu hijo o hija.",
     placeholder: "Pregunta por una crisis, una actividad, la hora de dormir…",

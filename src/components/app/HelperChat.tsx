@@ -1,5 +1,5 @@
 import { MessageCircle } from "lucide-react";
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -65,6 +65,17 @@ export function HelperChat({
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
 
+  useEffect(() => {
+    if (open) return;
+    setDraft("");
+    setTurns([]);
+  }, [open]);
+
+  const startOver = () => {
+    setDraft("");
+    setTurns([]);
+  };
+
   const ask = (question: string, topics?: HelperTopic[]) => {
     const text = question.trim();
     if (!text) return;
@@ -91,7 +102,7 @@ export function HelperChat({
         <p className="rounded-xl bg-warm/40 px-3 py-2 text-[11px] font-semibold leading-snug text-warm-foreground">
           {t("helper.disclaimer")}
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {QUICK.map((item) => (
             <button
               key={item.id}
@@ -103,6 +114,16 @@ export function HelperChat({
               {t(item.labelKey)}
             </button>
           ))}
+          {turns.length > 0 ? (
+            <button
+              type="button"
+              data-testid="helper-start-over"
+              onClick={startOver}
+              className="rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground"
+            >
+              {t("helper.startOver")}
+            </button>
+          ) : null}
         </div>
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
           {turns.map((turn) => (

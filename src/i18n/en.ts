@@ -404,7 +404,8 @@ export const en = {
   helper: {
     open: "Helper",
     title: "Helper",
-    subtitle: "Tips from Synlumae. Your question stays on this device.",
+    subtitle: "Tips from Synlumae. Questions are not saved.",
+    startOver: "Start over",
     disclaimer: "General guidance, not medical advice. Follow the people who know your child.",
     placeholder: "Ask about a meltdown, an activity, bedtime…",
     send: "Send",
@@ -425,7 +426,8 @@ export const en = {
     seeSupport: "Local support",
     guidesEnglish: "These caregiver guides are still in English.",
     askCard: "Ask Helper",
-    askCardBody: "Meltdowns, activities, bedtime. Answers come from Synlumae, not an outside chatbot.",
+    askCardBody:
+      "Meltdowns, activities, bedtime. Answers come from Synlumae, not an outside chatbot.",
   },
   calendar: {
     brand: {
