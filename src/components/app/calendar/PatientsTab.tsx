@@ -42,14 +42,14 @@ function formatExactAge(
   return t("calendar.patients.ageYearsAndMonths", { years, months });
 }
 
-function PatientAge({ child }: { child: Child }) {
+function PatientAge({ child, showBirthDate = false }: { child: Child; showBirthDate?: boolean }) {
   const { t, locale } = useI18n();
   const shown = childAgeDisplay(child);
   if (shown.kind === "band") {
     return t(`calendar.ageBands.${shown.band.replace("-", "_")}`);
   }
   const age = formatExactAge(t, shown.years, shown.months);
-  if (!shown.born) return age;
+  if (!showBirthDate || !shown.born) return age;
   return `${age} · ${t("calendar.patients.born", { date: formatBirthDate(shown.born, locale) })}`;
 }
 
@@ -245,7 +245,7 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
                     className="text-[11px] text-muted-foreground"
                     data-testid={`patient-age-${child.id}`}
                   >
-                    <PatientAge child={child} />
+                    <PatientAge child={child} showBirthDate />
                     {childTagNames.length ? ` · ${childTagNames.join(", ")}` : ""}
                   </p>
                   {progress ? (
@@ -331,6 +331,7 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
               value={birthDate}
               onChange={(e) => setBirthDate(e.target.value)}
             />
+            <p className="text-[11px] text-muted-foreground">{t("calendar.patients.dobPrivate")}</p>
           </div>
           <p className="text-[11px] text-muted-foreground">{t("calendar.patients.ageOrDob")}</p>
           <Button

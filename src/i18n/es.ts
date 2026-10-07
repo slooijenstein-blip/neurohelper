@@ -639,7 +639,8 @@ export const es: DeepString<Messages> = {
       namePlaceholder: "Nombre",
       nameRequired: "El nombre es obligatorio.",
       ageLabel: "Edad",
-      dobLabel: "Fecha de nacimiento",
+      dobLabel: "Fecha de nacimiento (opcional)",
+      dobPrivate: "Solo tú ves esta fecha. No se comparte con la familia.",
       ageOrDob:
         "Desliza para indicar la edad en pasos de 6 meses. La fecha de nacimiento rellena la edad.",
       ageOrDobRequired: "Indica la edad o la fecha de nacimiento.",

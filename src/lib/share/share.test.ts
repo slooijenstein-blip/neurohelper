@@ -6,7 +6,7 @@ import { handleShareApi, createShareDeps } from "./http.ts";
 import { inviteRedirectUrl, ShareService } from "./service.ts";
 import { createMemoryShareStore } from "./store.ts";
 import { toDateKey } from "../calendar/types.ts";
-import { blankAccountState } from "./workspace.ts";
+import { blankAccountState, createOwnerWorkspace, viewFor } from "./workspace.ts";
 
 const origin = "http://localhost:8080";
 
@@ -359,6 +359,43 @@ describe("live sharing", () => {
     assert.equal(blank.children.length, 0);
     assert.equal(blank.people[0]?.appRole, "therapist");
     assert.equal(blankAccountState(parent).people[0]?.appRole, "caregiver");
+  });
+
+  it("keeps a date of birth on the therapist caseload and leaves it off the family view", () => {
+    const ws = createOwnerWorkspace(therapist, "2026-10-07T00:00:00.000Z");
+    ws.children = [
+      {
+        id: "child_noah0001",
+        displayName: "Noah",
+        ageBand: "3-5",
+        ageMonths: 54,
+        birthDate: "2022-04-07",
+        createdAt: "2026-10-07T00:00:00.000Z",
+        createdById: therapist.userId,
+      },
+    ];
+    ws.memberships = [
+      {
+        id: "mem_therap03",
+        childId: "child_noah0001",
+        personId: therapist.userId,
+        role: "therapist",
+        status: "active",
+      },
+      {
+        id: "mem_parent01",
+        childId: "child_noah0001",
+        personId: parent.userId,
+        role: "caregiver",
+        status: "active",
+      },
+    ];
+    const own = viewFor(ws, therapist);
+    assert.equal(own.children[0]?.birthDate, "2022-04-07");
+    const family = viewFor(ws, parent);
+    assert.equal(family.children[0]?.displayName, "Noah");
+    assert.equal(family.children[0]?.ageMonths, 54);
+    assert.equal(family.children[0]?.birthDate, undefined);
   });
 
   it("reports when the preview has no store", async () => {

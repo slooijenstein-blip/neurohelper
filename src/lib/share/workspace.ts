@@ -145,6 +145,14 @@ export function blankAccountState(actor: Actor): CalendarState {
   };
 }
 
+/** A date of birth stays on the therapist caseload. Family views never receive it. */
+function withoutBirthDate(child: CalendarState["children"][number]) {
+  if (!child.birthDate) return child;
+  const { birthDate, ...rest } = child;
+  void birthDate;
+  return rest;
+}
+
 /** Parents and helpers only see the children shared with them. */
 export function viewFor(ws: Workspace, actor: Actor): CalendarState {
   if (ws.ownerUserId === actor.userId) {
@@ -154,7 +162,9 @@ export function viewFor(ws: Workspace, actor: Actor): CalendarState {
     (membership) => membership.personId === actor.userId && membership.status === "active",
   );
   const childIds = new Set(mine.map((membership) => membership.childId));
-  const children = ws.children.filter((child) => childIds.has(child.id));
+  const children = ws.children
+    .filter((child) => childIds.has(child.id))
+    .map((child) => withoutBirthDate(child));
   const memberships = ws.memberships.filter(
     (membership) => childIds.has(membership.childId) && membership.status === "active",
   );
