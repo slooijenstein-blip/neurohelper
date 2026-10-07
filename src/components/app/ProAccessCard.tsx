@@ -101,7 +101,10 @@ function ProAccessPanel({
   authFor: AuthFor;
 }) {
   const { t, locale } = useI18n();
-  const isAdmin = isProRequestAdmin({ email, emails });
+  const isAdmin = isProRequestAdmin(
+    { email, emails },
+    import.meta.env.VITE_PRO_REQUEST_ADMIN_EMAILS,
+  );
   const authRef = useRef(authFor);
   authRef.current = authFor;
   const [phase, setPhase] = useState<"loading" | "ready" | "unavailable" | "error">("loading");

@@ -2,8 +2,15 @@ import { ShareError } from "./errors.ts";
 import { actorEmailKeys, assertEmail, canonicalEmail, normalizeEmail } from "./names.ts";
 import type { ShareStore } from "./store.ts";
 
-/** Reviewer inbox. Gmail dots and +tags match this same address. */
-export const PRO_REQUEST_ADMIN_EMAIL = "samlooijenstein@gmail.com";
+/**
+ * Built-in reviewer inboxes. Gmail dots and +tags match the Gmail address.
+ * `PRO_REQUEST_ADMIN_EMAILS` (server) and `VITE_PRO_REQUEST_ADMIN_EMAILS`
+ * (Profile UI, baked at build time) replace this list when set.
+ */
+export const PRO_REQUEST_ADMIN_EMAILS = [
+  "samlooijenstein@gmail.com",
+  "s.looijenstein@synlumae.com",
+] as const;
 
 export const PRO_REQUEST_ROLES = ["therapist", "psychologist", "other"] as const;
 export type ProRequestRole = (typeof PRO_REQUEST_ROLES)[number];
@@ -45,9 +52,30 @@ function newProRequestId(): string {
   return `proreq_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
 }
 
-export function isProRequestAdmin(actor: { email: string; emails?: string[] }): boolean {
-  const allow = canonicalEmail(PRO_REQUEST_ADMIN_EMAIL);
-  return actorEmailKeys(actor).some((key) => canonicalEmail(key) === allow);
+function adminAllowlist(override?: string | null): Set<string> {
+  const configured = override?.trim() ?? "";
+  const listed = configured ? configured.split(",") : [...PRO_REQUEST_ADMIN_EMAILS];
+  const allow = new Set<string>();
+  for (const raw of listed) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    try {
+      allow.add(canonicalEmail(assertEmail(trimmed)));
+    } catch {
+      /* skip a malformed address */
+    }
+  }
+  return allow;
+}
+
+/** True when any of the actor's addresses is on the reviewer list. */
+export function isProRequestAdmin(
+  actor: { email: string; emails?: string[] },
+  override?: string | null,
+): boolean {
+  const allow = adminAllowlist(override);
+  if (allow.size === 0) return false;
+  return actorEmailKeys(actor).some((key) => allow.has(canonicalEmail(key)));
 }
 
 export function parseProRequestInput(body: Record<string, unknown>): ProRequestInput {
