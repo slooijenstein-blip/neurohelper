@@ -127,7 +127,10 @@ function emailLocalPart(email) {
 }
 
 // src/lib/share/pro-request.ts
-var PRO_REQUEST_ADMIN_EMAIL = "samlooijenstein@gmail.com";
+var PRO_REQUEST_ADMIN_EMAILS = [
+  "samlooijenstein@gmail.com",
+  "s.looijenstein@synlumae.com"
+];
 var PRO_REQUEST_ROLES = ["therapist", "psychologist", "other"];
 function clipLine(raw, max) {
   let cleaned = "";
@@ -139,9 +142,24 @@ function clipLine(raw, max) {
 function newProRequestId() {
   return `proreq_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
 }
-function isProRequestAdmin(actor) {
-  const allow = canonicalEmail(PRO_REQUEST_ADMIN_EMAIL);
-  return actorEmailKeys(actor).some((key) => canonicalEmail(key) === allow);
+function adminAllowlist(override) {
+  const configured = override?.trim() ?? "";
+  const listed = configured ? configured.split(",") : [...PRO_REQUEST_ADMIN_EMAILS];
+  const allow = /* @__PURE__ */ new Set();
+  for (const raw of listed) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    try {
+      allow.add(canonicalEmail(assertEmail(trimmed)));
+    } catch {
+    }
+  }
+  return allow;
+}
+function isProRequestAdmin(actor, override) {
+  const allow = adminAllowlist(override);
+  if (allow.size === 0) return false;
+  return actorEmailKeys(actor).some((key) => allow.has(canonicalEmail(key)));
 }
 function parseProRequestInput(body) {
   const fullName = clipLine(typeof body["fullName"] === "string" ? body["fullName"] : "", 80);
@@ -2812,6 +2830,7 @@ function createShareDeps(env = process.env) {
     store,
     userIsPro: (userId) => clerkUserIsPro(secretKey, userId),
     proRequestNotify: proRequestNotifyResult(readEnv2(env, "PRO_REQUEST_NOTIFY_EMAIL")),
+    proRequestAdminEmails: readEnv2(env, "PRO_REQUEST_ADMIN_EMAILS"),
     authenticate: async (req) => {
       const dev = devActor(req, env);
       if (dev) return dev;
@@ -2831,7 +2850,8 @@ function shareDeps(env = process.env) {
     readEnv2(env, "UPSTASH_REDIS_REST_URL") || readEnv2(env, "KV_REST_API_URL") || "",
     readEnv2(env, "SHARE_STORE") || "",
     readEnv2(env, "VERCEL") ? "vercel" : "local",
-    readEnv2(env, "CLERK_SECRET_KEY") ? "clerk" : "noclerk"
+    readEnv2(env, "CLERK_SECRET_KEY") ? "clerk" : "noclerk",
+    readEnv2(env, "PRO_REQUEST_ADMIN_EMAILS") || ""
   ].join("|");
   if (runtime?.key === key) return runtime.deps;
   const deps = createShareDeps(env);
@@ -2896,7 +2916,7 @@ async function handleShareApi(req, deps) {
       return json({ request, notify: deps.proRequestNotify });
     }
     if (route.name === "pro-requests" && req.method === "GET") {
-      if (!isProRequestAdmin(actor)) {
+      if (!isProRequestAdmin(actor, deps.proRequestAdminEmails)) {
         throw new ShareError(403, "forbidden", "You cannot view Pro requests.");
       }
       const waiting = await pendingForReview(await deps.store.listProRequests(), deps.userIsPro);

@@ -30,6 +30,8 @@ export type ShareDeps = {
   store: ShareStore | null;
   userIsPro: (userId: string) => Promise<boolean>;
   proRequestNotify: ReturnType<typeof proRequestNotifyResult>;
+  /** Unset uses the built-in reviewer addresses. A value replaces that list. */
+  proRequestAdminEmails?: string;
   authenticate: (req: Request) => Promise<Actor | null>;
 };
 
@@ -186,6 +188,7 @@ export function createShareDeps(env: NodeJS.ProcessEnv = process.env): ShareDeps
     store,
     userIsPro: (userId) => clerkUserIsPro(secretKey, userId),
     proRequestNotify: proRequestNotifyResult(readEnv(env, "PRO_REQUEST_NOTIFY_EMAIL")),
+    proRequestAdminEmails: readEnv(env, "PRO_REQUEST_ADMIN_EMAILS"),
     authenticate: async (req) => {
       const dev = devActor(req, env);
       if (dev) return dev;
@@ -208,6 +211,7 @@ export function shareDeps(env: NodeJS.ProcessEnv = process.env): ShareDeps {
     readEnv(env, "SHARE_STORE") || "",
     readEnv(env, "VERCEL") ? "vercel" : "local",
     readEnv(env, "CLERK_SECRET_KEY") ? "clerk" : "noclerk",
+    readEnv(env, "PRO_REQUEST_ADMIN_EMAILS") || "",
   ].join("|");
   if (runtime?.key === key) return runtime.deps;
   const deps = createShareDeps(env);
@@ -276,7 +280,7 @@ export async function handleShareApi(req: Request, deps: ShareDeps): Promise<Res
       return json({ request, notify: deps.proRequestNotify });
     }
     if (route.name === "pro-requests" && req.method === "GET") {
-      if (!isProRequestAdmin(actor)) {
+      if (!isProRequestAdmin(actor, deps.proRequestAdminEmails)) {
         throw new ShareError(403, "forbidden", "You cannot view Pro requests.");
       }
       const waiting = await pendingForReview(await deps.store.listProRequests(), deps.userIsPro);

@@ -75,6 +75,7 @@ export const en = {
     familyMember: "Family Member",
     caregiver: "Caregiver",
     other: "Other",
+    founder: "Founder",
   },
   profile: {
     title: "Profile",

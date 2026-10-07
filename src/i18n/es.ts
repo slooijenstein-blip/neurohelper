@@ -82,6 +82,7 @@ export const es: DeepString<Messages> = {
     familyMember: "Familiar",
     caregiver: "Cuidador o cuidadora",
     other: "Otro",
+    founder: "Fundador",
   },
   profile: {
     title: "Perfil",

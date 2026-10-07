@@ -10,6 +10,7 @@ import {
   planClerkProfileSync,
   profileFromClerkUser,
 } from "@/lib/clerk-profile";
+import { founderEmailsFromClerk, restrictFounderRole } from "@/lib/founder-role";
 
 function ClerkProfileSyncInner() {
   const { isLoaded, user } = useUser();
@@ -39,7 +40,10 @@ function ClerkProfileSyncInner() {
           ? profileFromClerkUser(user, prototypeDemo ? null : prev.profile)
           : prev.profile;
       if (!base) return prev;
-      const profile = applyClerkProFlag(base, user);
+      const profile = restrictFounderRole(
+        applyClerkProFlag(base, user),
+        founderEmailsFromClerk(user),
+      );
       if (plan.action === "skip" && profile === prev.profile) return prev;
       return {
         ...prev,

@@ -11,12 +11,13 @@ import {
   pendingForReview,
   proRequestNotifyResult,
   submitProRequest,
-  PRO_REQUEST_ADMIN_EMAIL,
+  PRO_REQUEST_ADMIN_EMAILS,
 } from "./pro-request.ts";
 import { createFileShareStore } from "./store.ts";
 
 const parent = "user_parent001|parent@example.com|Pat Parent|0";
-const admin = `user_samadmin1|${PRO_REQUEST_ADMIN_EMAIL}|Sam|0`;
+const admin = `user_samadmin1|${PRO_REQUEST_ADMIN_EMAILS[0]}|Sam|0`;
+const synlumaeAdmin = `user_samsynlum1|${PRO_REQUEST_ADMIN_EMAILS[1]}|Sam|0`;
 const therapist = "user_therapist1|maya@example.com|Maya|1";
 
 const fields = {
@@ -93,6 +94,12 @@ describe("pro access requests", () => {
     assert.equal(listed.requests.length, 1);
     assert.equal(listed.requests[0]?.email, "parent@example.com");
 
+    const synlumaeQueue = await handleShareApi(
+      request(synlumaeAdmin, "/api/share/pro-requests"),
+      deps,
+    );
+    assert.equal(synlumaeQueue.status, 200);
+
     const blocked = await handleShareApi(
       request(therapist, "/api/share/pro-request", "POST", fields),
       deps,
@@ -107,9 +114,26 @@ describe("pro access requests", () => {
     );
   });
 
-  it("treats Sam's Gmail as the reviewer and hides accounts that already have Pro", async () => {
+  it("treats Sam's Gmail and Synlumae address as reviewers and hides accounts that already have Pro", async () => {
     assert.equal(isProRequestAdmin({ email: "Sam.Looijenstein@gmail.com" }), true);
+    assert.equal(isProRequestAdmin({ email: "S.Looijenstein@Synlumae.com" }), true);
+    assert.equal(
+      isProRequestAdmin({
+        email: "other@example.com",
+        emails: ["other@example.com", "s.looijenstein@synlumae.com"],
+      }),
+      true,
+    );
     assert.equal(isProRequestAdmin({ email: "parent@example.com" }), false);
+    assert.equal(
+      isProRequestAdmin({ email: "s.looijenstein@synlumae.com" }, "only@example.com"),
+      false,
+    );
+    assert.equal(isProRequestAdmin({ email: "only@example.com" }, "only@example.com"), true);
+    assert.equal(
+      isProRequestAdmin({ email: "samlooijenstein@gmail.com" }, "only@example.com"),
+      false,
+    );
     assert.equal(proRequestNotifyResult(undefined).code, "not_configured");
     assert.equal(proRequestNotifyResult("samlooijenstein@gmail.com").code, "no_mailer");
 
@@ -129,5 +153,26 @@ describe("pro access requests", () => {
     assert.equal(hidden.length, 0);
     const shown = await pendingForReview([first], async () => false);
     assert.equal(shown.length, 1);
+  });
+
+  it("replaces the built-in reviewers when PRO_REQUEST_ADMIN_EMAILS is set", async () => {
+    const deps = createShareDeps({
+      SHARE_STORE: "memory",
+      SHARE_DEV_BYPASS: "1",
+      PRO_REQUEST_ADMIN_EMAILS: "s.looijenstein@synlumae.com",
+    });
+    const saved = await handleShareApi(
+      request(parent, "/api/share/pro-request", "POST", fields),
+      deps,
+    );
+    assert.equal(saved.status, 200);
+
+    const gmail = await handleShareApi(request(admin, "/api/share/pro-requests"), deps);
+    assert.equal(gmail.status, 403);
+
+    const synlumae = await handleShareApi(request(synlumaeAdmin, "/api/share/pro-requests"), deps);
+    assert.equal(synlumae.status, 200);
+    const listed = (await synlumae.json()) as { requests: Array<{ email: string }> };
+    assert.equal(listed.requests.length, 1);
   });
 });

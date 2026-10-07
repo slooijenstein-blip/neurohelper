@@ -39,7 +39,8 @@ export type Role =
   | "Grandparent"
   | "Family Member"
   | "Caregiver"
-  | "Other";
+  | "Other"
+  | "Founder";
 
 export const ROLES: Role[] = [
   "Parent",
@@ -51,6 +52,7 @@ export const ROLES: Role[] = [
   "Family Member",
   "Caregiver",
   "Other",
+  "Founder",
 ];
 
 export const roleTone: Record<Role, string> = {
@@ -63,6 +65,7 @@ export const roleTone: Record<Role, string> = {
   "Family Member": "tag-role-family",
   Caregiver: "tag-role-caregiver",
   Other: "tag-role-other",
+  Founder: "tag-role-founder",
 };
 
 export type Socials = {
