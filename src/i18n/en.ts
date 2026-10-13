@@ -54,7 +54,7 @@ export const en = {
   },
   demoRoles: {
     label: "Demo roles",
-    hint: "Preview only. Therapist has Pro plus Alex and Jordan. Parent and grandparent share Alex. This does not change real sign-in.",
+    hint: "Preview only. Therapist has Pro plus Alex and Jordan. Demo Parent shares both children. Demo Grandparent shares Alex only. This does not change real sign-in.",
     therapist: "Demo Therapist",
     parent: "Demo Parent",
     grandparent: "Demo Grandparent",
@@ -697,6 +697,7 @@ export const en = {
     emptyTitle: "No children shared yet",
     emptyBody: "When a therapist shares a plan with you, the child shows up here.",
     schedule: "Shared schedule",
+    switch: "Which child",
   },
   shared: {
     title: "Shared with you",

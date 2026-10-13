@@ -19,14 +19,17 @@ describe("calendar permissions", () => {
 });
 
 describe("calendar seed", () => {
-  it("links parent and grandparent to Alex, and keeps Jordan with the therapist", () => {
+  it("links the parent to Alex and Jordan, and the grandparent to Alex only", () => {
     const state = createSeedState();
     const alexMembers = state.memberships.filter((m) => m.childId === "child_alex");
     const jordanMembers = state.memberships.filter((m) => m.childId === "child_jordan");
     assert.ok(alexMembers.some((m) => m.personId === "person_sam" && m.role === "caregiver"));
     assert.ok(alexMembers.some((m) => m.personId === "person_grandma" && m.role === "helper"));
-    assert.ok(!jordanMembers.some((m) => m.personId === "person_sam"));
+    assert.ok(jordanMembers.some((m) => m.personId === "person_sam" && m.role === "caregiver"));
     assert.ok(!jordanMembers.some((m) => m.personId === "person_grandma"));
+    const jordanDays = state.dayPlans.filter((plan) => plan.childId === "child_jordan");
+    assert.equal(jordanDays.length, 3);
+    assert.ok(jordanDays.some((plan) => plan.id === "day_jordan_today"));
     assert.equal(
       state.memberships.filter((m) => m.personId === "person_maya" && m.role === "therapist")
         .length,
@@ -90,6 +93,13 @@ describe("calendar seed", () => {
       repaired.memberships.some(
         (membership) =>
           membership.childId === "child_jordan" && membership.personId === "person_sam",
+      ),
+      true,
+    );
+    assert.equal(
+      repaired.memberships.some(
+        (membership) =>
+          membership.childId === "child_jordan" && membership.personId === "person_grandma",
       ),
       false,
     );

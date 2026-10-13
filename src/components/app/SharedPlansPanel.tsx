@@ -78,11 +78,19 @@ export function SharedPlansPanel() {
     });
   };
 
-  const detail = sharedChildren
+  const selectedId =
+    sharedChildren.find((child) => child.id === cal.state.selectedChildId)?.id ??
+    sharedChildren[0]?.id;
+  const shownChildren =
+    sharedChildren.length > 1
+      ? sharedChildren.filter((child) => child.id === selectedId)
+      : sharedChildren;
+
+  const detail = shownChildren
     .flatMap((child) => plansForDay(cal.state.dayPlans, child.id, dates[child.id] ?? today))
     .flatMap((plan) => plan.steps)
     .find((step) => step.id === detailId);
-  const detailPlan = sharedChildren
+  const detailPlan = shownChildren
     .flatMap((child) =>
       plansForDay(cal.state.dayPlans, child.id, dates[child.id] ?? today).map((plan) => ({
         childId: child.id,
@@ -93,7 +101,34 @@ export function SharedPlansPanel() {
 
   return (
     <section className="flex w-full min-w-0 flex-col gap-4" data-testid="shared-plans">
-      {sharedChildren.map((child) => {
+      {sharedChildren.length > 1 ? (
+        <div role="tablist" aria-label={t("children.switch")} className="flex flex-wrap gap-2">
+          {sharedChildren.map((child) => {
+            const active = child.id === selectedId;
+            return (
+              <button
+                key={child.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                data-testid={`child-switch-${child.id}`}
+                onClick={() => cal.selectChild(child.id)}
+                className={
+                  active
+                    ? "rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                    : "rounded-full bg-card px-3 py-1.5 text-xs font-semibold text-foreground ring-1 ring-border"
+                }
+              >
+                {child.displayName}
+                <span className="ml-1 font-normal opacity-80">
+                  <PatientAge child={child} />
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      {shownChildren.map((child) => {
         const role =
           cal.state.memberships.find(
             (membership) =>

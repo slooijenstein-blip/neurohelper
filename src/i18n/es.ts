@@ -61,7 +61,7 @@ export const es: DeepString<Messages> = {
   },
   demoRoles: {
     label: "Roles de demo",
-    hint: "Solo vista previa. El terapeuta tiene Pro y a Alex y Jordan. El padre/madre y el abuelo/a comparten a Alex. No cambia el acceso real.",
+    hint: "Solo vista previa. El terapeuta tiene Pro y a Alex y Jordan. El padre o la madre comparte a los dos. El abuelo o la abuela comparte solo a Alex. No cambia el acceso real.",
     therapist: "Demo Therapist",
     parent: "Demo Parent",
     grandparent: "Demo Grandparent",
@@ -713,6 +713,7 @@ export const es: DeepString<Messages> = {
     emptyTitle: "Todavía no hay niños compartidos",
     emptyBody: "Cuando un terapeuta comparta un plan contigo, el niño o la niña aparecerá aquí.",
     schedule: "Horario compartido",
+    switch: "Qué niño o niña",
   },
   shared: {
     title: "Compartido contigo",
