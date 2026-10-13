@@ -1,5 +1,6 @@
 import {
   Activity,
+  Baby,
   CalendarDays,
   Heart,
   Globe,
@@ -20,6 +21,7 @@ import { isProAccount, showProChrome, tabsForAccount, type AppTabKey } from "@/l
 import { useDevShareUser } from "@/lib/share/dev-session";
 import { useAppStore } from "@/lib/app-store";
 import { ActivitiesTab } from "./ActivitiesTab";
+import { ChildrenTab } from "./ChildrenTab";
 import { ScheduleTab } from "./ScheduleTab";
 import { JourneyTab } from "./JourneyTab";
 import { CommunityTab } from "./CommunityTab";
@@ -38,6 +40,7 @@ export type TabKey = AppTabKey;
 
 const TAB_META: Record<TabKey, { labelKey: string; icon: typeof Activity }> = {
   activities: { labelKey: "nav.activities", icon: Activity },
+  children: { labelKey: "nav.children", icon: Baby },
   pro: { labelKey: "nav.pro", icon: Stethoscope },
   schedule: { labelKey: "nav.schedule", icon: CalendarDays },
   journey: { labelKey: "nav.journey", icon: Heart },
@@ -72,7 +75,7 @@ function AppShell({
   const tabs = tabsForAccount(isPro);
 
   useEffect(() => {
-    if (tab === "pro" && !isPro) onTab("activities");
+    if ((tab === "pro" && !isPro) || (tab === "children" && isPro)) onTab("activities");
   }, [tab, isPro, onTab]);
 
   const goTab = (key: TabKey) => {
@@ -101,6 +104,7 @@ function AppShell({
   ) : (
     {
       activities: <ActivitiesTab />,
+      children: <ChildrenTab />,
       pro: <ProTab />,
       schedule: <ScheduleTab />,
       journey: <JourneyTab />,

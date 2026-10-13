@@ -42,7 +42,13 @@ function formatExactAge(
   return t("calendar.patients.ageYearsAndMonths", { years, months });
 }
 
-function PatientAge({ child, showBirthDate = false }: { child: Child; showBirthDate?: boolean }) {
+export function PatientAge({
+  child,
+  showBirthDate = false,
+}: {
+  child: Child;
+  showBirthDate?: boolean;
+}) {
   const { t, locale } = useI18n();
   const shown = childAgeDisplay(child);
   if (shown.kind === "band") {

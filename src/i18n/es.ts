@@ -14,6 +14,7 @@ export const es: DeepString<Messages> = {
   nav: {
     label: "Principal",
     activities: "Actividades",
+    children: "Niños",
     schedule: "Horario",
     journey: "Camino",
     community: "Comunidad",
@@ -455,6 +456,8 @@ export const es: DeepString<Messages> = {
     },
     week: {
       label: "Esta semana",
+      prev: "Semana anterior",
+      next: "Semana siguiente",
       mon: "Lun",
       tue: "Mar",
       wed: "Mié",
@@ -704,6 +707,13 @@ export const es: DeepString<Messages> = {
     demoBanner:
       "Demo Pro. Sigues teniendo Actividades, Comunidad, Ayuda y Perfil, más la pestaña Pro.",
   },
+  children: {
+    title: "Niños",
+    subtitle: "Nombre y edad de cada niño o niña que un terapeuta ha compartido contigo.",
+    emptyTitle: "Todavía no hay niños compartidos",
+    emptyBody: "Cuando un terapeuta comparta un plan contigo, el niño o la niña aparecerá aquí.",
+    schedule: "Horario compartido",
+  },
   shared: {
     title: "Compartido contigo",
     subtitle: "Un plan para {{name}}. Tus pestañas no cambian.",
@@ -717,6 +727,7 @@ export const es: DeepString<Messages> = {
     sent: "Invitación creada. Su app no cambia.",
     people: "Quién puede verlo",
     emptyToday: "Hoy no hay nada compartido.",
+    emptyDay: "No hay un plan compartido para este día.",
     demoBanner: "Demo de familia. Actividades, Comunidad y Horario siguen. No hay pestaña Pro.",
   },
   share: {

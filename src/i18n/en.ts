@@ -7,6 +7,7 @@ export const en = {
   nav: {
     label: "Main",
     activities: "Activities",
+    children: "Children",
     schedule: "Schedule",
     journey: "Journey",
     community: "Community",
@@ -444,6 +445,8 @@ export const en = {
     },
     week: {
       label: "This week",
+      prev: "Previous week",
+      next: "Next week",
       mon: "Mon",
       tue: "Tue",
       wed: "Wed",
@@ -688,6 +691,13 @@ export const en = {
     intro: "Families keep the normal app. They never see this caseload.",
     demoBanner: "Pro demo. Activities, Community, Help, and Profile stay, plus the Pro tab.",
   },
+  children: {
+    title: "Children",
+    subtitle: "First name and age for each child a therapist has shared with you.",
+    emptyTitle: "No children shared yet",
+    emptyBody: "When a therapist shares a plan with you, the child shows up here.",
+    schedule: "Shared schedule",
+  },
   shared: {
     title: "Shared with you",
     subtitle: "A plan for {{name}}. Your tabs stay the same.",
@@ -701,6 +711,7 @@ export const en = {
     sent: "Invite created. They keep the normal app.",
     people: "Who can see this",
     emptyToday: "Nothing shared for today yet.",
+    emptyDay: "No shared plan for this day.",
     demoBanner: "Parent demo. Activities, Community, and Schedule stay. There is no Pro tab.",
   },
   share: {

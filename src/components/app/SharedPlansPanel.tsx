@@ -21,16 +21,12 @@ import { withBasePath } from "@/lib/paths";
 import { cn } from "@/lib/utils";
 
 import { AddToMyCalendarButton } from "./AddToMyCalendarButton";
+import { PatientAge } from "./calendar/PatientsTab";
 import { StepDetailDialog } from "./calendar/StepDetailDialog";
+import { WeekStrip } from "./calendar/WeekStrip";
 
-function planForChild(plans: DayPlan[], childId: string, today: string): DayPlan | null {
-  return (
-    plans.find((plan) => plan.childId === childId && plan.date === today) ??
-    plans
-      .filter((plan) => plan.childId === childId)
-      .sort((a, b) => (a.date < b.date ? 1 : -1))[0] ??
-    null
-  );
+function plansForDay(plans: DayPlan[], childId: string, date: string): DayPlan[] {
+  return plans.filter((plan) => plan.childId === childId && plan.date === date);
 }
 
 /**
@@ -46,6 +42,7 @@ export function SharedPlansPanel() {
   const [email, setEmail] = useState("");
   const [link, setLink] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [dates, setDates] = useState<Record<string, string>>({});
 
   const sharedChildren = cal.myChildren.filter((child) => {
     const role = membershipOnChild(cal.state.memberships, child.id, cal.activePerson.id)?.role;
@@ -81,8 +78,21 @@ export function SharedPlansPanel() {
     });
   };
 
+  const detail = sharedChildren
+    .flatMap((child) => plansForDay(cal.state.dayPlans, child.id, dates[child.id] ?? today))
+    .flatMap((plan) => plan.steps)
+    .find((step) => step.id === detailId);
+  const detailPlan = sharedChildren
+    .flatMap((child) =>
+      plansForDay(cal.state.dayPlans, child.id, dates[child.id] ?? today).map((plan) => ({
+        childId: child.id,
+        plan,
+      })),
+    )
+    .find((item) => item.plan.steps.some((step) => step.id === detailId));
+
   return (
-    <section className="space-y-3" data-testid="shared-plans">
+    <section className="flex w-full min-w-0 flex-col gap-4" data-testid="shared-plans">
       {sharedChildren.map((child) => {
         const role =
           cal.state.memberships.find(
@@ -91,95 +101,106 @@ export function SharedPlansPanel() {
               membership.personId === cal.activePerson.id &&
               membership.status === "active",
           )?.role ?? null;
-        const day = planForChild(cal.state.dayPlans, child.id, today);
-        const detail = day?.steps.find((step) => step.id === detailId) ?? null;
+        const date = dates[child.id] ?? today;
+        const days = plansForDay(cal.state.dayPlans, child.id, date);
         const people = cal.peopleForChild(child.id);
         const canShare = canInvite(role) && inviteRolesFor(role).includes("helper");
 
         return (
-          <div
+          <article
             key={child.id}
-            data-testid="shared-plan"
-            className="rounded-2xl bg-card p-4 ring-1 ring-border"
+            data-testid={`shared-plan-${child.id}`}
+            className="relative w-full min-w-0 overflow-hidden rounded-2xl bg-card p-4 ring-1 ring-border"
           >
             <p className="text-[11px] font-bold uppercase tracking-wide text-primary">
               {t("shared.title")}
             </p>
-            <h2 className="mt-1 text-sm font-semibold">
-              {day ? presentPlanName(day, (key) => t(key)) : t("shared.emptyToday")}
-            </h2>
-            <p className="text-[11px] text-muted-foreground">
-              {t("shared.subtitle", { name: child.displayName })}
+            <h2 className="mt-1 text-base font-semibold leading-tight">{child.displayName}</h2>
+            <p className="text-[11px] text-muted-foreground" data-testid={`shared-age-${child.id}`}>
+              <PatientAge child={child} />
             </p>
 
-            {day ? (
-              <ul className="mt-3 space-y-2">
-                {day.steps.map((step, index) => {
-                  const shown = presentPlanStep(step, locale);
-                  return (
-                    <li key={step.id} className="flex items-start gap-2">
-                      <button
-                        type="button"
-                        className="mt-0.5 shrink-0"
-                        aria-pressed={step.done}
-                        data-testid={`shared-step-${child.id}-${index}`}
-                        aria-label={
-                          step.done
-                            ? t("calendar.stepDetail.markUndone")
-                            : t("calendar.stepDetail.markDone")
-                        }
-                        onClick={() => cal.toggleStepDone(child.id, day.date, step.id)}
-                      >
-                        {step.done ? (
-                          <CheckCircle2 className="size-5 text-success" />
-                        ) : (
-                          <Circle className="size-5 text-muted-foreground" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 text-left"
-                        onClick={() => setDetailId(step.id)}
-                      >
-                        <p
-                          className={cn(
-                            "text-sm font-semibold",
-                            step.done && "text-muted-foreground line-through",
-                          )}
-                        >
-                          {shown.title}
-                        </p>
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {shown.description}
-                        </p>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
-
-            {day ? (
-              <AddToMyCalendarButton
-                className="mt-3 w-full"
-                testId={`add-shared-calendar-${child.id}`}
-                date={day.date}
-                idleLabel={t("schedule.addToMyCalendar")}
-                routine={{
-                  templateId: sharedTemplateId(day.libraryPlanId ?? day.id),
-                  name: presentPlanName(day, (key) => t(key)),
-                  items: day.steps.map((step) => {
-                    const shown = presentPlanStep(step, locale);
-                    return {
-                      activityId: step.activityId || "shared-step",
-                      title: shown.title,
-                      description: shown.description,
-                      minutes: step.minutes || 10,
-                    };
-                  }),
-                }}
+            <div className="mt-3">
+              <WeekStrip
+                selectedDate={date}
+                onSelect={(next) => setDates((prev) => ({ ...prev, [child.id]: next }))}
               />
-            ) : null}
+            </div>
+
+            {days.length === 0 ? (
+              <p className="mt-3 text-sm text-muted-foreground">{t("shared.emptyDay")}</p>
+            ) : (
+              days.map((day) => (
+                <div key={day.id} className="mt-3 min-w-0" data-testid={`shared-day-${day.id}`}>
+                  <h3 className="text-sm font-semibold leading-tight">
+                    {presentPlanName(day, (key) => t(key))}
+                  </h3>
+                  <ul className="mt-2 space-y-2">
+                    {day.steps.map((step, index) => {
+                      const shown = presentPlanStep(step, locale);
+                      return (
+                        <li key={step.id} className="flex items-start gap-2">
+                          <button
+                            type="button"
+                            className="mt-0.5 shrink-0"
+                            aria-pressed={step.done}
+                            data-testid={`shared-step-${child.id}-${index}`}
+                            aria-label={
+                              step.done
+                                ? t("calendar.stepDetail.markUndone")
+                                : t("calendar.stepDetail.markDone")
+                            }
+                            onClick={() => cal.toggleStepDone(child.id, date, step.id)}
+                          >
+                            {step.done ? (
+                              <CheckCircle2 className="size-5 text-success" />
+                            ) : (
+                              <Circle className="size-5 text-muted-foreground" />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 text-left"
+                            onClick={() => setDetailId(step.id)}
+                          >
+                            <p
+                              className={cn(
+                                "text-sm font-semibold",
+                                step.done && "text-muted-foreground line-through",
+                              )}
+                            >
+                              {shown.title}
+                            </p>
+                            <p className="truncate text-[11px] text-muted-foreground">
+                              {shown.description}
+                            </p>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  <AddToMyCalendarButton
+                    className="mt-3 w-full"
+                    testId={`add-shared-calendar-${child.id}-${day.id}`}
+                    date={date}
+                    idleLabel={t("schedule.addToMyCalendar")}
+                    routine={{
+                      templateId: sharedTemplateId(day.libraryPlanId ?? day.id),
+                      name: presentPlanName(day, (key) => t(key)),
+                      items: day.steps.map((step) => {
+                        const shown = presentPlanStep(step, locale);
+                        return {
+                          activityId: step.activityId || "shared-step",
+                          title: shown.title,
+                          description: shown.description,
+                          minutes: step.minutes || 10,
+                        };
+                      }),
+                    }}
+                  />
+                </div>
+              ))
+            )}
 
             <div className="mt-3">
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -212,23 +233,24 @@ export function SharedPlansPanel() {
                 <UserPlus className="mr-1 size-4" /> {t("shared.shareHelper")}
               </Button>
             ) : null}
-
-            <StepDetailDialog
-              step={detail}
-              open={Boolean(detail)}
-              onOpenChange={(open) => {
-                if (!open) setDetailId(null);
-              }}
-              canEdit={false}
-              {...(day && detail
-                ? {
-                    onToggleDone: () => cal.toggleStepDone(child.id, day.date, detail.id),
-                  }
-                : {})}
-            />
-          </div>
+          </article>
         );
       })}
+
+      <StepDetailDialog
+        step={detail ?? null}
+        open={Boolean(detail)}
+        onOpenChange={(open) => {
+          if (!open) setDetailId(null);
+        }}
+        canEdit={false}
+        {...(detail && detailPlan
+          ? {
+              onToggleDone: () =>
+                cal.toggleStepDone(detailPlan.childId, detailPlan.plan.date, detail.id),
+            }
+          : {})}
+      />
 
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent className="sm:max-w-md">
