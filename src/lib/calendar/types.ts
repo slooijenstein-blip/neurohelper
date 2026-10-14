@@ -133,6 +133,8 @@ export type CalendarState = {
   childTags: ChildTag[];
   /** Currently focused child (null = picker / caseload). */
   selectedChildId: string | null;
+  /** Child ids a therapist removed. The demo repair must not recreate them. */
+  dismissedChildIds?: string[];
 };
 
 export function isAgeBand(value: string): value is AgeBand {

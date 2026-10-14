@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { createSeedState } from "../calendar/seed.ts";
+import { createSeedState, withDemoFamily } from "../calendar/seed.ts";
 import { applyShareAction } from "./mutate.ts";
 import { ShareError } from "./errors.ts";
 import { blankAccountState } from "./workspace.ts";
@@ -162,6 +162,68 @@ describe("therapist edits", () => {
           type: "removeMember",
           membershipId: "mem_maya_alex",
         }),
+      (error: unknown) => error instanceof ShareError && error.status === 403,
+    );
+  });
+
+  it("drops Alex for every linked parent and helper when the therapist removes that patient", () => {
+    const demoTherapist = {
+      userId: "person_maya",
+      email: "maya@example.com",
+      name: "Demo Therapist",
+      isPro: true,
+    };
+    const parent = {
+      userId: "person_sam",
+      email: "sam@example.com",
+      name: "Demo Parent",
+      isPro: false,
+    };
+    const helper = {
+      userId: "person_grandma",
+      email: "grandma@example.com",
+      name: "Demo Grandparent",
+      isPro: false,
+    };
+    const seed = createSeedState();
+    const alexStep = seed.dayPlans.find((plan) => plan.id === "day_alex_today")?.steps[0]?.id;
+    const alexDate = seed.dayPlans.find((plan) => plan.id === "day_alex_today")?.date;
+    assert.ok(alexStep && alexDate);
+    const removed = applyShareAction(seed, demoTherapist, {
+      type: "removeChild",
+      childId: "child_alex",
+      now,
+    }).state;
+    const kept = withDemoFamily(removed);
+    assert.equal(kept, removed);
+    assert.equal(
+      kept.children.some((child) => child.id === "child_alex"),
+      false,
+    );
+    assert.equal(
+      kept.memberships.some((item) => item.childId === "child_alex"),
+      false,
+    );
+    assert.ok(kept.children.some((child) => child.id === "child_jordan"));
+    assert.ok(
+      kept.memberships.some(
+        (item) => item.childId === "child_jordan" && item.personId === "person_sam",
+      ),
+    );
+    assert.equal(kept.people.length, 3);
+    const checkAlex = {
+      type: "toggleStepDone" as const,
+      childId: "child_alex",
+      date: alexDate,
+      stepId: alexStep,
+      now,
+    };
+    assert.throws(
+      () => applyShareAction(kept, parent, checkAlex),
+      (error: unknown) => error instanceof ShareError && error.status === 403,
+    );
+    assert.throws(
+      () => applyShareAction(kept, helper, checkAlex),
       (error: unknown) => error instanceof ShareError && error.status === 403,
     );
   });

@@ -228,6 +228,7 @@ export function applyShareAction(
           dayPlans: state.dayPlans.filter((plan) => plan.childId !== action.childId),
           libraryPlans: state.libraryPlans.filter((plan) => plan.childId !== action.childId),
           selectedChildId: state.selectedChildId === action.childId ? null : state.selectedChildId,
+          dismissedChildIds: [...new Set([...(state.dismissedChildIds ?? []), action.childId])],
         },
       };
     }
