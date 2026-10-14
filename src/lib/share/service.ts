@@ -71,6 +71,8 @@ export function inviteRedirectUrl(origin: string, token: string): string {
 async function ownerIdFor(store: ShareStore, action: ShareAction, actor: Actor): Promise<string> {
   switch (action.type) {
     case "addChild":
+    case "updateChild":
+    case "removeChild":
     case "addTherapistTag":
       if (!actor.isPro)
         throw new ShareError(403, "pro_required", "Only a Pro account can do that.");
@@ -92,6 +94,7 @@ async function ownerIdFor(store: ShareStore, action: ShareAction, actor: Actor):
     case "addDayStep":
     case "replaceDayStep":
     case "removeDayStep":
+    case "removeDayPlan":
     case "saveDayBackToLibrary":
     case "createInvite": {
       const owner = await store.ownerForChild(action.childId);

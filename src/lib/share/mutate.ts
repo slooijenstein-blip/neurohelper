@@ -1,14 +1,17 @@
 import {
   canEditPlan,
   canInvite,
+  canRemoveMember,
   inviteRolesFor,
   membershipOnChild,
 } from "../calendar/permissions.ts";
+import { isStoredAgeMonths, isStoredAgeYears, isStoredBirthDate } from "../calendar/child-age.ts";
 import {
   isAgeBand,
   type AppRole,
   type CalendarState,
   type ChildRole,
+  type DayStep,
   type Invite,
   type LibraryPlan,
   type Person,
@@ -29,6 +32,16 @@ export type MutateResult = {
   state: CalendarState;
   invite?: Invite;
 };
+
+function keptDone(existing: DayStep[] | undefined, step: PlanStep): boolean {
+  if (!existing?.length) return false;
+  const match =
+    existing.find((item) => item.id === step.id) ??
+    (step.activityId
+      ? existing.find((item) => item.activityId && item.activityId === step.activityId)
+      : undefined);
+  return match?.done === true;
+}
 
 function nowOr(value: string): string {
   return /^\d{4}-\d{2}-\d{2}T/.test(value) ? value : new Date().toISOString();
@@ -85,11 +98,23 @@ export function applyShareAction(
       if (!isAgeBand(action.ageBand)) {
         throw new ShareError(400, "invalid_age", "Choose an age band.");
       }
+      if (action.ageYears !== undefined && !isStoredAgeYears(action.ageYears)) {
+        throw new ShareError(400, "invalid_age", "Enter a whole age in years.");
+      }
+      if (action.ageMonths !== undefined && !isStoredAgeMonths(action.ageMonths)) {
+        throw new ShareError(400, "invalid_age", "Enter an age in months.");
+      }
+      if (action.birthDate !== undefined && !isStoredBirthDate(action.birthDate)) {
+        throw new ShareError(400, "invalid_age", "Enter a valid date of birth.");
+      }
       const childId = assertId(action.childId, "child");
       const child = {
         id: childId,
         displayName: clipDisplayName(action.displayName, "Child"),
         ageBand: action.ageBand,
+        ...(action.ageYears !== undefined ? { ageYears: action.ageYears } : {}),
+        ...(action.ageMonths !== undefined ? { ageMonths: action.ageMonths } : {}),
+        ...(action.birthDate ? { birthDate: action.birthDate } : {}),
         createdAt: now,
         createdById: actor.userId,
       };
@@ -134,6 +159,76 @@ export function applyShareAction(
             ...state.therapistTags,
             { id: assertId(action.tagId, "tag"), therapistId: actor.userId, name },
           ],
+        },
+      };
+    }
+    case "updateChild": {
+      if (!actor.isPro || roleOn(state, action.childId, actor.userId) !== "therapist") {
+        throw new ShareError(403, "pro_required", "Only a Pro account can edit a patient.");
+      }
+      if (!isAgeBand(action.ageBand)) {
+        throw new ShareError(400, "invalid_age", "Choose an age band.");
+      }
+      if (action.ageYears !== undefined && !isStoredAgeYears(action.ageYears)) {
+        throw new ShareError(400, "invalid_age", "Enter a whole age in years.");
+      }
+      if (action.ageMonths !== undefined && !isStoredAgeMonths(action.ageMonths)) {
+        throw new ShareError(400, "invalid_age", "Enter an age in months.");
+      }
+      if (
+        action.birthDate !== undefined &&
+        action.birthDate !== null &&
+        !isStoredBirthDate(action.birthDate)
+      ) {
+        throw new ShareError(400, "invalid_age", "Enter a valid date of birth.");
+      }
+      const current = state.children.find((child) => child.id === action.childId);
+      if (!current) throw new ShareError(404, "not_found", "Patient not found.");
+      const allowed = new Set(
+        state.therapistTags.filter((tag) => tag.therapistId === actor.userId).map((tag) => tag.id),
+      );
+      const { birthDate: previousBirth, ...withoutBirth } = current;
+      const next = {
+        ...withoutBirth,
+        displayName: clipDisplayName(action.displayName, current.displayName),
+        ageBand: action.ageBand,
+        ...(action.ageYears !== undefined ? { ageYears: action.ageYears } : {}),
+        ...(action.ageMonths !== undefined ? { ageMonths: action.ageMonths } : {}),
+        ...(action.birthDate
+          ? { birthDate: action.birthDate }
+          : action.birthDate === null || !previousBirth
+            ? {}
+            : { birthDate: previousBirth }),
+      };
+      return {
+        state: {
+          ...state,
+          children: state.children.map((child) => (child.id === current.id ? next : child)),
+          childTags: [
+            ...state.childTags.filter((tag) => tag.childId !== current.id),
+            ...action.tagIds
+              .filter((tagId) => allowed.has(tagId))
+              .map((tagId) => ({ childId: current.id, tagId })),
+          ],
+        },
+      };
+    }
+    case "removeChild": {
+      if (!actor.isPro || roleOn(state, action.childId, actor.userId) !== "therapist") {
+        throw new ShareError(403, "pro_required", "Only a Pro account can remove a patient.");
+      }
+      if (!state.children.some((child) => child.id === action.childId)) return { state };
+      return {
+        state: {
+          ...state,
+          children: state.children.filter((child) => child.id !== action.childId),
+          memberships: state.memberships.filter((item) => item.childId !== action.childId),
+          invites: state.invites.filter((invite) => invite.childId !== action.childId),
+          childTags: state.childTags.filter((tag) => tag.childId !== action.childId),
+          dayPlans: state.dayPlans.filter((plan) => plan.childId !== action.childId),
+          libraryPlans: state.libraryPlans.filter((plan) => plan.childId !== action.childId),
+          selectedChildId: state.selectedChildId === action.childId ? null : state.selectedChildId,
+          dismissedChildIds: [...new Set([...(state.dismissedChildIds ?? []), action.childId])],
         },
       };
     }
@@ -188,8 +283,11 @@ export function applyShareAction(
         if (day.stepIds.length !== plan.steps.length) {
           throw new ShareError(400, "invalid_step", "Step ids do not match the plan.");
         }
+        const previous = dayPlans.find(
+          (item) => item.childId === action.childId && item.date === day.date,
+        );
         const next = {
-          id: assertId(day.dayId, "day"),
+          id: previous?.id ?? assertId(day.dayId, "day"),
           childId: action.childId,
           date: day.date,
           name: plan.name,
@@ -197,7 +295,7 @@ export function applyShareAction(
           libraryPlanId: plan.id,
           steps: plan.steps.map((step, index) => ({
             ...sanitizeStep(step, day.stepIds[index]!),
-            done: false,
+            done: keptDone(previous?.steps, step),
           })),
           tweaked: false,
           updatedAt: now,
@@ -240,6 +338,10 @@ export function applyShareAction(
       }
       const name =
         action.name !== undefined ? clipDisplayName(action.name, current.name) : current.name;
+      const renamed = action.name !== undefined && name !== current.name;
+      const nextSteps = action.steps
+        ? action.steps.slice(0, 30).map((step) => sanitizeStep(step, step.id))
+        : current.steps;
       return {
         state: {
           ...state,
@@ -248,14 +350,25 @@ export function applyShareAction(
               ? {
                   ...plan,
                   name,
-                  nameKey: action.name && action.name !== plan.name ? null : (plan.nameKey ?? null),
-                  steps: action.steps
-                    ? action.steps.slice(0, 30).map((step) => sanitizeStep(step, step.id))
-                    : plan.steps,
+                  nameKey: renamed ? null : (plan.nameKey ?? null),
+                  steps: nextSteps,
                   updatedAt: now,
                 }
               : plan,
           ),
+          dayPlans: state.dayPlans.map((day) => {
+            if (day.libraryPlanId !== action.id) return day;
+            return {
+              ...day,
+              name,
+              nameKey: renamed ? null : (day.nameKey ?? null),
+              steps: nextSteps.map((step) => ({
+                ...step,
+                done: keptDone(day.steps, step),
+              })),
+              updatedAt: now,
+            };
+          }),
         },
       };
     }
@@ -290,6 +403,7 @@ export function applyShareAction(
         state: {
           ...state,
           libraryPlans: state.libraryPlans.filter((plan) => plan.id !== action.id),
+          dayPlans: state.dayPlans.filter((plan) => plan.libraryPlanId !== action.id),
         },
       };
     }
@@ -401,6 +515,18 @@ export function applyShareAction(
               ),
             };
           }),
+        },
+      };
+    }
+    case "removeDayPlan": {
+      requireEditor(state, action.childId, actor.userId);
+      assertDateKey(action.date);
+      return {
+        state: {
+          ...state,
+          dayPlans: state.dayPlans.filter(
+            (plan) => !(plan.childId === action.childId && plan.date === action.date),
+          ),
         },
       };
     }
@@ -600,7 +726,7 @@ export function applyShareAction(
         throw new ShareError(403, "forbidden", "The therapist stays on this plan.");
       }
       const actorRole = roleOn(state, membership.childId, actor.userId);
-      if (actorRole !== "therapist" && actorRole !== "caregiver") {
+      if (!canRemoveMember(actorRole, membership.role)) {
         throw new ShareError(403, "forbidden", "You cannot remove this person.");
       }
       return {

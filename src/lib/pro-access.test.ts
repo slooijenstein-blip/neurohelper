@@ -5,23 +5,44 @@ import { isProAccount, showProChrome, tabsForAccount } from "./pro-access.ts";
 
 describe("pro access", () => {
   it("keeps the caregiver tabs and withholds Pro unless the flag is on", () => {
-    const parent = tabsForAccount(false);
-    const pro = tabsForAccount(true);
+    const parent = tabsForAccount(false, true);
+    const alone = tabsForAccount(false);
+    const pro = tabsForAccount(true, true);
 
     assert.equal(isProAccount({ isPro: true }), true);
     assert.equal(isProAccount({ isPro: false }), false);
     assert.equal(isProAccount(null), false);
     assert.equal(isProAccount({}), false);
 
-    assert.deepEqual(parent, ["activities", "schedule", "journey", "community", "help", "profile"]);
+    assert.deepEqual(parent, [
+      "activities",
+      "children",
+      "schedule",
+      "journey",
+      "community",
+      "help",
+      "profile",
+    ]);
     assert.equal(parent.includes("pro"), false);
+    assert.equal(parent.includes("children"), true);
+    assert.equal(alone.includes("children"), false);
+    assert.equal(alone.includes("pro"), false);
+    assert.deepEqual(alone, [
+      "activities",
+      "schedule",
+      "journey",
+      "community",
+      "help",
+      "profile",
+    ]);
     assert.ok(parent.includes("activities"));
     assert.ok(parent.includes("community"));
 
-    for (const tab of parent) assert.ok(pro.includes(tab));
+    assert.equal(pro.includes("children"), false);
     assert.ok(pro.includes("pro"));
     assert.equal(pro[0], "activities");
     assert.equal(pro[1], "pro");
+    assert.ok(pro.includes("schedule"));
   });
 
   it("shows Pro chrome from Clerk metadata, and from the device demo only when that flag is passed", () => {

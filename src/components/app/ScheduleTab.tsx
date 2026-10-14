@@ -48,7 +48,9 @@ const WEEKDAY_KEYS = [
 ] as const;
 
 export function ScheduleTab() {
-  const { state, update } = useAppStore();
+  const { state, update, demoPersona } = useAppStore();
+  const viewerKey = demoPersona ?? state.profile?.id ?? "me";
+  const schedule = state.schedule.filter((item) => !item.viewerKey || item.viewerKey === viewerKey);
   const { t } = useI18n();
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
@@ -74,8 +76,7 @@ export function ScheduleTab() {
     update((prev) => ({
       ...prev,
       schedule: prev.schedule.map((i) => (i.id === id ? { ...i, done: !i.done } : i)),
-      completedCount:
-        prev.completedCount + (state.schedule.find((i) => i.id === id)?.done ? -1 : 1),
+      completedCount: prev.completedCount + (schedule.find((i) => i.id === id)?.done ? -1 : 1),
     }));
 
   const removeItem = (id: string) =>
@@ -87,7 +88,7 @@ export function ScheduleTab() {
   const addActivity = (activityId: string) => {
     const act = ACTIVITIES.find((a: Activity) => a.id === activityId);
     if (!act) return;
-    const start = state.schedule.reduce((sum, i) => sum + i.minutes, 0);
+    const start = schedule.reduce((sum, i) => sum + i.minutes, 0);
     update((prev) => ({
       ...prev,
       schedule: [
@@ -100,6 +101,7 @@ export function ScheduleTab() {
           time: minutesToTime(8 * 60 + start),
           minutes: act.minMinutes,
           done: false,
+          viewerKey,
         },
       ],
     }));
@@ -114,7 +116,7 @@ export function ScheduleTab() {
       ownerId: state.profile.id,
       name: templateName.trim(),
       isPublic: false,
-      items: state.schedule.map((i) => ({ ...i, id: uid(), done: false })),
+      items: schedule.map((i) => ({ ...i, id: uid(), done: false })),
       createdAt: new Date().toISOString().slice(0, 10),
       repeatDays: [...repeatDays],
     };
@@ -132,7 +134,7 @@ export function ScheduleTab() {
   };
 
   const addToGoogleCalendar = () => {
-    if (!state.schedule.length) return;
+    if (!schedule.length) return;
     const today = new Date();
     const pad = (n: number) => String(n).padStart(2, "0");
     const stamp = (mins: number) => {
@@ -140,11 +142,11 @@ export function ScheduleTab() {
       d.setHours(0, mins, 0, 0);
       return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
     };
-    const first = state.schedule[0]!;
+    const first = schedule[0]!;
     const [sh, sm] = first.time.split(":").map(Number);
     const startMins = (sh ?? 8) * 60 + (sm ?? 0);
-    const total = state.schedule.reduce((sum, i) => sum + i.minutes, 0);
-    const details = state.schedule
+    const total = schedule.reduce((sum, i) => sum + i.minutes, 0);
+    const details = schedule
       .map((i) => `${i.time} · ${i.title} (${formatDuration(i.minutes)})`)
       .join("\n");
     const url =
@@ -157,7 +159,7 @@ export function ScheduleTab() {
 
   const shareTemplate = () => {
     if (!postBody.trim() || !state.profile) return;
-    const items = state.schedule.map((i) => ({ ...i, id: uid(), done: false }));
+    const items = schedule.map((i) => ({ ...i, id: uid(), done: false }));
     const name = "My Routine";
     const template = {
       id: uid(),
@@ -200,7 +202,12 @@ export function ScheduleTab() {
     toast.success(t("schedule.shared"));
   };
 
-  const resetSchedule = () => update((prev) => ({ ...prev, schedule: [] }));
+  const resetSchedule = () =>
+    update((prev) => ({
+      ...prev,
+      schedule: prev.schedule.filter((item) => item.viewerKey && item.viewerKey !== viewerKey),
+      dayPlans: prev.dayPlans.filter((plan) => plan.viewerKey && plan.viewerKey !== viewerKey),
+    }));
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -208,7 +215,7 @@ export function ScheduleTab() {
         title={t("schedule.title")}
         subtitle={t("schedule.subtitle")}
         right={
-          state.schedule.length ? (
+          schedule.length ? (
             <div className="flex gap-1">
               <Button
                 size="icon"
@@ -269,7 +276,7 @@ export function ScheduleTab() {
 
         {view === "list" ? (
           <>
-            {state.schedule.length ? (
+            {schedule.length ? (
               <Button
                 variant="outline"
                 className="w-full"
@@ -279,7 +286,7 @@ export function ScheduleTab() {
                 <CalendarDays className="mr-1 size-4" /> {t("schedule.addToCalendar")}
               </Button>
             ) : null}
-            {state.schedule.length === 0 ? (
+            {schedule.length === 0 ? (
               <div className="soft-card py-8 text-center">
                 <p className="text-sm text-muted-foreground">{t("schedule.empty")}</p>
                 <Button className="mt-3" onClick={() => setAdding(true)}>
@@ -288,7 +295,7 @@ export function ScheduleTab() {
               </div>
             ) : (
               <div className="space-y-2">
-                {state.schedule.map((item) => (
+                {schedule.map((item) => (
                   <div key={item.id} className="soft-card flex items-center gap-3 p-3">
                     <button type="button" onClick={() => toggleDone(item.id)} className="shrink-0">
                       {item.done ? (

@@ -1,9 +1,12 @@
 import { planStepFromActivity } from "./activity-steps.ts";
 import { ACTIVITIES } from "../activities-data.ts";
 import {
+  addDays,
   nid,
+  parseDateKey,
   toDateKey,
   type CalendarState,
+  type DayPlan,
   type DayStep,
   type LibraryPlan,
   type PlanStep,
@@ -33,6 +36,20 @@ function cloneSteps(steps: PlanStep[]): PlanStep[] {
 
 function dayStepsFrom(plan: LibraryPlan): DayStep[] {
   return plan.steps.map((step) => ({ ...step, id: nid("ds"), done: false }));
+}
+
+function dayPlan(id: string, childId: string, date: string, plan: LibraryPlan): DayPlan {
+  return {
+    id,
+    childId,
+    date,
+    name: plan.name,
+    nameKey: plan.nameKey ?? null,
+    libraryPlanId: plan.id,
+    steps: dayStepsFrom(plan),
+    tweaked: false,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function master(
@@ -171,19 +188,19 @@ export function createSeedState(): CalendarState {
     people: [
       {
         id: THERAPIST_ID,
-        name: "Maya (Therapist)",
+        name: "Demo Therapist",
         email: "maya@example.com",
         appRole: "therapist",
       },
       {
         id: PARENT_ID,
-        name: "Sam (Parent)",
+        name: "Demo Parent",
         email: "sam@example.com",
         appRole: "caregiver",
       },
       {
         id: HELPER_ID,
-        name: "Grandma (Helper)",
+        name: "Demo Grandparent",
         email: "grandma@example.com",
         appRole: "helper",
       },
@@ -226,21 +243,38 @@ export function createSeedState(): CalendarState {
         role: "caregiver",
         status: "active",
       },
+      {
+        id: "mem_grandma_alex",
+        childId: CHILD_ALEX,
+        personId: HELPER_ID,
+        role: "helper",
+        status: "active",
+      },
+      {
+        id: "mem_sam_jordan",
+        childId: CHILD_JORDAN,
+        personId: PARENT_ID,
+        role: "caregiver",
+        status: "active",
+      },
     ],
     invites: [],
     libraryPlans: [calm, morning, movement, homework, fineMotor, alexCopy, parentEvening],
     dayPlans: [
-      {
-        id: "day_alex_today",
-        childId: CHILD_ALEX,
-        date: today,
-        name: alexCopy.name,
-        nameKey: alexCopy.nameKey ?? null,
-        libraryPlanId: alexCopy.id,
-        steps: dayStepsFrom(alexCopy),
-        tweaked: false,
-        updatedAt: new Date().toISOString(),
-      },
+      dayPlan("day_alex_today", CHILD_ALEX, today, alexCopy),
+      dayPlan(
+        "day_jordan_prev",
+        CHILD_JORDAN,
+        toDateKey(addDays(parseDateKey(today), -1)),
+        morning,
+      ),
+      dayPlan("day_jordan_today", CHILD_JORDAN, today, movement),
+      dayPlan(
+        "day_jordan_next",
+        CHILD_JORDAN,
+        toDateKey(addDays(parseDateKey(today), 1)),
+        homework,
+      ),
     ],
     therapistTags: [
       { id: TAG_EARLY, therapistId: THERAPIST_ID, name: "Early years" },
@@ -251,6 +285,88 @@ export function createSeedState(): CalendarState {
       { childId: CHILD_JORDAN, tagId: TAG_SCHOOL },
     ],
     selectedChildId: null,
+  };
+}
+
+function dismissedChildIds(state: CalendarState): Set<string> {
+  return new Set(state.dismissedChildIds ?? []);
+}
+
+/** True when this device already has the shared demo family, minus anyone a therapist removed. */
+export function demoFamilyReady(state: CalendarState): boolean {
+  const people = new Set(state.people.map((person) => person.id));
+  const children = new Set(state.children.map((child) => child.id));
+  const gone = dismissedChildIds(state);
+  const needAlex = !gone.has(CHILD_ALEX);
+  const needJordan = !gone.has(CHILD_JORDAN);
+  return (
+    people.has(THERAPIST_ID) &&
+    people.has(PARENT_ID) &&
+    people.has(HELPER_ID) &&
+    (!needAlex || children.has(CHILD_ALEX)) &&
+    (!needJordan || children.has(CHILD_JORDAN)) &&
+    (!needAlex ||
+      state.memberships.some(
+        (membership) =>
+          membership.childId === CHILD_ALEX &&
+          membership.personId === PARENT_ID &&
+          membership.status === "active",
+      )) &&
+    (!needJordan ||
+      state.memberships.some(
+        (membership) =>
+          membership.childId === CHILD_JORDAN &&
+          membership.personId === PARENT_ID &&
+          membership.status === "active",
+      )) &&
+    (!needJordan ||
+      state.dayPlans.some(
+        (plan) => plan.id === "day_jordan_today" && plan.childId === CHILD_JORDAN,
+      )) &&
+    !state.memberships.some(
+      (membership) => membership.childId === CHILD_JORDAN && membership.personId === HELPER_ID,
+    )
+  );
+}
+
+/**
+ * Keep Alex and Jordan’s plans, check-offs, and edits. Fill in any missing demo family.
+ * The grandparent stays linked to Alex only.
+ */
+export function withDemoFamily(prev: CalendarState): CalendarState {
+  if (demoFamilyReady(prev)) return prev;
+  const seed = createSeedState();
+  const gone = dismissedChildIds(prev);
+  const keptIds = new Set([CHILD_ALEX, CHILD_JORDAN].filter((id) => !gone.has(id)));
+  const keptPlans = new Map(
+    prev.dayPlans.filter((plan) => keptIds.has(plan.childId)).map((plan) => [plan.id, plan]),
+  );
+  const dayPlans = seed.dayPlans
+    .filter((plan) => !gone.has(plan.childId))
+    .map((plan) => keptPlans.get(plan.id) ?? plan);
+  for (const plan of prev.dayPlans) {
+    if (keptIds.has(plan.childId) && !dayPlans.some((item) => item.id === plan.id)) {
+      dayPlans.push(plan);
+    }
+  }
+  const library = new Map(
+    seed.libraryPlans
+      .filter((plan) => !plan.childId || !gone.has(plan.childId))
+      .map((plan) => [plan.id, plan]),
+  );
+  for (const plan of prev.libraryPlans) {
+    if (plan.childId && keptIds.has(plan.childId) && library.has(plan.id)) {
+      library.set(plan.id, plan);
+    }
+  }
+  return {
+    ...seed,
+    dismissedChildIds: [...gone],
+    children: seed.children.filter((child) => !gone.has(child.id)),
+    memberships: seed.memberships.filter((membership) => !gone.has(membership.childId)),
+    childTags: seed.childTags.filter((tag) => !gone.has(tag.childId)),
+    libraryPlans: [...library.values()],
+    dayPlans,
   };
 }
 

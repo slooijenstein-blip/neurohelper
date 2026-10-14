@@ -21,6 +21,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import {
   canChangeRole,
   canInvite,
+  canRemoveMember,
   canRemovePerson,
   inviteRolesFor,
 } from "@/lib/calendar/permissions";
@@ -36,6 +37,7 @@ export function PeopleTab() {
   const child = cal.selectedChild;
   const role = cal.roleOnSelected;
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState<{ id: string; name: string } | null>(null);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [inviteRole, setInviteRole] = useState<"caregiver" | "helper">("helper");
@@ -154,6 +156,25 @@ export function PeopleTab() {
                 </span>
               </div>
             </div>
+            {person.kind === "member" &&
+            person.membershipId &&
+            canRemoveMember(role, person.role) ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 shrink-0 text-destructive"
+                data-testid={`remove-person-${person.membershipId}`}
+                onClick={() =>
+                  setPendingRemove({
+                    id: person.membershipId!,
+                    name: person.name,
+                  })
+                }
+              >
+                {person.role === "helper" ? t("shared.removeHelper") : t("common.remove")}
+              </Button>
+            ) : null}
             {(canChangeRole(role) || canRemovePerson(role)) && person.role !== "therapist" ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -206,13 +227,15 @@ export function PeopleTab() {
                           {t("calendar.people.changeRoleTo", { role: t(`calendar.roles.${r}`) })}
                         </DropdownMenuItem>
                       ))}
-                      {canRemovePerson(role) ? (
+                      {person.membershipId && canRemoveMember(role, person.role) ? (
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() => {
-                            cal.removeMember(person.membershipId!);
-                            toast.success(t("calendar.people.removed"));
-                          }}
+                          onSelect={() =>
+                            setPendingRemove({
+                              id: person.membershipId!,
+                              name: person.name,
+                            })
+                          }
                         >
                           {t("calendar.people.remove")}
                         </DropdownMenuItem>
@@ -302,6 +325,43 @@ export function PeopleTab() {
                 <Copy className="mr-1 size-4" /> {t("calendar.people.copyLink")}
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(pendingRemove)}
+        onOpenChange={(open) => !open && setPendingRemove(null)}
+      >
+        <DialogContent className="sm:max-w-md" data-testid="remove-person-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("calendar.people.removeTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("calendar.people.removeBody", { name: pendingRemove?.name ?? "" })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setPendingRemove(null)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              data-testid="remove-person-confirm"
+              onClick={() => {
+                if (!pendingRemove) return;
+                cal.removeMember(pendingRemove.id);
+                setPendingRemove(null);
+                toast.success(t("calendar.people.removed"));
+              }}
+            >
+              {t("calendar.people.removeConfirm")}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

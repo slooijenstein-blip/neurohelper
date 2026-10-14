@@ -113,6 +113,10 @@ function ClerkLiveShareSync() {
 
   useEffect(() => {
     if (!hydrated || !cal.hydrated || !isLoaded) return;
+    if (prototypeDemo) {
+      detachRef.current();
+      return;
+    }
     if (!isSignedIn || !userId) {
       detachRef.current();
       return;

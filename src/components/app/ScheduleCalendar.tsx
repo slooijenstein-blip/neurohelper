@@ -2,10 +2,16 @@ import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Repeat, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { useI18n } from "@/i18n/I18nProvider";
+import { presentPlanName, presentPlanStep } from "@/lib/activity-locale";
 import { useAppStore, toDateKey, WEEKDAYS, type Template } from "@/lib/app-store";
+import { membershipOnChild } from "@/lib/calendar/permissions";
+import { useCalendarStore } from "@/lib/calendar/store";
+import { sharedTemplateId, type RoutineDraft } from "@/lib/my-calendar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { AddToMyCalendarButton } from "./AddToMyCalendarButton";
 
 function monthGrid(view: Date) {
   const first = new Date(view.getFullYear(), view.getMonth(), 1);
@@ -19,7 +25,10 @@ function monthGrid(view: Date) {
 }
 
 export function ScheduleCalendar() {
-  const { state, addDayPlan, removeDayPlan, setTemplateRepeat, tryTemplate } = useAppStore();
+  const { state, demoPersona, removeDayPlan, setTemplateRepeat, tryTemplate } = useAppStore();
+  const { t, locale } = useI18n();
+  const cal = useCalendarStore();
+  const viewerKey = demoPersona ?? state.profile?.id ?? "me";
   const [view, setView] = useState(() => new Date());
   const [selected, setSelected] = useState<string | null>(null);
   const [repeatFor, setRepeatFor] = useState<Template | null>(null);
@@ -34,12 +43,37 @@ export function ScheduleCalendar() {
       .filter((t) => (t.repeatDays ?? []).includes(weekday))
       .map((t) => ({ id: `rec-${t.id}-${key}`, name: t.name, templateId: t.id, recurring: true }));
     const oneOff = state.dayPlans
-      .filter((p) => p.date === key)
+      .filter((p) => p.date === key && p.viewerKey === viewerKey)
       .map((p) => ({ id: p.id, name: p.name, templateId: p.templateId, recurring: false }));
     return [...recurring, ...oneOff];
   };
 
   const selectedPlans = selected ? plansFor(selected) : [];
+  const sharedRoutines: RoutineDraft[] = [];
+  const seenShared = new Set<string>();
+  for (const child of cal.myChildren) {
+    const role = membershipOnChild(cal.state.memberships, child.id, cal.activePerson.id)?.role;
+    if (role !== "caregiver" && role !== "helper") continue;
+    for (const plan of cal.visibleLibrary(child.id)) {
+      if (plan.ownerId === cal.activePerson.id || !plan.steps.length) continue;
+      const templateId = sharedTemplateId(plan.id);
+      if (seenShared.has(templateId)) continue;
+      seenShared.add(templateId);
+      sharedRoutines.push({
+        templateId,
+        name: presentPlanName(plan, t),
+        items: plan.steps.map((step) => {
+          const shown = presentPlanStep(step, locale);
+          return {
+            activityId: step.activityId || "shared-step",
+            title: shown.title,
+            description: shown.description,
+            minutes: step.minutes || 10,
+          };
+        }),
+      });
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -194,22 +228,51 @@ export function ScheduleCalendar() {
             )}
           </div>
           <p className="mt-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Apply a routine
+            {t("schedule.addToMyCalendar")}
           </p>
-          <div className="hide-scrollbar max-h-40 space-y-1 overflow-y-auto">
-            {myTemplates.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => {
-                  if (selected) addDayPlan(selected, t.id);
-                  toast.success(`${t.name} added to that day`);
-                }}
-                className="w-full rounded-lg border border-border bg-card p-2 text-left text-xs font-semibold hover:border-primary"
-              >
-                {t.name}
-              </button>
-            ))}
+          <div className="hide-scrollbar max-h-48 space-y-2 overflow-y-auto">
+            {selected
+              ? myTemplates.map((template) => (
+                  <div
+                    key={template.id}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-2"
+                  >
+                    <p className="text-xs font-semibold">{template.name}</p>
+                    <AddToMyCalendarButton
+                      routine={{
+                        templateId: template.id,
+                        name: template.name,
+                        items: template.items.map((item) => ({
+                          activityId: item.activityId,
+                          title: item.title,
+                          description: item.description,
+                          minutes: item.minutes,
+                          time: item.time,
+                        })),
+                      }}
+                      date={selected}
+                      idleLabel={t("schedule.addToMyCalendar")}
+                      testId={`calendar-add-${template.id}`}
+                    />
+                  </div>
+                ))
+              : null}
+            {selected
+              ? sharedRoutines.map((routine) => (
+                  <div
+                    key={routine.templateId}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-2"
+                  >
+                    <p className="text-xs font-semibold">{routine.name}</p>
+                    <AddToMyCalendarButton
+                      routine={routine}
+                      date={selected}
+                      idleLabel={t("schedule.addToMyCalendar")}
+                      testId={`calendar-shared-${routine.templateId}`}
+                    />
+                  </div>
+                ))
+              : null}
           </div>
         </DialogContent>
       </Dialog>

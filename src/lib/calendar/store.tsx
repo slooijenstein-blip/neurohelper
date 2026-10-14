@@ -12,8 +12,9 @@ import {
 import type { Actor, EmailResult, ShareAction } from "@/lib/share/actions";
 import { postShareAction } from "@/lib/share/client";
 import { applyShareAction } from "@/lib/share/mutate";
+import { resolveTherapistAge, type ResolvedChildAge } from "./child-age";
 import { membershipOnChild } from "./permissions";
-import { createSeedState, DEMO_PERSON_IDS } from "./seed";
+import { createSeedState, DEMO_PERSON_IDS, withDemoFamily } from "./seed";
 import { normalizePlanStep } from "./activity-steps";
 import {
   addDays,
@@ -45,8 +46,25 @@ type CalendarContextValue = {
   selectedChild: Child | null;
   resetDemo: () => void;
   switchPersona: (personId: string) => void;
+  /** Replace local calendar state with the labeled demo family, then select this person. */
+  loadDemoPersona: (personId: string) => void;
   selectChild: (childId: string | null) => void;
-  addChild: (displayName: string, ageBand: AgeBand, tagIds?: string[]) => Child | null;
+  addChild: (
+    displayName: string,
+    age: AgeBand | { ageYears?: number; ageMonths?: number; birthDate?: string },
+    tagIds?: string[],
+  ) => Child | null;
+  updateChild: (
+    childId: string,
+    input: {
+      displayName: string;
+      age: AgeBand | { ageYears?: number; ageMonths?: number; birthDate?: string };
+      birthDate: string | null;
+      tagIds: string[];
+    },
+  ) => boolean;
+  removeChild: (childId: string) => void;
+  removeDayPlan: (childId: string, date: string) => void;
   addTherapistTag: (name: string) => void;
   setChildTags: (childId: string, tagIds: string[]) => void;
   getDayPlan: (childId: string, date: string) => DayPlan | null;
@@ -317,6 +335,21 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
     myChildren,
     selectedChild,
     resetDemo: () => update(() => createSeedState()),
+    loadDemoPersona: (personId) =>
+      update((prev) => {
+        const next = withDemoFamily(prev);
+        const person = next.people.find((item) => item.id === personId);
+        if (!person) return next;
+        const mine = next.memberships.filter(
+          (membership) => membership.personId === person.id && membership.status === "active",
+        );
+        const only = mine.length === 1 ? mine[0] : undefined;
+        return {
+          ...next,
+          activePersonId: person.id,
+          selectedChildId: person.appRole === "therapist" ? null : (only?.childId ?? null),
+        };
+      }),
     switchPersona: (personId) =>
       update((prev) => {
         const person = prev.people.find((p) => p.id === personId);
@@ -348,18 +381,47 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
         };
       }),
     selectChild: (childId) => update((prev) => ({ ...prev, selectedChildId: childId })),
-    addChild: (displayName, ageBand, tagIds = []) => {
+    addChild: (displayName, age, tagIds = []) => {
       const childId = nid("child");
+      const resolved: ResolvedChildAge | null =
+        typeof age === "string" ? { ageBand: age } : resolveTherapistAge(age);
+      if (!resolved) return null;
       const result = dispatch({
         type: "addChild",
         childId,
         membershipId: nid("mem"),
         displayName,
-        ageBand,
+        ageBand: resolved.ageBand,
+        ...(resolved.ageYears != null ? { ageYears: resolved.ageYears } : {}),
+        ...(resolved.ageMonths != null ? { ageMonths: resolved.ageMonths } : {}),
+        ...(resolved.birthDate ? { birthDate: resolved.birthDate } : {}),
         tagIds,
         now: new Date().toISOString(),
       });
       return result?.state.children.find((child) => child.id === childId) ?? null;
+    },
+    updateChild: (childId, input) => {
+      const resolved: ResolvedChildAge | null =
+        typeof input.age === "string" ? { ageBand: input.age } : resolveTherapistAge(input.age);
+      if (!resolved) return false;
+      const result = dispatch({
+        type: "updateChild",
+        childId,
+        displayName: input.displayName,
+        ageBand: resolved.ageBand,
+        ...(resolved.ageYears != null ? { ageYears: resolved.ageYears } : {}),
+        ...(resolved.ageMonths != null ? { ageMonths: resolved.ageMonths } : {}),
+        birthDate: input.birthDate,
+        tagIds: input.tagIds,
+        now: new Date().toISOString(),
+      });
+      return Boolean(result?.state.children.some((child) => child.id === childId));
+    },
+    removeChild: (childId) => {
+      dispatch({ type: "removeChild", childId, now: new Date().toISOString() });
+    },
+    removeDayPlan: (childId, date) => {
+      dispatch({ type: "removeDayPlan", childId, date, now: new Date().toISOString() });
     },
     addTherapistTag: (name) => {
       dispatch({ type: "addTherapistTag", tagId: nid("tag"), name });

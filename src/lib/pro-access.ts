@@ -2,6 +2,7 @@
 
 export const CAREGIVER_TAB_KEYS = [
   "activities",
+  "children",
   "schedule",
   "journey",
   "community",
@@ -25,9 +26,14 @@ export function showProChrome(input: { clerkIsPro: boolean; deviceDemo: boolean 
   return input.deviceDemo;
 }
 
-/** Normal tabs for everyone. Pro accounts get one extra tab after Activities. */
-export function tabsForAccount(isPro: boolean): AppTabKey[] {
-  if (!isPro) return [...CAREGIVER_TAB_KEYS];
-  const [activities, ...rest] = CAREGIVER_TAB_KEYS;
-  return [activities, "pro", ...rest];
+/**
+ * Parents get Children only while a child is shared with them.
+ * Pro accounts get Pro instead, in the same place.
+ */
+export function tabsForAccount(isPro: boolean, hasLinkedChildren = false): AppTabKey[] {
+  const withoutChildren = CAREGIVER_TAB_KEYS.filter((key) => key !== "children");
+  const [activities, ...rest] = withoutChildren;
+  if (isPro) return [activities!, "pro", ...rest];
+  if (!hasLinkedChildren) return [...withoutChildren];
+  return [...CAREGIVER_TAB_KEYS];
 }

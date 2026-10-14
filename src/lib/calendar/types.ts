@@ -71,7 +71,14 @@ export type Person = {
 export type Child = {
   id: string;
   displayName: string;
+  /** Kept for older saves and the parent add-child flow. */
   ageBand: AgeBand;
+  /** Whole years from an older save. Demo patients leave this unset. */
+  ageYears?: number;
+  /** Age in months, including half-years (6, 18, 42). A date of birth can override this on screen. */
+  ageMonths?: number;
+  /** ISO date YYYY-MM-DD typed by a therapist. */
+  birthDate?: string;
   createdAt: string;
   createdById: string;
 };
@@ -126,6 +133,8 @@ export type CalendarState = {
   childTags: ChildTag[];
   /** Currently focused child (null = picker / caseload). */
   selectedChildId: string | null;
+  /** Child ids a therapist removed. The demo repair must not recreate them. */
+  dismissedChildIds?: string[];
 };
 
 export function isAgeBand(value: string): value is AgeBand {
