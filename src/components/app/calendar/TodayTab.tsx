@@ -3,6 +3,13 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/I18nProvider";
 import { presentPlanName, presentPlanStep } from "@/lib/activity-locale";
 import { canEditPlan, canMarkDone } from "@/lib/calendar/permissions";
@@ -21,6 +28,7 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [detailStep, setDetailStep] = useState<DayStep | null>(null);
   const [replacingId, setReplacingId] = useState<string | null>(null);
+  const [confirmRemoveDay, setConfirmRemoveDay] = useState(false);
   const child = cal.selectedChild;
   const role = cal.roleOnSelected;
   const plan = child ? cal.getDayPlan(child.id, date) : null;
@@ -78,6 +86,17 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
                 <Plus className="mr-1 size-4" />
                 {t("calendar.today.addActivity")}
               </Button>
+              {plan ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  data-testid="remove-day-plan"
+                  onClick={() => setConfirmRemoveDay(true)}
+                >
+                  {t("calendar.today.removeDay")}
+                </Button>
+              ) : null}
               {plan?.tweaked ? (
                 <Button
                   type="button"
@@ -240,6 +259,37 @@ export function TodayTab({ onOpenLibrary }: { onOpenLibrary: () => void }) {
             }
           : {})}
       />
+
+      <Dialog open={confirmRemoveDay} onOpenChange={setConfirmRemoveDay}>
+        <DialogContent className="sm:max-w-md" data-testid="remove-day-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("calendar.today.removeDayTitle")}</DialogTitle>
+            <DialogDescription>{t("calendar.today.removeDayBody")}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setConfirmRemoveDay(false)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              data-testid="remove-day-confirm"
+              onClick={() => {
+                cal.removeDayPlan(child.id, date);
+                setConfirmRemoveDay(false);
+                toast.success(t("calendar.today.dayRemoved"));
+              }}
+            >
+              {t("calendar.today.removeDayConfirm")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

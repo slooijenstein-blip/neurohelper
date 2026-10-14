@@ -1,4 +1,4 @@
-import { Baby, Plus, Search } from "lucide-react";
+import { Baby, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -76,9 +76,12 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
   const [query, setQuery] = useState("");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<Child | null>(null);
   const [name, setName] = useState("");
   const [ageIndex, setAgeIndex] = useState(6);
   const [birthDate, setBirthDate] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
 
   const tags = cal.therapistTagsForActive();
@@ -112,6 +115,26 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
     setName("");
     setAgeIndex(6);
     setBirthDate("");
+    setSelectedTags([]);
+    setEditingId(null);
+  };
+
+  const openEdit = (child: Child) => {
+    const months =
+      child.ageMonths ??
+      (child.ageYears != null
+        ? child.ageYears * 12
+        : child.birthDate
+          ? wholeMonths(child.birthDate)
+          : 36);
+    setEditingId(child.id);
+    setAdding(true);
+    setName(child.displayName);
+    setAgeIndex(sliderIndexFromMonths(months));
+    setBirthDate(child.birthDate ?? "");
+    setSelectedTags(
+      cal.state.childTags.filter((tag) => tag.childId === child.id).map((tag) => tag.tagId),
+    );
   };
 
   const parsedDob = birthDate.trim() ? parseBirthDate(birthDate) : null;
@@ -128,14 +151,27 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
       toast.error(t("calendar.patients.dobInvalid"));
       return;
     }
-    const child = cal.addChild(
-      trimmed,
-      {
-        ageMonths: shownMonths,
-        ...(parsedDob ? { birthDate: parsedDob } : {}),
-      },
-      tagFilter ? [tagFilter] : [],
-    );
+    const age = {
+      ageMonths: shownMonths,
+      ...(parsedDob ? { birthDate: parsedDob } : {}),
+    };
+    if (editingId) {
+      const ok = cal.updateChild(editingId, {
+        displayName: trimmed,
+        age,
+        birthDate: parsedDob,
+        tagIds: selectedTags,
+      });
+      if (!ok) {
+        toast.error(t("share.saveFailed"));
+        return;
+      }
+      setAdding(false);
+      resetForm();
+      toast.success(t("calendar.patients.updated"));
+      return;
+    }
+    const child = cal.addChild(trimmed, age, tagFilter ? [tagFilter] : selectedTags);
     if (!child) {
       toast.error(t("share.saveFailed"));
       return;
@@ -232,41 +268,66 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
               .filter(Boolean);
             const progress = progressFor(cal.state.dayPlans, child.id, today);
             return (
-              <button
+              <div
                 key={child.id}
-                type="button"
                 data-testid={`patient-${child.id}`}
-                onClick={() => {
-                  cal.selectChild(child.id);
-                  onOpenChild();
-                }}
-                className="flex w-full items-center gap-3 rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-border transition-colors hover:bg-muted/40"
+                className="flex w-full items-center gap-2 rounded-2xl bg-card px-3 py-3 ring-1 ring-border"
               >
-                <div className="grid size-11 place-items-center rounded-full bg-accent text-accent-foreground">
-                  <Baby className="size-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold">{child.displayName}</p>
-                  <p
-                    className="text-[11px] text-muted-foreground"
-                    data-testid={`patient-age-${child.id}`}
-                  >
-                    <PatientAge child={child} showBirthDate />
-                    {childTagNames.length ? ` · ${childTagNames.join(", ")}` : ""}
-                  </p>
-                  {progress ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    cal.selectChild(child.id);
+                    onOpenChild();
+                  }}
+                  className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                >
+                  <div className="grid size-11 place-items-center rounded-full bg-accent text-accent-foreground">
+                    <Baby className="size-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">{child.displayName}</p>
                     <p
-                      className="mt-0.5 text-[11px] font-semibold text-primary"
-                      data-testid={`patient-progress-${child.id}`}
+                      className="text-[11px] text-muted-foreground"
+                      data-testid={`patient-age-${child.id}`}
                     >
-                      {t("calendar.patients.progress", {
-                        done: progress.done,
-                        total: progress.total,
-                      })}
+                      <PatientAge child={child} showBirthDate />
+                      {childTagNames.length ? ` · ${childTagNames.join(", ")}` : ""}
                     </p>
-                  ) : null}
+                    {progress ? (
+                      <p
+                        className="mt-0.5 text-[11px] font-semibold text-primary"
+                        data-testid={`patient-progress-${child.id}`}
+                      >
+                        {t("calendar.patients.progress", {
+                          done: progress.done,
+                          total: progress.total,
+                        })}
+                      </p>
+                    ) : null}
+                  </div>
+                </button>
+                <div className="flex shrink-0 flex-col gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    data-testid={`patient-edit-${child.id}`}
+                    onClick={() => openEdit(child)}
+                  >
+                    <Pencil className="mr-1 size-3.5" /> {t("common.edit")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive"
+                    data-testid={`patient-remove-${child.id}`}
+                    onClick={() => setRemoving(child)}
+                  >
+                    <Trash2 className="mr-1 size-3.5" /> {t("common.remove")}
+                  </Button>
                 </div>
-              </button>
+              </div>
             );
           })}
           {patients.length === 0 ? (
@@ -282,10 +343,17 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
           if (!open) resetForm();
         }}
       >
-        <DialogContent className="sm:max-w-md" data-testid="add-patient-dialog">
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-md"
+          data-testid="add-patient-dialog"
+        >
           <DialogHeader>
-            <DialogTitle>{t("calendar.patients.addTitle")}</DialogTitle>
-            <DialogDescription>{t("calendar.patients.addBody")}</DialogDescription>
+            <DialogTitle>
+              {editingId ? t("calendar.patients.editTitle") : t("calendar.patients.addTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {editingId ? t("calendar.patients.editBody") : t("calendar.patients.addBody")}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-1">
             <Label htmlFor="patient-name">{t("calendar.patients.namePlaceholder")}</Label>
@@ -340,14 +408,78 @@ export function PatientsTab({ onOpenChild }: { onOpenChild: () => void }) {
             <p className="text-[11px] text-muted-foreground">{t("calendar.patients.dobPrivate")}</p>
           </div>
           <p className="text-[11px] text-muted-foreground">{t("calendar.patients.ageOrDob")}</p>
+          {editingId && tags.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold">{t("calendar.patients.tags")}</p>
+              <div className="flex flex-wrap gap-2">
+                {tags.map((tag) => {
+                  const on = selectedTags.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() =>
+                        setSelectedTags((prev) =>
+                          on ? prev.filter((id) => id !== tag.id) : [...prev, tag.id],
+                        )
+                      }
+                      className={
+                        on
+                          ? "rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground"
+                          : "rounded-full bg-muted px-3 py-1 text-xs font-bold text-muted-foreground"
+                      }
+                    >
+                      {tag.name}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
           <Button
             type="button"
             className="w-full"
             data-testid="patient-add-confirm"
             onClick={addPatient}
           >
-            {t("calendar.patients.addConfirm")}
+            {editingId ? t("common.save") : t("calendar.patients.addConfirm")}
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(removing)} onOpenChange={(open) => !open && setRemoving(null)}>
+        <DialogContent className="sm:max-w-md" data-testid="remove-patient-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("calendar.patients.removeTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("calendar.patients.removeBody", { name: removing?.displayName ?? "" })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setRemoving(null)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              data-testid="patient-remove-confirm"
+              onClick={() => {
+                if (!removing) return;
+                const removedName = removing.displayName;
+                cal.removeChild(removing.id);
+                setRemoving(null);
+                toast.success(t("calendar.patients.removed", { name: removedName }));
+              }}
+            >
+              {t("calendar.patients.removeConfirm")}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

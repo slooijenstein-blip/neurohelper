@@ -13,6 +13,20 @@ export type ShareAction =
       tagIds: string[];
       now: string;
     }
+  | {
+      type: "updateChild";
+      childId: string;
+      displayName: string;
+      ageBand: AgeBand;
+      ageYears?: number;
+      ageMonths?: number;
+      /** Null clears a saved date of birth. */
+      birthDate?: string | null;
+      tagIds: string[];
+      now: string;
+    }
+  | { type: "removeChild"; childId: string; now: string }
+  | { type: "removeDayPlan"; childId: string; date: string; now: string }
   | { type: "addTherapistTag"; tagId: string; name: string }
   | { type: "setChildTags"; childId: string; tagIds: string[] }
   | { type: "toggleStepDone"; childId: string; date: string; stepId: string; now: string }

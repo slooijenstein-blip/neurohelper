@@ -54,6 +54,17 @@ type CalendarContextValue = {
     age: AgeBand | { ageYears?: number; ageMonths?: number; birthDate?: string },
     tagIds?: string[],
   ) => Child | null;
+  updateChild: (
+    childId: string,
+    input: {
+      displayName: string;
+      age: AgeBand | { ageYears?: number; ageMonths?: number; birthDate?: string };
+      birthDate: string | null;
+      tagIds: string[];
+    },
+  ) => boolean;
+  removeChild: (childId: string) => void;
+  removeDayPlan: (childId: string, date: string) => void;
   addTherapistTag: (name: string) => void;
   setChildTags: (childId: string, tagIds: string[]) => void;
   getDayPlan: (childId: string, date: string) => DayPlan | null;
@@ -388,6 +399,29 @@ export function CalendarStoreProvider({ children }: { children: ReactNode }) {
         now: new Date().toISOString(),
       });
       return result?.state.children.find((child) => child.id === childId) ?? null;
+    },
+    updateChild: (childId, input) => {
+      const resolved: ResolvedChildAge | null =
+        typeof input.age === "string" ? { ageBand: input.age } : resolveTherapistAge(input.age);
+      if (!resolved) return false;
+      const result = dispatch({
+        type: "updateChild",
+        childId,
+        displayName: input.displayName,
+        ageBand: resolved.ageBand,
+        ...(resolved.ageYears != null ? { ageYears: resolved.ageYears } : {}),
+        ...(resolved.ageMonths != null ? { ageMonths: resolved.ageMonths } : {}),
+        birthDate: input.birthDate,
+        tagIds: input.tagIds,
+        now: new Date().toISOString(),
+      });
+      return Boolean(result?.state.children.some((child) => child.id === childId));
+    },
+    removeChild: (childId) => {
+      dispatch({ type: "removeChild", childId, now: new Date().toISOString() });
+    },
+    removeDayPlan: (childId, date) => {
+      dispatch({ type: "removeDayPlan", childId, date, now: new Date().toISOString() });
     },
     addTherapistTag: (name) => {
       dispatch({ type: "addTherapistTag", tagId: nid("tag"), name });

@@ -1,5 +1,7 @@
 import {
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Copy,
   MoreHorizontal,
   Pencil,
@@ -65,6 +67,7 @@ export function LibraryTab({
   const [patientQuery, setPatientQuery] = useState("");
   const [weekdayMask, setWeekdayMask] = useState([true, true, true, true, true, false, false]);
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({});
+  const [pendingDelete, setPendingDelete] = useState<LibraryPlan | null>(null);
 
   const canManage = canManageLibrary(role) || cal.activePerson.appRole === "therapist";
 
@@ -224,10 +227,7 @@ export function LibraryTab({
                 ) : null}
                 <DropdownMenuItem
                   className="text-destructive"
-                  onClick={() => {
-                    cal.deleteLibraryPlan(plan.id);
-                    toast.success(t("calendar.library.deleted"));
-                  }}
+                  onClick={() => setPendingDelete(plan)}
                 >
                   <Trash2 className="mr-2 size-4" /> {t("common.delete")}
                 </DropdownMenuItem>
@@ -388,7 +388,67 @@ export function LibraryTab({
                         ? ` · ${t("activities.durationExact", { count: step.minutes })}`
                         : ""}
                     </p>
-                    <div className="mt-2 flex gap-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <label className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground">
+                        {t("calendar.library.minutes")}
+                        <input
+                          type="number"
+                          min={1}
+                          max={180}
+                          value={step.minutes || 10}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) => {
+                            const minutes = Math.min(
+                              180,
+                              Math.max(1, Number(event.target.value) || 1),
+                            );
+                            setDraftSteps((prev) =>
+                              prev.map((item, i) => (i === idx ? { ...item, minutes } : item)),
+                            );
+                          }}
+                          className="h-7 w-14 rounded-md border border-border bg-card px-1 text-xs text-foreground"
+                        />
+                      </label>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="text-[11px] font-semibold text-primary"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (idx === 0) return;
+                          setDraftSteps((prev) => {
+                            const next = [...prev];
+                            const current = next[idx];
+                            const previous = next[idx - 1];
+                            if (!current || !previous) return prev;
+                            next[idx - 1] = current;
+                            next[idx] = previous;
+                            return next;
+                          });
+                        }}
+                      >
+                        {t("calendar.library.moveUp")}
+                      </span>
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="text-[11px] font-semibold text-primary"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setDraftSteps((prev) => {
+                            if (idx >= prev.length - 1) return prev;
+                            const next = [...prev];
+                            const current = next[idx];
+                            const following = next[idx + 1];
+                            if (!current || !following) return prev;
+                            next[idx + 1] = current;
+                            next[idx] = following;
+                            return next;
+                          });
+                        }}
+                      >
+                        {t("calendar.library.moveDown")}
+                      </span>
                       <span
                         role="button"
                         tabIndex={0}
@@ -479,6 +539,45 @@ export function LibraryTab({
             }
           : {})}
       />
+
+      <Dialog
+        open={Boolean(pendingDelete)}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+      >
+        <DialogContent className="sm:max-w-md" data-testid="delete-plan-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("calendar.library.deleteTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("calendar.library.deleteBody", {
+                name: pendingDelete ? presentPlanName(pendingDelete, t) : "",
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setPendingDelete(null)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              data-testid="delete-plan-confirm"
+              onClick={() => {
+                if (!pendingDelete) return;
+                cal.deleteLibraryPlan(pendingDelete.id);
+                setPendingDelete(null);
+                toast.success(t("calendar.library.deleted"));
+              }}
+            >
+              {t("calendar.library.deleteConfirm")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!applyTarget} onOpenChange={(open) => !open && setApplyTarget(null)}>
         <DialogContent className="sm:max-w-md">
