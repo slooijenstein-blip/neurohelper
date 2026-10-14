@@ -26,9 +26,14 @@ export function showProChrome(input: { clerkIsPro: boolean; deviceDemo: boolean 
   return input.deviceDemo;
 }
 
-/** Parents get Children. Pro accounts get Pro instead, in the same place. */
-export function tabsForAccount(isPro: boolean): AppTabKey[] {
-  const [activities, children, ...rest] = CAREGIVER_TAB_KEYS;
-  if (!isPro) return [activities, children, ...rest];
-  return [activities, "pro", ...rest];
+/**
+ * Parents get Children only while a child is shared with them.
+ * Pro accounts get Pro instead, in the same place.
+ */
+export function tabsForAccount(isPro: boolean, hasLinkedChildren = false): AppTabKey[] {
+  const withoutChildren = CAREGIVER_TAB_KEYS.filter((key) => key !== "children");
+  const [activities, ...rest] = withoutChildren;
+  if (isPro) return [activities!, "pro", ...rest];
+  if (!hasLinkedChildren) return [...withoutChildren];
+  return [...CAREGIVER_TAB_KEYS];
 }

@@ -18,6 +18,7 @@ import { isClerkConfigured } from "@/lib/clerk";
 import { isClerkPro, type ClerkNameSource } from "@/lib/clerk-profile";
 import { demoRolesAllowed } from "@/lib/demo-roles";
 import { isProAccount, showProChrome, tabsForAccount, type AppTabKey } from "@/lib/pro-access";
+import { useCalendarStore } from "@/lib/calendar/store";
 import { useDevShareUser } from "@/lib/share/dev-session";
 import { useAppStore } from "@/lib/app-store";
 import { ActivitiesTab } from "./ActivitiesTab";
@@ -59,6 +60,7 @@ function AppShell({
   clerkIsPro: boolean;
 }) {
   const { state, prototypeDemo } = useAppStore();
+  const cal = useCalendarStore();
   const { t } = useI18n();
   const [profileId, setProfileId] = useState<string | null>(null);
   const [articleId, setArticleId] = useState<string | null>(null);
@@ -72,11 +74,13 @@ function AppShell({
   const isPro = demoOverlay
     ? isProAccount(state.profile)
     : showProChrome({ clerkIsPro, deviceDemo: false });
-  const tabs = tabsForAccount(isPro);
+  const hasLinkedChildren = cal.hydrated && cal.myChildren.length > 0;
+  const tabs = tabsForAccount(isPro, hasLinkedChildren);
 
   useEffect(() => {
-    if ((tab === "pro" && !isPro) || (tab === "children" && isPro)) onTab("activities");
-  }, [tab, isPro, onTab]);
+    if (tab === "pro" && !isPro) onTab("activities");
+    if (tab === "children" && (isPro || !hasLinkedChildren)) onTab("activities");
+  }, [tab, isPro, hasLinkedChildren, onTab]);
 
   const goTab = (key: TabKey) => {
     setArticleId(null);
@@ -104,7 +108,7 @@ function AppShell({
   ) : (
     {
       activities: <ActivitiesTab />,
-      children: <ChildrenTab />,
+      children: hasLinkedChildren ? <ChildrenTab /> : <ActivitiesTab />,
       pro: <ProTab />,
       schedule: <ScheduleTab />,
       journey: <JourneyTab />,

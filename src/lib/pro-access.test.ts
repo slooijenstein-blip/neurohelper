@@ -5,8 +5,9 @@ import { isProAccount, showProChrome, tabsForAccount } from "./pro-access.ts";
 
 describe("pro access", () => {
   it("keeps the caregiver tabs and withholds Pro unless the flag is on", () => {
-    const parent = tabsForAccount(false);
-    const pro = tabsForAccount(true);
+    const parent = tabsForAccount(false, true);
+    const alone = tabsForAccount(false);
+    const pro = tabsForAccount(true, true);
 
     assert.equal(isProAccount({ isPro: true }), true);
     assert.equal(isProAccount({ isPro: false }), false);
@@ -24,6 +25,16 @@ describe("pro access", () => {
     ]);
     assert.equal(parent.includes("pro"), false);
     assert.equal(parent.includes("children"), true);
+    assert.equal(alone.includes("children"), false);
+    assert.equal(alone.includes("pro"), false);
+    assert.deepEqual(alone, [
+      "activities",
+      "schedule",
+      "journey",
+      "community",
+      "help",
+      "profile",
+    ]);
     assert.ok(parent.includes("activities"));
     assert.ok(parent.includes("community"));
 
