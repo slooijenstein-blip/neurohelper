@@ -747,6 +747,7 @@ export const es: DeepString<Messages> = {
     title: "Compartido contigo",
     subtitle: "Un plan para {{name}}. Tus pestañas no cambian.",
     shareHelper: "Compartir con quien ayuda",
+    removeHelper: "Quitar al ayudante",
     shareTitle: "Compartir con un abuelo o una persona de apoyo",
     shareBody:
       "Pueden ver este plan y marcar los pasos como hechos. No ven la lista de pacientes y su app sigue siendo la de siempre.",

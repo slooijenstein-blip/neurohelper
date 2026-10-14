@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
+import { createSeedState } from "../calendar/seed.ts";
 import { applyShareAction } from "./mutate.ts";
+import { ShareError } from "./errors.ts";
 import { blankAccountState } from "./workspace.ts";
 
 const therapist = {
@@ -116,5 +118,51 @@ describe("therapist edits", () => {
     assert.equal(state.memberships.length, 0);
     assert.equal(state.dayPlans.length, 0);
     assert.equal(state.people[0]?.email, "maya@example.com");
+  });
+
+  it("lets a parent remove a helper, then the helper cannot see or check that child", () => {
+    const parent = {
+      userId: "person_sam",
+      email: "sam@example.com",
+      name: "Demo Parent",
+      isPro: false,
+    };
+    const helper = {
+      userId: "person_grandma",
+      email: "grandma@example.com",
+      name: "Demo Grandparent",
+      isPro: false,
+    };
+    const seed = createSeedState();
+    const stepId = seed.dayPlans.find((plan) => plan.id === "day_alex_today")?.steps[0]?.id;
+    assert.ok(stepId);
+    const removed = applyShareAction(seed, parent, {
+      type: "removeMember",
+      membershipId: "mem_grandma_alex",
+    });
+    assert.equal(
+      removed.state.memberships.some((item) => item.personId === "person_grandma"),
+      false,
+    );
+    assert.ok(removed.state.people.some((person) => person.id === "person_grandma"));
+    assert.throws(
+      () =>
+        applyShareAction(removed.state, helper, {
+          type: "toggleStepDone",
+          childId: "child_alex",
+          date: seed.dayPlans.find((plan) => plan.id === "day_alex_today")!.date,
+          stepId,
+          now,
+        }),
+      (error: unknown) => error instanceof ShareError && error.status === 403,
+    );
+    assert.throws(
+      () =>
+        applyShareAction(seed, parent, {
+          type: "removeMember",
+          membershipId: "mem_maya_alex",
+        }),
+      (error: unknown) => error instanceof ShareError && error.status === 403,
+    );
   });
 });

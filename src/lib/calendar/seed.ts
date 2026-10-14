@@ -301,12 +301,6 @@ export function demoFamilyReady(state: CalendarState): boolean {
     state.memberships.some(
       (membership) =>
         membership.childId === CHILD_ALEX &&
-        membership.personId === HELPER_ID &&
-        membership.status === "active",
-    ) &&
-    state.memberships.some(
-      (membership) =>
-        membership.childId === CHILD_ALEX &&
         membership.personId === PARENT_ID &&
         membership.status === "active",
     ) &&

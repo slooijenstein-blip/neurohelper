@@ -730,6 +730,7 @@ export const en = {
     title: "Shared with you",
     subtitle: "A plan for {{name}}. Your tabs stay the same.",
     shareHelper: "Share with a helper",
+    removeHelper: "Remove helper",
     shareTitle: "Share with a grandparent or helper",
     shareBody:
       "They can view this plan and mark steps done. They do not see a clinic caseload, and their app stays the normal caregiver app.",

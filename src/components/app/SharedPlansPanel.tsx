@@ -13,7 +13,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import { presentPlanName, presentPlanStep } from "@/lib/activity-locale";
-import { canInvite, inviteRolesFor, membershipOnChild } from "@/lib/calendar/permissions";
+import {
+  canInvite,
+  canRemoveMember,
+  inviteRolesFor,
+  membershipOnChild,
+} from "@/lib/calendar/permissions";
 import { toDateKey, useCalendarStore } from "@/lib/calendar/store";
 import type { DayPlan } from "@/lib/calendar/types";
 import { sharedTemplateId } from "@/lib/my-calendar";
@@ -41,6 +46,11 @@ export function SharedPlansPanel() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [link, setLink] = useState<string | null>(null);
+  const [pendingHelper, setPendingHelper] = useState<{
+    id: string;
+    name: string;
+    childName: string;
+  } | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [dates, setDates] = useState<Record<string, string>>({});
 
@@ -241,15 +251,44 @@ export function SharedPlansPanel() {
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 {t("shared.people")}
               </p>
-              <ul className="mt-1 space-y-1">
-                {people.map((person) => (
-                  <li key={person.id} className="text-xs text-muted-foreground">
-                    {person.name} · {t(`calendar.roles.${person.role}`)} ·{" "}
-                    {person.status === "active"
-                      ? t("calendar.people.active")
-                      : t("calendar.people.pending")}
-                  </li>
-                ))}
+              <ul className="mt-1 space-y-2">
+                {people.map((person) => {
+                  const removable =
+                    person.kind === "member" &&
+                    person.membershipId &&
+                    canRemoveMember(role, person.role);
+                  return (
+                    <li
+                      key={person.id}
+                      className="flex items-center justify-between gap-2 text-xs text-muted-foreground"
+                    >
+                      <span className="min-w-0">
+                        {person.name} · {t(`calendar.roles.${person.role}`)} ·{" "}
+                        {person.status === "active"
+                          ? t("calendar.people.active")
+                          : t("calendar.people.pending")}
+                      </span>
+                      {removable ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-8 shrink-0 text-destructive"
+                          data-testid={`remove-helper-${person.membershipId}`}
+                          onClick={() =>
+                            setPendingHelper({
+                              id: person.membershipId!,
+                              name: person.name,
+                              childName: child.displayName,
+                            })
+                          }
+                        >
+                          {t("shared.removeHelper")}
+                        </Button>
+                      ) : null}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
 
@@ -286,6 +325,43 @@ export function SharedPlansPanel() {
             }
           : {})}
       />
+
+      <Dialog
+        open={Boolean(pendingHelper)}
+        onOpenChange={(open) => !open && setPendingHelper(null)}
+      >
+        <DialogContent className="sm:max-w-md" data-testid="remove-helper-dialog">
+          <DialogHeader>
+            <DialogTitle>{t("calendar.people.removeTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("calendar.people.removeBody", { name: pendingHelper?.name ?? "" })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              className="flex-1"
+              onClick={() => setPendingHelper(null)}
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              type="button"
+              className="flex-1"
+              data-testid="remove-helper-confirm"
+              onClick={() => {
+                if (!pendingHelper) return;
+                cal.removeMember(pendingHelper.id);
+                setPendingHelper(null);
+                toast.success(t("calendar.people.removed"));
+              }}
+            >
+              {t("calendar.people.removeConfirm")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
         <DialogContent className="sm:max-w-md">

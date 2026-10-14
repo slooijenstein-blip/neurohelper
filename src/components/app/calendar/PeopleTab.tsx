@@ -21,6 +21,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import {
   canChangeRole,
   canInvite,
+  canRemoveMember,
   canRemovePerson,
   inviteRolesFor,
 } from "@/lib/calendar/permissions";
@@ -155,6 +156,25 @@ export function PeopleTab() {
                 </span>
               </div>
             </div>
+            {person.kind === "member" &&
+            person.membershipId &&
+            canRemoveMember(role, person.role) ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 shrink-0 text-destructive"
+                data-testid={`remove-person-${person.membershipId}`}
+                onClick={() =>
+                  setPendingRemove({
+                    id: person.membershipId!,
+                    name: person.name,
+                  })
+                }
+              >
+                {person.role === "helper" ? t("shared.removeHelper") : t("common.remove")}
+              </Button>
+            ) : null}
             {(canChangeRole(role) || canRemovePerson(role)) && person.role !== "therapist" ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -207,10 +227,10 @@ export function PeopleTab() {
                           {t("calendar.people.changeRoleTo", { role: t(`calendar.roles.${r}`) })}
                         </DropdownMenuItem>
                       ))}
-                      {canRemovePerson(role) ? (
+                      {person.membershipId && canRemoveMember(role, person.role) ? (
                         <DropdownMenuItem
                           className="text-destructive"
-                          onClick={() =>
+                          onSelect={() =>
                             setPendingRemove({
                               id: person.membershipId!,
                               name: person.name,

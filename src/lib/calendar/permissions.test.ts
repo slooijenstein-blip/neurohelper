@@ -83,11 +83,12 @@ describe("calendar seed", () => {
       repaired.dayPlans.find((plan) => plan.id === "day_alex_today")?.steps[1]?.done,
       true,
     );
-    assert.ok(
+    assert.equal(
       repaired.memberships.some(
         (membership) =>
           membership.personId === "person_grandma" && membership.childId === "child_alex",
       ),
+      false,
     );
     assert.equal(
       repaired.memberships.some(

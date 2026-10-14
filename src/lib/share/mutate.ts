@@ -1,6 +1,7 @@
 import {
   canEditPlan,
   canInvite,
+  canRemoveMember,
   inviteRolesFor,
   membershipOnChild,
 } from "../calendar/permissions.ts";
@@ -724,7 +725,7 @@ export function applyShareAction(
         throw new ShareError(403, "forbidden", "The therapist stays on this plan.");
       }
       const actorRole = roleOn(state, membership.childId, actor.userId);
-      if (actorRole !== "therapist" && actorRole !== "caregiver") {
+      if (!canRemoveMember(actorRole, membership.role)) {
         throw new ShareError(403, "forbidden", "You cannot remove this person.");
       }
       return {

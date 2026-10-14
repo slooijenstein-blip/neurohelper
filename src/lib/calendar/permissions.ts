@@ -23,6 +23,18 @@ export function canRemovePerson(role: ChildRole | null): boolean {
   return role === "therapist" || role === "caregiver";
 }
 
+/**
+ * Who may revoke a membership.
+ * Therapists can remove parents and helpers for now.
+ * Parents can remove helpers only. Change this one function if that policy changes.
+ */
+export function canRemoveMember(actor: ChildRole | null, target: ChildRole): boolean {
+  if (target === "therapist") return false;
+  if (actor === "therapist") return true;
+  if (actor === "caregiver") return target === "helper";
+  return false;
+}
+
 export function canManageLibrary(role: ChildRole | null): boolean {
   return role === "therapist" || role === "caregiver";
 }
