@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ActivityDetailDialog } from "./ActivityDetailDialog";
+import { TranslatableText } from "./community/TranslatableText";
 import { cn } from "@/lib/utils";
 
 export function PostDetailDialog({
@@ -87,9 +88,11 @@ export function PostDetailDialog({
             ) : null}
           </div>
 
-          <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-foreground">
-            {body}
-          </pre>
+          <TranslatableText
+            text={body}
+            testId={`detail-${post.id}`}
+            className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-foreground"
+          />
 
           {templates.length ? (
             <div className="space-y-2">
@@ -156,10 +159,13 @@ export function PostDetailDialog({
           {post.comments.length ? (
             <div className="space-y-1 border-l-2 border-border pl-3">
               {post.comments.map((c) => (
-                <p key={c.id} className="text-xs text-muted-foreground">
-                  <span className="font-semibold text-foreground">{c.authorName}</span>:{" "}
-                  {c.textKey ? t(c.textKey) : c.text}
-                </p>
+                <div key={c.id} className="text-xs text-muted-foreground">
+                  <span className="font-semibold text-foreground">{c.authorName}</span>
+                  <TranslatableText
+                    text={c.textKey ? t(c.textKey) : c.text}
+                    testId={`detail-comment-${c.id}`}
+                  />
+                </div>
               ))}
             </div>
           ) : null}
