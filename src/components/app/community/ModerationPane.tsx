@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import { communityErrorText, useCommunitySocial } from "./social-context";
+import { TranslatableText } from "./TranslatableText";
 
 export function ModerationPane() {
   const { t } = useI18n();
@@ -49,7 +50,7 @@ export function ModerationPane() {
           data-testid={`review-${post.id}`}
         >
           <p className="text-sm font-semibold">{post.authorName}</p>
-          {post.body ? <p className="whitespace-pre-wrap text-sm">{post.body}</p> : null}
+          {post.body ? <TranslatableText text={post.body} testId={`review-${post.id}`} /> : null}
           {post.media?.kind === "image" ? (
             <img
               src={post.media.url}

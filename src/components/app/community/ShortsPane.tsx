@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { ClientPost } from "@/lib/community-social/types";
 import { communityErrorText, useCommunitySocial } from "./social-context";
+import { TranslatableText } from "./TranslatableText";
 
 export function ShortsPane({ onReport }: { onReport: (postId: string) => void }) {
   const { t } = useI18n();
@@ -117,7 +118,13 @@ export function ShortsPane({ onReport }: { onReport: (postId: string) => void })
               />
               <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 pr-20">
                 <p className="text-sm font-semibold">{post.authorName}</p>
-                {post.body ? <p className="mt-1 text-sm">{post.body}</p> : null}
+                {post.body ? (
+                  <TranslatableText
+                    text={post.body}
+                    testId={`short-${post.id}`}
+                    className="pointer-events-auto mt-1 text-sm"
+                  />
+                ) : null}
               </div>
               <div className="absolute bottom-16 right-3 flex flex-col gap-2">
                 <Button
@@ -189,7 +196,8 @@ export function ShortsPane({ onReport }: { onReport: (postId: string) => void })
           <ul className="max-h-40 space-y-2 overflow-y-auto text-sm">
             {commentPost?.comments.map((comment) => (
               <li key={comment.id}>
-                <span className="font-semibold">{comment.authorName}</span> {comment.text}
+                <span className="font-semibold">{comment.authorName}</span>
+                <TranslatableText text={comment.text} testId={`short-comment-${comment.id}`} />
               </li>
             ))}
           </ul>
