@@ -23,6 +23,8 @@ export const LIMITS = {
   maxGroupName: 80,
   maxGroupDescription: 600,
   maxGroupRules: 1000,
+  maxJoinQuestion: 200,
+  maxJoinAnswer: 300,
   maxNote: 300,
   postsPerDay: 30,
   videosPerDay: 8,

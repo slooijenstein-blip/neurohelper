@@ -10,7 +10,6 @@ export function ModerationPane() {
   const { t } = useI18n();
   const social = useCommunitySocial();
   const [reasons, setReasons] = useState<Record<string, string>>({});
-  const [email, setEmail] = useState("");
 
   const act = async (id: string, action: "approve" | "reject" | "remove") => {
     const reason = (reasons[id] || "").trim();
@@ -36,9 +35,7 @@ export function ModerationPane() {
       <div>
         <h2 className="text-base font-semibold">{t("community.tabs.review")}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{t("community.social.queueHelp")}</p>
-        {social.founder ? (
-          <p className="mt-1 text-xs text-muted-foreground">{t("community.social.youFounder")}</p>
-        ) : null}
+        <p className="mt-1 text-xs text-muted-foreground">{t("community.social.youFounder")}</p>
       </div>
       {social.queue.length === 0 ? (
         <p className="text-sm text-muted-foreground" data-testid="moderation-empty">
@@ -132,55 +129,6 @@ export function ModerationPane() {
           ))}
         </ul>
       </section>
-      {social.founder ? (
-        <section data-testid="moderator-admin">
-          <h3 className="text-sm font-semibold">{t("community.social.moderatorsTitle")}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {t("community.social.moderatorHelp")}
-          </p>
-          <form
-            className="mt-2 flex gap-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!email.trim()) return;
-              void social
-                .addModerator(email.trim())
-                .then(() => {
-                  setEmail("");
-                  toast.success(t("community.social.moderatorAdded"));
-                })
-                .catch((err) => toast.error(communityErrorText(t, err)));
-            }}
-          >
-            <Input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder={t("community.social.moderatorEmail")}
-              aria-label={t("community.social.moderatorEmail")}
-              data-testid="moderator-email"
-            />
-            <Button type="submit" data-testid="moderator-add">
-              {t("community.social.addModerator")}
-            </Button>
-          </form>
-          <ul className="mt-2 space-y-1 text-sm">
-            {social.moderators.map((item) => (
-              <li key={item} className="flex items-center justify-between gap-2">
-                <span>{item}</span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void social.removeModerator(item)}
-                >
-                  {t("community.social.removeModerator")}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
     </div>
   );
 }

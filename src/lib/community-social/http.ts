@@ -7,6 +7,7 @@ import { del } from "@vercel/blob";
 import type { Actor } from "../share/actions.ts";
 import { shareDeps } from "../share/http.ts";
 import { redisEnv } from "../share/store.ts";
+import { demoCommunityActor } from "./demo-actors.ts";
 import { LIMITS, CommunityError, isCommunityId } from "./limits.ts";
 import { isPublicBlobUrl, localMediaPath, mediaFromUpload } from "./media-url.ts";
 import { createRedisCommunityStore } from "./redis-store.ts";
@@ -128,6 +129,8 @@ type Route =
   | { name: "group"; id: string }
   | { name: "join"; id: string }
   | { name: "leave"; id: string }
+  | { name: "delete-group"; id: string }
+  | { name: "transfer"; id: string }
   | { name: "members"; id: string }
   | { name: "upload-complete" }
   | { name: "media-post" }
@@ -166,6 +169,10 @@ function match(pathname: string): Route | null {
     return { name: "join", id: rest[1]! };
   if (rest.length === 3 && rest[0] === "groups" && rest[2] === "leave")
     return { name: "leave", id: rest[1]! };
+  if (rest.length === 3 && rest[0] === "groups" && rest[2] === "delete")
+    return { name: "delete-group", id: rest[1]! };
+  if (rest.length === 3 && rest[0] === "groups" && rest[2] === "transfer")
+    return { name: "transfer", id: rest[1]! };
   if (rest.length === 3 && rest[0] === "groups" && rest[2] === "members")
     return { name: "members", id: rest[1]! };
   if (rest.length === 1 && rest[0] === "uploads") return { name: "upload-complete" };
@@ -187,6 +194,8 @@ function requireService(deps: CommunityDeps): CommunityService {
 }
 
 async function actorOf(deps: CommunityDeps, req: Request): Promise<Actor | null> {
+  const demo = demoCommunityActor(req, process.env);
+  if (demo) return demo;
   return deps.authenticate(req);
 }
 
@@ -416,11 +425,20 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
       return json({ ok: true });
     }
     if (route.name === "join") {
-      await service.joinGroup(actor, route.id, now);
-      return json({ ok: true });
+      const status = await service.joinGroup(actor, route.id, now, body["answer"]);
+      return json({ status });
     }
     if (route.name === "leave") {
       await service.leaveGroup(actor, route.id);
+      return json({ ok: true });
+    }
+    if (route.name === "delete-group") {
+      await service.deleteGroup(actor, route.id);
+      return json({ ok: true });
+    }
+    if (route.name === "transfer") {
+      const target = typeof body["userId"] === "string" ? body["userId"] : "";
+      await service.transferOwnership(actor, route.id, target);
       return json({ ok: true });
     }
     if (route.name === "members") {

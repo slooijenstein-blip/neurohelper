@@ -1,4 +1,6 @@
 import type { ShareAuth } from "../share/client.ts";
+
+export type CommunityAuth = ShareAuth & { demoPersona?: string | null };
 import type {
   ClientGroup,
   ClientMember,
@@ -18,10 +20,11 @@ export class CommunityClientError extends Error {
   }
 }
 
-function authHeaders(auth: ShareAuth, json = false): Headers {
+function authHeaders(auth: CommunityAuth, json = false): Headers {
   const headers = new Headers();
   if (auth.token) headers.set("authorization", `Bearer ${auth.token}`);
   if (auth.devUser && import.meta.env.DEV) headers.set("x-share-dev-user", auth.devUser);
+  if (auth.demoPersona) headers.set("x-synlumae-demo-persona", auth.demoPersona);
   if (json) headers.set("content-type", "application/json");
   return headers;
 }
@@ -45,6 +48,7 @@ export type CommunitySession = {
   founder: boolean;
   suspended: boolean;
   userId: string | null;
+  name: string | null;
 };
 
 export async function fetchCommunityHealth(): Promise<{
@@ -56,7 +60,7 @@ export async function fetchCommunityHealth(): Promise<{
   return parse(response);
 }
 
-export async function fetchCommunitySession(auth: ShareAuth): Promise<CommunitySession> {
+export async function fetchCommunitySession(auth: CommunityAuth): Promise<CommunitySession> {
   const response = await fetch("/api/community/session", { headers: authHeaders(auth) });
   return parse(response);
 }
@@ -181,6 +185,7 @@ export async function createCommunityGroup(
     description: string;
     rules: string;
     visibility: GroupVisibility;
+    joinQuestion?: string;
     uploadId?: string;
   },
 ): Promise<string> {
@@ -196,14 +201,34 @@ export async function updateCommunityGroup(
     description: string;
     rules: string;
     visibility: GroupVisibility;
+    joinQuestion?: string;
     uploadId?: string;
   },
 ): Promise<void> {
   await postJson(auth, `/api/community/groups/${encodeURIComponent(id)}`, body);
 }
 
-export async function joinCommunityGroup(auth: ShareAuth, id: string): Promise<void> {
-  await postJson(auth, `/api/community/groups/${encodeURIComponent(id)}/join`, {});
+export async function joinCommunityGroup(
+  auth: CommunityAuth,
+  id: string,
+  answer?: string,
+): Promise<"joined" | "requested"> {
+  const result = (await postJson(auth, `/api/community/groups/${encodeURIComponent(id)}/join`, {
+    ...(answer ? { answer } : {}),
+  })) as { status?: "joined" | "requested" };
+  return result.status === "requested" ? "requested" : "joined";
+}
+
+export async function deleteCommunityGroup(auth: CommunityAuth, id: string): Promise<void> {
+  await postJson(auth, `/api/community/groups/${encodeURIComponent(id)}/delete`, {});
+}
+
+export async function transferCommunityGroup(
+  auth: CommunityAuth,
+  id: string,
+  userId: string,
+): Promise<void> {
+  await postJson(auth, `/api/community/groups/${encodeURIComponent(id)}/transfer`, { userId });
 }
 
 export async function leaveCommunityGroup(auth: ShareAuth, id: string): Promise<void> {
@@ -219,7 +244,7 @@ export async function communityMemberAction(
 }
 
 export async function uploadPreparedMedia(
-  auth: ShareAuth,
+  auth: CommunityAuth,
   userId: string,
   mediaMode: "blob" | "local",
   prepared: PreparedMedia,
@@ -243,6 +268,7 @@ export async function uploadPreparedMedia(
   const headers: Record<string, string> = {};
   if (auth.token) headers["authorization"] = `Bearer ${auth.token}`;
   if (auth.devUser && import.meta.env.DEV) headers["x-share-dev-user"] = auth.devUser;
+  if (auth.demoPersona) headers["x-synlumae-demo-persona"] = auth.demoPersona;
   const blob = await upload(
     `community/${userId}/${prepared.kind === "image" ? "photo.jpg" : "video.mp4"}`,
     prepared.file,

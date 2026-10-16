@@ -19,9 +19,16 @@ import { MediaShareButtons } from "./MediaShareButtons";
 import { communityErrorText, useCommunitySocial } from "./social-context";
 
 function roleLabel(t: (key: string) => string, role: string) {
+  if (role === "owner") return t("community.social.roleOwner");
   if (role === "admin") return t("community.social.roleAdmin");
   if (role === "moderator") return t("community.social.roleModerator");
   return t("community.social.roleMember");
+}
+
+function visibilityLabel(t: (key: string) => string, visibility: string) {
+  if (visibility === "hidden") return t("community.social.hidden");
+  if (visibility === "private") return t("community.social.private");
+  return t("community.social.public");
 }
 
 export function GroupsPane({
@@ -39,6 +46,10 @@ export function GroupsPane({
   const [rules, setRules] = useState("");
   const [visibility, setVisibility] = useState<GroupVisibility>("public");
   const [coverId, setCoverId] = useState<string | undefined>();
+  const [joinQuestion, setJoinQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [draft, setDraft] = useState("");
   const [reason, setReason] = useState("");
   const detail = social.group;
@@ -50,6 +61,7 @@ export function GroupsPane({
     setDescription(detail.group.description);
     setRules(detail.group.rules);
     setVisibility(detail.group.visibility);
+    setJoinQuestion(detail.group.joinQuestion);
     // Fill the edit form when a different group opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openGroupId]);
@@ -65,8 +77,10 @@ export function GroupsPane({
 
   if (detail) {
     const group = detail.group;
-    const canAdmin = group.myRole === "admin" || social.moderator;
-    const canReview = group.myRole === "admin" || group.myRole === "moderator" || social.moderator;
+    const canAdmin = group.myRole === "owner" || group.myRole === "admin";
+    const canReview =
+      group.myRole === "owner" || group.myRole === "admin" || group.myRole === "moderator";
+    const isOwner = group.myRole === "owner";
     const save = async () => {
       try {
         await social.saveGroup(group.id, {
@@ -74,6 +88,7 @@ export function GroupsPane({
           description,
           rules,
           visibility,
+          joinQuestion,
           ...(coverId ? { uploadId: coverId } : {}),
         });
         toast.success(t("community.social.savedChanges"));
@@ -102,9 +117,7 @@ export function GroupsPane({
         <div>
           <h2 className="text-lg font-semibold">{group.name}</h2>
           <p className="text-xs text-muted-foreground">
-            {group.visibility === "private"
-              ? t("community.social.private")
-              : t("community.social.public")}
+            {visibilityLabel(t, group.visibility)}
             {" · "}
             {group.memberCount}
           </p>
@@ -121,31 +134,46 @@ export function GroupsPane({
             {group.rules}
           </p>
         ) : null}
-        {!group.myRole && !group.requested ? (
-          <Button
-            data-testid="group-join"
-            onClick={() =>
-              void social
-                .join(group.id)
-                .then((result) =>
-                  toast.success(
-                    result === "requested"
-                      ? t("community.social.requestedToast")
-                      : t("community.social.joined"),
-                  ),
-                )
-                .catch((err) => toast.error(communityErrorText(t, err)))
-            }
-          >
-            {group.visibility === "private"
-              ? t("community.social.requestJoin")
-              : t("community.social.join")}
-          </Button>
+        {group.banned ? (
+          <p className="text-sm text-muted-foreground">{t("community.social.bannedNotice")}</p>
+        ) : null}
+        {!group.myRole && !group.requested && !group.banned ? (
+          <div className="space-y-2">
+            {group.joinQuestion ? (
+              <Textarea
+                data-testid="group-join-answer"
+                value={answer}
+                onChange={(event) => setAnswer(event.target.value)}
+                placeholder={group.joinQuestion}
+                aria-label={group.joinQuestion}
+                rows={2}
+              />
+            ) : null}
+            <Button
+              data-testid="group-join"
+              onClick={() =>
+                void social
+                  .join(group.id, answer.trim())
+                  .then((result) =>
+                    toast.success(
+                      result === "requested"
+                        ? t("community.social.requestedToast")
+                        : t("community.social.joined"),
+                    ),
+                  )
+                  .catch((err) => toast.error(communityErrorText(t, err)))
+              }
+            >
+              {group.visibility === "public"
+                ? t("community.social.join")
+                : t("community.social.requestJoin")}
+            </Button>
+          </div>
         ) : null}
         {group.requested ? (
           <p className="text-sm text-muted-foreground">{t("community.social.requested")}</p>
         ) : null}
-        {group.myRole ? (
+        {group.myRole && group.myRole !== "owner" ? (
           <Button
             type="button"
             variant="outline"
@@ -183,7 +211,7 @@ export function GroupsPane({
               onChange={(event) => setRules(event.target.value)}
               rows={2}
             />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 size="sm"
@@ -200,7 +228,22 @@ export function GroupsPane({
               >
                 {t("community.social.private")}
               </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={visibility === "hidden" ? "default" : "outline"}
+                onClick={() => setVisibility("hidden")}
+              >
+                {t("community.social.hidden")}
+              </Button>
             </div>
+            <Textarea
+              aria-label={t("community.social.joinQuestion")}
+              value={joinQuestion}
+              onChange={(event) => setJoinQuestion(event.target.value)}
+              placeholder={t("community.social.joinQuestion")}
+              rows={2}
+            />
             <label className="block text-xs font-semibold">
               {t("community.social.cover")}
               <input
@@ -220,7 +263,39 @@ export function GroupsPane({
             <Button type="button" size="sm" data-testid="group-save" onClick={() => void save()}>
               {t("community.social.saveGroup")}
             </Button>
+            {isOwner ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  data-testid="group-delete"
+                  onClick={() => {
+                    if (!confirmDelete) {
+                      setConfirmDelete(true);
+                      return;
+                    }
+                    void social
+                      .removeGroup(group.id)
+                      .then(() => toast.success(t("community.social.deleted")))
+                      .catch((err) => toast.error(communityErrorText(t, err)));
+                  }}
+                >
+                  {confirmDelete
+                    ? t("community.social.deleteConfirm")
+                    : t("community.social.deleteGroup")}
+                </Button>
+              </div>
+            ) : null}
+            {(isOwner || group.visibility !== "public") && group.myRole ? (
+              <p className="text-xs text-muted-foreground" data-testid="group-invite">
+                {t("community.social.inviteCode")}: {group.id}
+              </p>
+            ) : null}
           </div>
+        ) : null}
+        {isOwner ? (
+          <p className="text-xs text-muted-foreground">{t("community.social.ownerLeave")}</p>
         ) : null}
         <section>
           <h3 className="mb-2 text-sm font-semibold">{t("community.social.members")}</h3>
@@ -233,6 +308,8 @@ export function GroupsPane({
                 <span>
                   {member.name} · {roleLabel(t, member.role)}
                   {member.status === "requested" ? ` · ${t("community.social.requested")}` : ""}
+                  {member.status === "banned" ? ` · ${t("community.social.banned")}` : ""}
+                  {member.answer ? ` — ${member.answer}` : ""}
                 </span>
                 {member.status === "requested" && canReview ? (
                   <span className="flex gap-1">
@@ -254,46 +331,96 @@ export function GroupsPane({
                     </Button>
                   </span>
                 ) : null}
-                {member.status === "active" && canAdmin ? (
+                {member.status === "banned" && canAdmin ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void social.memberAction(group.id, member.userId, "unban")}
+                  >
+                    {t("community.social.unbanMember")}
+                  </Button>
+                ) : null}
+                {member.status === "active" &&
+                member.role !== "owner" &&
+                member.userId !== social.userId ? (
                   <span className="flex flex-wrap gap-1">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        void social.memberAction(group.id, member.userId, "setRole", "admin")
-                      }
-                    >
-                      {t("community.social.promoteAdmin")}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        void social.memberAction(group.id, member.userId, "setRole", "moderator")
-                      }
-                    >
-                      {t("community.social.promoteMod")}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        void social.memberAction(group.id, member.userId, "setRole", "member")
-                      }
-                    >
-                      {t("community.social.makeMember")}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => void social.memberAction(group.id, member.userId, "remove")}
-                    >
-                      {t("community.social.removeMember")}
-                    </Button>
+                    {isOwner ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        data-testid={`transfer-${member.userId}`}
+                        onClick={() =>
+                          void social
+                            .transferGroup(group.id, member.userId)
+                            .then(() => toast.success(t("community.social.transferred")))
+                            .catch((err) => toast.error(communityErrorText(t, err)))
+                        }
+                      >
+                        {t("community.social.transferOwner")}
+                      </Button>
+                    ) : null}
+                    {isOwner ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          void social.memberAction(group.id, member.userId, "setRole", "admin")
+                        }
+                      >
+                        {t("community.social.promoteAdmin")}
+                      </Button>
+                    ) : null}
+                    {isOwner || (canAdmin && member.role === "member") ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          void social.memberAction(group.id, member.userId, "setRole", "moderator")
+                        }
+                      >
+                        {t("community.social.promoteMod")}
+                      </Button>
+                    ) : null}
+                    {(isOwner && member.role !== "member") ||
+                    (group.myRole === "admin" && member.role === "moderator") ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          void social.memberAction(group.id, member.userId, "setRole", "member")
+                        }
+                      >
+                        {t("community.social.makeMember")}
+                      </Button>
+                    ) : null}
+                    {canAdmin ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        data-testid={`ban-${member.userId}`}
+                        onClick={() => void social.memberAction(group.id, member.userId, "ban")}
+                      >
+                        {t("community.social.banMember")}
+                      </Button>
+                    ) : null}
+                    {isOwner ||
+                    (group.myRole === "admin" && member.role !== "admin") ||
+                    (group.myRole === "moderator" && member.role === "member") ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void social.memberAction(group.id, member.userId, "remove")}
+                      >
+                        {t("community.social.removeMember")}
+                      </Button>
+                    ) : null}
                   </span>
                 ) : null}
               </li>
@@ -379,6 +506,11 @@ export function GroupsPane({
       data-testid="groups-list"
     >
       <p className="text-sm text-muted-foreground">{t("community.social.groupsHelp")}</p>
+      {social.actorName ? (
+        <p className="text-sm font-semibold" data-testid="community-actor-name">
+          {t("community.social.actorLine", { name: social.actorName })}
+        </p>
+      ) : null}
       <Button data-testid="group-create-open" onClick={() => setCreating(true)}>
         {t("community.social.createGroup")}
       </Button>
@@ -410,9 +542,7 @@ export function GroupsPane({
               <span className="min-w-0">
                 <span className="block truncate font-semibold">{group.name}</span>
                 <span className="block truncate text-xs text-muted-foreground">
-                  {group.visibility === "private"
-                    ? t("community.social.private")
-                    : t("community.social.public")}
+                  {visibilityLabel(t, group.visibility)}
                   {" · "}
                   {group.memberCount}
                   {group.myRole ? ` · ${roleLabel(t, group.myRole)}` : ""}
@@ -422,6 +552,26 @@ export function GroupsPane({
           </li>
         ))}
       </ul>
+      <form
+        className="flex gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const code = inviteCode.trim();
+          if (!code) return;
+          void social.openGroup(code).catch((err) => toast.error(communityErrorText(t, err)));
+        }}
+      >
+        <Input
+          data-testid="group-invite-code"
+          value={inviteCode}
+          onChange={(event) => setInviteCode(event.target.value)}
+          placeholder={t("community.social.inviteCode")}
+          aria-label={t("community.social.inviteCode")}
+        />
+        <Button type="submit" variant="outline" data-testid="group-invite-open">
+          {t("community.social.openInvite")}
+        </Button>
+      </form>
       <Dialog open={creating} onOpenChange={setCreating}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -469,12 +619,30 @@ export function GroupsPane({
               <span className="font-semibold">{t("community.social.private")}. </span>
               {t("community.social.privateHelp")}
             </button>
+            <button
+              type="button"
+              aria-pressed={visibility === "hidden"}
+              data-testid="group-hidden"
+              onClick={() => setVisibility("hidden")}
+              className="rounded-xl border px-3 py-2 text-left text-sm"
+            >
+              <span className="font-semibold">{t("community.social.hidden")}. </span>
+              {t("community.social.hiddenHelp")}
+            </button>
           </div>
+          <Textarea
+            data-testid="group-question"
+            value={joinQuestion}
+            onChange={(event) => setJoinQuestion(event.target.value)}
+            placeholder={t("community.social.joinQuestion")}
+            aria-label={t("community.social.joinQuestion")}
+            rows={2}
+          />
           <Button
             data-testid="group-create-submit"
             onClick={() =>
               void social
-                .createGroup({ name, description, rules, visibility })
+                .createGroup({ name, description, rules, visibility, joinQuestion })
                 .then((id) => {
                   toast.success(t("community.social.groupCreated"));
                   setCreating(false);

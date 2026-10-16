@@ -172,22 +172,28 @@ describe("community social", () => {
     assert.equal(mine?.statusReason, "Please crop the name tag.");
   });
 
-  it("lets the founder add a moderator and pause posting", async () => {
+  it("lets only the founder review posts and pause posting", async () => {
     const service = createCommunityService(createMemoryCommunityStore());
     await assert.rejects(
-      () => service.setModerator(maya, { email: "mod@example.com", action: "add" }),
+      () => service.setModerator(sam, { email: "mod@example.com", action: "add" }),
       (err: unknown) => (err as { code?: string }).code === "forbidden",
     );
-    await service.setModerator(sam, { email: "Mod@Example.com", action: "add" });
-    const mod: Actor = { userId: "user_mod", email: "mod@example.com", name: "Mod", isPro: false };
     const post = await service.createPost(
       maya,
       { body: "Hello", privacyAck: true, authorRole: "Parent" },
       now,
     );
-    await service.review(mod, post.id, { action: "approve" }, now);
+    await assert.rejects(
+      () => service.review(maya, post.id, { action: "approve" }, now),
+      (err: unknown) => (err as { code?: string }).code === "forbidden",
+    );
+    await service.review(sam, post.id, { action: "approve" }, now);
+    await assert.rejects(
+      () => service.setSuspension(maya, { userId: sam.userId, active: true, reason: "No" }, now),
+      (err: unknown) => (err as { code?: string }).code === "forbidden",
+    );
     await service.setSuspension(
-      mod,
+      sam,
       { userId: maya.userId, active: true, reason: "Unkind comments" },
       now,
     );
@@ -206,7 +212,7 @@ describe("community social", () => {
       now,
     );
     assert.equal(
-      (await service.feed(mod)).some((item) => item.id === post.id),
+      (await service.feed(sam)).some((item) => item.id === post.id),
       false,
     );
   });
@@ -223,15 +229,11 @@ describe("community social", () => {
       },
       now,
     );
-    await service.joinGroup(sam, groupId, now);
+    await service.joinGroup(sam, groupId, now, "I would like to listen.");
     let detail = await service.groupDetail(sam, groupId);
     assert.equal(detail.posts.length, 0);
-    assert.equal(
-      detail.members.some(
-        (member) => member.userId === sam.userId && member.status === "requested",
-      ),
-      true,
-    );
+    assert.equal(detail.members.length, 0);
+    assert.equal(detail.group.requested, true);
     detail = await service.groupDetail(maya, groupId);
     assert.equal(
       detail.members.some(
@@ -294,14 +296,116 @@ describe("community social", () => {
       () => service.leaveGroup(maya, groupId),
       (err: unknown) => (err as { code?: string }).code === "last_admin",
     );
-    await service.memberAction(maya, groupId, {
-      userId: sam.userId,
-      action: "setRole",
-      role: "admin",
-    });
+    await service.transferOwnership(maya, groupId, sam.userId);
     await service.leaveGroup(maya, groupId);
     const after = await service.groupDetail(sam, groupId);
-    assert.equal(after.group.myRole, "admin");
+    assert.equal(after.group.myRole, "owner");
+    const guestList = await service.listGroups(guest);
+    assert.equal(
+      guestList.some((item) => item.name === "Everyday wins" && item.visibility === "public"),
+      true,
+    );
+    assert.equal(
+      guestList.some((item) => item.name === "Quiet questions" && item.visibility === "private"),
+      true,
+    );
+  });
+
+  it("keeps a hidden group out of search and blocks a banned member", async () => {
+    const service = createCommunityService(createMemoryCommunityStore());
+    const groupId = await service.createGroup(
+      maya,
+      {
+        name: "Invite only",
+        description: "A closed circle.",
+        rules: "No names.",
+        visibility: "hidden",
+        joinQuestion: "Who invited you?",
+      },
+      now,
+    );
+    const guest: Actor = {
+      userId: "user_guest",
+      email: "guest@example.com",
+      name: "Guest",
+      isPro: false,
+    };
+    assert.equal(
+      (await service.listGroups(guest)).some((item) => item.id === groupId),
+      false,
+    );
+    const peek = await service.groupDetail(guest, groupId);
+    assert.equal(peek.posts.length, 0);
+    assert.equal(peek.group.joinQuestion, "Who invited you?");
+    await service.joinGroup(guest, groupId, now, "Maya did.");
+    await service.memberAction(maya, groupId, { userId: guest.userId, action: "approve" });
+    await service.memberAction(maya, groupId, { userId: guest.userId, action: "ban" });
+    await assert.rejects(
+      () => service.joinGroup(guest, groupId, now),
+      (err: unknown) => (err as { code?: string }).code === "forbidden",
+    );
+  });
+
+  it("gives each demo role a separate community identity off production", async () => {
+    const store = createMemoryCommunityStore();
+    const service = createCommunityService(store);
+    const deps: CommunityDeps = {
+      configured: true,
+      storeName: "memory",
+      media: "none",
+      store,
+      service,
+      authenticate: async () => null,
+      localMediaDir: "/tmp",
+      blobToken: null,
+    };
+    const previous = process.env.VERCEL_ENV;
+    process.env.VERCEL_ENV = "preview";
+    const therapist = await handleCommunityApi(
+      new Request("http://localhost/api/community/session", {
+        headers: { "x-synlumae-demo-persona": "therapist" },
+      }),
+      deps,
+    );
+    const therapistBody = (await therapist.json()) as {
+      userId: string;
+      name: string;
+      founder: boolean;
+    };
+    assert.equal(therapistBody.userId, "demo_therapist");
+    assert.equal(therapistBody.name, "Demo Therapist");
+    assert.equal(therapistBody.founder, false);
+    const groups = await handleCommunityApi(
+      new Request("http://localhost/api/community/groups", {
+        headers: { "x-synlumae-demo-persona": "therapist" },
+      }),
+      deps,
+    );
+    const groupBody = (await groups.json()) as {
+      groups: Array<{ name: string; myRole: string | null }>;
+    };
+    assert.equal(groupBody.groups.find((item) => item.name === "Quiet questions")?.myRole, "owner");
+    assert.equal(groupBody.groups.find((item) => item.name === "Everyday wins")?.myRole, null);
+    const parent = await handleCommunityApi(
+      new Request("http://localhost/api/community/session", {
+        headers: { "x-synlumae-demo-persona": "parent" },
+      }),
+      deps,
+    );
+    const parentBody = (await parent.json()) as { userId: string };
+    assert.equal(parentBody.userId, "demo_parent");
+    assert.notEqual(parentBody.userId, therapistBody.userId);
+    process.env.VERCEL_ENV = "production";
+    const blocked = await handleCommunityApi(
+      new Request("http://localhost/api/community/session", {
+        headers: { "x-synlumae-demo-persona": "parent" },
+      }),
+      deps,
+    );
+    const blockedBody = (await blocked.json()) as { signedIn: boolean };
+    assert.equal(blockedBody.signedIn, false);
+    if (previous === undefined) delete process.env.VERCEL_ENV;
+    else process.env.VERCEL_ENV = previous;
   });
 
   it("shows an approved public video in shorts", async () => {

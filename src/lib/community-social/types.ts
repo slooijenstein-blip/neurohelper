@@ -6,11 +6,14 @@ export type MediaKind = (typeof MEDIA_KINDS)[number];
 export const POST_STATUSES = ["pending", "approved", "rejected", "removed"] as const;
 export type PostStatus = (typeof POST_STATUSES)[number];
 
-export const GROUP_VISIBILITIES = ["public", "private"] as const;
+export const GROUP_VISIBILITIES = ["public", "private", "hidden"] as const;
 export type GroupVisibility = (typeof GROUP_VISIBILITIES)[number];
 
-export const GROUP_ROLES = ["admin", "moderator", "member"] as const;
+export const GROUP_ROLES = ["owner", "admin", "moderator", "member"] as const;
 export type GroupRole = (typeof GROUP_ROLES)[number];
+
+export const MEMBER_STATUSES = ["active", "requested", "banned"] as const;
+export type MemberStatus = (typeof MEMBER_STATUSES)[number];
 
 export type SocialMedia = {
   kind: MediaKind;
@@ -58,6 +61,7 @@ export type SocialGroup = {
   rules: string;
   visibility: GroupVisibility;
   coverUrl: string | null;
+  joinQuestion: string;
   createdBy: string;
   createdAt: string;
 };
@@ -67,7 +71,8 @@ export type SocialMembership = {
   userId: string;
   name: string;
   role: GroupRole;
-  status: "active" | "requested";
+  status: MemberStatus;
+  answer: string;
   createdAt: string;
 };
 
@@ -151,9 +156,11 @@ export type ClientGroup = {
   rules: string;
   visibility: GroupVisibility;
   coverUrl: string | null;
+  joinQuestion: string;
   memberCount: number;
   myRole: GroupRole | null;
   requested: boolean;
+  banned: boolean;
   pendingRequests: number;
 };
 
@@ -161,7 +168,8 @@ export type ClientMember = {
   userId: string;
   name: string;
   role: GroupRole;
-  status: "active" | "requested";
+  status: MemberStatus;
+  answer: string;
 };
 
 export type ClientReport = {

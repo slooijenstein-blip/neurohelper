@@ -1,17 +1,18 @@
 import type { Actor } from "../share/actions.ts";
-import { assertEmail, canonicalEmail } from "../share/names.ts";
-import { ShareError } from "../share/errors.ts";
+import { ensureOwners, examplesMissing, groupNeedsOwner, seedExampleGroups } from "./examples.ts";
 import { CommunityError, LIMITS, assertRole, clipText, isCommunityId, newId } from "./limits.ts";
 import {
   activeRole,
   activeSuspension,
-  assertLastAdminStays,
+  assertOwnerStays,
   assertReportReason,
+  canManageGroup,
   canReviewRequests,
   canSeePost,
   groupById,
   inMainFeed,
   inShorts,
+  isClosedGroup,
   isCommunityFounder,
   isCommunityModerator,
   membershipOf,
@@ -21,22 +22,50 @@ import {
 import type { CommunityStore } from "./store.ts";
 import type {
   ClientComment,
-  ClientGroup,
   ClientMember,
   ClientPost,
   ClientReport,
   CommunityDb,
-  GroupRole,
   GroupVisibility,
   SocialMedia,
   SocialPost,
 } from "./types.ts";
 
-function viewerOf(actor: Actor | null, db: CommunityDb): Viewer {
+function viewerOf(actor: Actor | null): Viewer {
   if (!actor) return { userId: null, moderator: false };
   return {
     userId: actor.userId,
-    moderator: isCommunityModerator(actor, db.moderators),
+    moderator: isCommunityModerator(actor),
+  };
+}
+
+function parseVisibility(raw: unknown): GroupVisibility {
+  if (raw === "private" || raw === "hidden") return raw;
+  return "public";
+}
+
+function summarizeGroup(db: CommunityDb, groupId: string, userId: string | null) {
+  const group = groupById(db, groupId);
+  const mine = membershipOf(db, group.id, userId);
+  const active = db.members.filter((item) => item.groupId === group.id && item.status === "active");
+  const requests = db.members.filter(
+    (item) => item.groupId === group.id && item.status === "requested",
+  );
+  const role = mine?.status === "active" ? mine.role : null;
+  const inside = role !== null || !isClosedGroup(group);
+  return {
+    id: group.id,
+    name: group.name,
+    description: group.description,
+    rules: inside ? group.rules : "",
+    visibility: group.visibility,
+    coverUrl: group.coverUrl,
+    joinQuestion: group.joinQuestion,
+    memberCount: active.length,
+    myRole: role,
+    requested: mine?.status === "requested",
+    banned: mine?.status === "banned",
+    pendingRequests: canReviewRequests(role) ? requests.length : 0,
   };
 }
 
@@ -130,22 +159,33 @@ function capPosts(db: CommunityDb) {
 }
 
 export function createCommunityService(store: CommunityStore) {
+  async function readyDb() {
+    const current = await store.read();
+    if (!examplesMissing(current) && !groupNeedsOwner(current)) return current;
+    await store.update((db) => {
+      ensureOwners(db);
+      seedExampleGroups(db);
+    });
+    return store.read();
+  }
+
   return {
     async session(actor: Actor | null) {
       const db = await store.read();
-      const viewer = viewerOf(actor, db);
+      const viewer = viewerOf(actor);
       return {
         signedIn: Boolean(actor),
         moderator: viewer.moderator,
         founder: actor ? isCommunityFounder(actor) : false,
         suspended: actor ? Boolean(activeSuspension(db, actor.userId)) : false,
         userId: actor?.userId ?? null,
+        name: actor?.name ?? null,
       };
     },
 
     async feed(actor: Actor | null) {
       const db = await store.read();
-      const viewer = viewerOf(actor, db);
+      const viewer = viewerOf(actor);
       const posts = newest(
         db.posts.filter((post) => inMainFeed(post, viewer) && canSeePost(db, post, viewer)),
       );
@@ -154,7 +194,7 @@ export function createCommunityService(store: CommunityStore) {
 
     async shorts(actor: Actor | null) {
       const db = await store.read();
-      const viewer = viewerOf(actor, db);
+      const viewer = viewerOf(actor);
       const posts = newest(
         db.posts.filter((post) => inShorts(db, post) && canSeePost(db, post, viewer)),
       );
@@ -162,81 +202,52 @@ export function createCommunityService(store: CommunityStore) {
     },
 
     async listGroups(actor: Actor | null) {
-      const db = await store.read();
-      const groups: ClientGroup[] = db.groups
+      const db = await readyDb();
+      const userId = actor?.userId ?? null;
+      return db.groups
         .slice()
         .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-        .map((group) => {
-          const mine = membershipOf(db, group.id, actor?.userId ?? null);
-          const active = db.members.filter(
-            (item) => item.groupId === group.id && item.status === "active",
-          );
-          const requests = db.members.filter(
-            (item) => item.groupId === group.id && item.status === "requested",
-          );
-          const role = mine?.status === "active" ? mine.role : null;
-          return {
-            id: group.id,
-            name: group.name,
-            description: group.description,
-            rules: role || group.visibility === "public" ? group.rules : "",
-            visibility: group.visibility,
-            coverUrl: group.coverUrl,
-            memberCount: active.length,
-            myRole: role,
-            requested: mine?.status === "requested",
-            pendingRequests: role === "admin" || role === "moderator" ? requests.length : 0,
-          };
-        });
-      return groups;
+        .filter((group) => {
+          if (group.visibility !== "hidden") return true;
+          return membershipOf(db, group.id, userId) !== null;
+        })
+        .map((group) => summarizeGroup(db, group.id, userId));
     },
 
     async groupDetail(actor: Actor | null, groupId: string) {
-      const db = await store.read();
-      const viewer = viewerOf(actor, db);
+      const db = await readyDb();
+      const viewer = viewerOf(actor);
       const group = groupById(db, groupId);
       const role = activeRole(db, group.id, viewer.userId);
-      const requested = membershipOf(db, group.id, viewer.userId)?.status === "requested";
-      if (group.visibility === "private" && !role && !viewer.moderator) {
+      if (isClosedGroup(group) && !role) {
         return {
-          group: {
-            id: group.id,
-            name: group.name,
-            description: group.description,
-            rules: "",
-            visibility: group.visibility,
-            coverUrl: group.coverUrl,
-            memberCount: db.members.filter(
-              (item) => item.groupId === group.id && item.status === "active",
-            ).length,
-            myRole: null,
-            requested,
-            pendingRequests: 0,
-          } satisfies ClientGroup,
+          group: summarizeGroup(db, group.id, viewer.userId),
           members: [] as ClientMember[],
           posts: [] as ClientPost[],
         };
       }
       const members: ClientMember[] = db.members
         .filter((item) => item.groupId === group.id)
-        .filter((item) => item.status === "active" || canReviewRequests(role) || viewer.moderator)
+        .filter((item) => {
+          if (item.status === "active") return true;
+          if (item.status === "requested") return canReviewRequests(role);
+          if (item.status === "banned") return role === "owner" || role === "admin";
+          return false;
+        })
         .map((item) => ({
           userId: item.userId,
           name: item.name,
           role: item.role,
           status: item.status,
+          answer: canReviewRequests(role) ? item.answer : "",
         }));
       const posts = newest(
         db.posts.filter((post) => post.groupId === group.id && canSeePost(db, post, viewer)),
       )
-        .filter(
-          (post) =>
-            post.status === "approved" || post.authorId === viewer.userId || viewer.moderator,
-        )
+        .filter((post) => post.status === "approved" || post.authorId === viewer.userId)
         .slice(0, 100)
         .map((post) => toClientPost(db, post, viewer.userId));
-      const summary = (await this.listGroups(actor)).find((item) => item.id === group.id)!;
-      return { group: summary, members, posts };
+      return { group: summarizeGroup(db, group.id, viewer.userId), members, posts };
     },
 
     async createPost(
@@ -336,7 +347,7 @@ export function createCommunityService(store: CommunityStore) {
     async toggleLike(actor: Actor | null, postId: string) {
       const user = requireUser(actor);
       await store.update((db) => {
-        const viewer = viewerOf(user, db);
+        const viewer = viewerOf(user);
         const post = requirePost(db, postId);
         if (!canSeePost(db, post, viewer) || post.status !== "approved") {
           throw new CommunityError(403, "forbidden", "You cannot like that post.");
@@ -358,7 +369,7 @@ export function createCommunityService(store: CommunityStore) {
       const user = requireUser(actor);
       await store.update((db) => {
         assertNotSuspended(db, user.userId);
-        const viewer = viewerOf(user, db);
+        const viewer = viewerOf(user);
         const post = requirePost(db, postId);
         if (!canSeePost(db, post, viewer) || post.status !== "approved") {
           throw new CommunityError(403, "forbidden", "You cannot comment on that post.");
@@ -396,7 +407,7 @@ export function createCommunityService(store: CommunityStore) {
       const reason = assertReportReason(input.reason);
       const postId = typeof input.postId === "string" ? input.postId : "";
       await store.update((db) => {
-        const viewer = viewerOf(user, db);
+        const viewer = viewerOf(user);
         const post = requirePost(db, postId);
         if (!canSeePost(db, post, viewer)) {
           throw new CommunityError(403, "forbidden", "You cannot report that.");
@@ -440,8 +451,12 @@ export function createCommunityService(store: CommunityStore) {
     async queue(actor: Actor | null) {
       const user = requireUser(actor);
       const db = await store.read();
-      if (!isCommunityModerator(user, db.moderators)) {
-        throw new CommunityError(403, "forbidden", "Only moderators can open the review list.");
+      if (!isCommunityModerator(user)) {
+        throw new CommunityError(
+          403,
+          "forbidden",
+          "Only the founder account can open the review list.",
+        );
       }
       const posts = newest(db.posts.filter((post) => post.status === "pending")).map((post) =>
         toClientPost(db, post, user.userId),
@@ -471,8 +486,8 @@ export function createCommunityService(store: CommunityStore) {
       const user = requireUser(actor);
       let removedUrl: string | null = null;
       await store.update((db) => {
-        if (!isCommunityModerator(user, db.moderators)) {
-          throw new CommunityError(403, "forbidden", "Only moderators can review posts.");
+        if (!isCommunityModerator(user)) {
+          throw new CommunityError(403, "forbidden", "Only the founder account can review posts.");
         }
         const post = requirePost(db, postId);
         const action = input.action;
@@ -508,8 +523,12 @@ export function createCommunityService(store: CommunityStore) {
     async removeComment(actor: Actor | null, postId: string, commentId: string) {
       const user = requireUser(actor);
       await store.update((db) => {
-        if (!isCommunityModerator(user, db.moderators)) {
-          throw new CommunityError(403, "forbidden", "Only moderators can remove a comment.");
+        if (!isCommunityModerator(user)) {
+          throw new CommunityError(
+            403,
+            "forbidden",
+            "Only the founder account can remove a comment.",
+          );
         }
         const post = requirePost(db, postId);
         const comment = post.comments.find((item) => item.id === commentId);
@@ -533,8 +552,8 @@ export function createCommunityService(store: CommunityStore) {
         throw new CommunityError(400, "invalid", "Choose another person.");
       }
       await store.update((db) => {
-        if (!isCommunityModerator(user, db.moderators)) {
-          throw new CommunityError(403, "forbidden", "Only moderators can pause posting.");
+        if (!isCommunityModerator(user)) {
+          throw new CommunityError(403, "forbidden", "Only the founder account can pause posting.");
         }
         const active = input.active === true;
         const reason = clipText(input.reason, LIMITS.maxReason);
@@ -557,34 +576,12 @@ export function createCommunityService(store: CommunityStore) {
       });
     },
 
-    async setModerator(actor: Actor | null, input: { email?: unknown; action?: unknown }) {
-      const user = requireUser(actor);
-      let email = "";
-      try {
-        email = canonicalEmail(assertEmail(typeof input.email === "string" ? input.email : ""));
-      } catch (err) {
-        if (err instanceof ShareError) {
-          throw new CommunityError(400, "invalid", "Enter the email they use to sign in.");
-        }
-        throw err;
-      }
-      await store.update((db) => {
-        if (!isCommunityFounder(user)) {
-          throw new CommunityError(
-            403,
-            "forbidden",
-            "Only the founder can add or remove moderators.",
-          );
-        }
-        if (input.action === "remove") {
-          db.moderators = db.moderators.filter((item) => canonicalEmail(item) !== email);
-          return;
-        }
-        if (input.action !== "add")
-          throw new CommunityError(400, "invalid", "Choose add or remove.");
-        if (!db.moderators.some((item) => canonicalEmail(item) === email))
-          db.moderators.push(email);
-      });
+    async setModerator() {
+      throw new CommunityError(
+        403,
+        "forbidden",
+        "Only the founder account can review posts. There is no other moderator list.",
+      );
     },
 
     async createGroup(
@@ -594,6 +591,7 @@ export function createCommunityService(store: CommunityStore) {
         description?: unknown;
         rules?: unknown;
         visibility?: unknown;
+        joinQuestion?: unknown;
         uploadId?: unknown;
       },
       now: string,
@@ -604,7 +602,7 @@ export function createCommunityService(store: CommunityStore) {
         assertNotSuspended(db, user.userId);
         const name = clipText(input.name, LIMITS.maxGroupName);
         if (name.length < 2) throw new CommunityError(400, "invalid", "Give the group a name.");
-        const visibility: GroupVisibility = input.visibility === "private" ? "private" : "public";
+        const visibility = parseVisibility(input.visibility);
         let coverUrl: string | null = null;
         if (typeof input.uploadId === "string" && input.uploadId) {
           const media = takeUpload(db, user, input.uploadId);
@@ -621,6 +619,7 @@ export function createCommunityService(store: CommunityStore) {
           rules: clipText(input.rules, LIMITS.maxGroupRules),
           visibility,
           coverUrl,
+          joinQuestion: clipText(input.joinQuestion, LIMITS.maxJoinQuestion),
           createdBy: user.userId,
           createdAt: now,
         });
@@ -628,8 +627,9 @@ export function createCommunityService(store: CommunityStore) {
           groupId: id,
           userId: user.userId,
           name: clipText(user.name, 80) || "Member",
-          role: "admin",
+          role: "owner",
           status: "active",
+          answer: "",
           createdAt: now,
         });
       });
@@ -644,6 +644,7 @@ export function createCommunityService(store: CommunityStore) {
         description?: unknown;
         rules?: unknown;
         visibility?: unknown;
+        joinQuestion?: unknown;
         uploadId?: unknown;
       },
     ) {
@@ -651,15 +652,20 @@ export function createCommunityService(store: CommunityStore) {
       await store.update((db) => {
         const group = groupById(db, groupId);
         const role = activeRole(db, group.id, user.userId);
-        if (role !== "admin" && !isCommunityModerator(user, db.moderators)) {
-          throw new CommunityError(403, "forbidden", "Only a group admin can change the group.");
+        if (!canManageGroup(role)) {
+          throw new CommunityError(
+            403,
+            "forbidden",
+            "Only a group owner or admin can change the group.",
+          );
         }
         const name = clipText(input.name, LIMITS.maxGroupName);
         if (name.length < 2) throw new CommunityError(400, "invalid", "Give the group a name.");
         group.name = name;
         group.description = clipText(input.description, LIMITS.maxGroupDescription);
         group.rules = clipText(input.rules, LIMITS.maxGroupRules);
-        group.visibility = input.visibility === "private" ? "private" : "public";
+        group.visibility = parseVisibility(input.visibility);
+        group.joinQuestion = clipText(input.joinQuestion, LIMITS.maxJoinQuestion);
         if (typeof input.uploadId === "string" && input.uploadId) {
           const media = takeUpload(db, user, input.uploadId);
           if (media.kind !== "image") {
@@ -670,22 +676,88 @@ export function createCommunityService(store: CommunityStore) {
       });
     },
 
-    async joinGroup(actor: Actor | null, groupId: string, now: string) {
+    async deleteGroup(actor: Actor | null, groupId: string) {
       const user = requireUser(actor);
       await store.update((db) => {
         const group = groupById(db, groupId);
+        if (activeRole(db, group.id, user.userId) !== "owner") {
+          throw new CommunityError(403, "forbidden", "Only the owner can delete the group.");
+        }
+        db.groups = db.groups.filter((item) => item.id !== group.id);
+        db.members = db.members.filter((item) => item.groupId !== group.id);
+        for (const post of db.posts) {
+          if (post.groupId === group.id && post.status !== "removed") {
+            post.status = "removed";
+            post.statusReason = "The group was deleted.";
+          }
+        }
+      });
+    },
+
+    async transferOwnership(actor: Actor | null, groupId: string, targetId: string) {
+      const user = requireUser(actor);
+      await store.update((db) => {
+        const group = groupById(db, groupId);
+        if (activeRole(db, group.id, user.userId) !== "owner") {
+          throw new CommunityError(403, "forbidden", "Only the owner can transfer the group.");
+        }
+        const target = db.members.find(
+          (item) =>
+            item.groupId === group.id && item.userId === targetId && item.status === "active",
+        );
+        if (!target || target.userId === user.userId) {
+          throw new CommunityError(400, "invalid", "Choose another member.");
+        }
+        const owner = db.members.find(
+          (item) =>
+            item.groupId === group.id && item.userId === user.userId && item.status === "active",
+        );
+        if (!owner)
+          throw new CommunityError(403, "forbidden", "Only the owner can transfer the group.");
+        target.role = "owner";
+        owner.role = "admin";
+        group.createdBy = target.userId;
+      });
+    },
+
+    async joinGroup(actor: Actor | null, groupId: string, now: string, answerRaw?: unknown) {
+      const user = requireUser(actor);
+      let result: "joined" | "requested" = "joined";
+      await store.update((db) => {
+        const group = groupById(db, groupId);
         const existing = membershipOf(db, group.id, user.userId);
-        if (existing?.status === "active") return;
-        if (existing?.status === "requested") return;
+        if (existing?.status === "banned") {
+          throw new CommunityError(403, "forbidden", "You cannot join this group.");
+        }
+        if (existing?.status === "active") {
+          result = "joined";
+          return;
+        }
+        if (existing?.status === "requested") {
+          result = "requested";
+          return;
+        }
+        const answer = clipText(answerRaw, LIMITS.maxJoinAnswer);
+        const open = group.visibility === "public";
+        result = open ? "joined" : "requested";
+        if (existing) {
+          existing.status = open ? "active" : "requested";
+          existing.role = "member";
+          existing.answer = answer;
+          existing.name = clipText(user.name, 80) || existing.name;
+          return;
+        }
         db.members.push({
           groupId: group.id,
           userId: user.userId,
           name: clipText(user.name, 80) || "Member",
           role: "member",
-          status: group.visibility === "public" ? "active" : "requested",
+          status: open ? "active" : "requested",
+          answer,
           createdAt: now,
         });
       });
+      return result;
     },
 
     async leaveGroup(actor: Actor | null, groupId: string) {
@@ -693,7 +765,7 @@ export function createCommunityService(store: CommunityStore) {
       await store.update((db) => {
         groupById(db, groupId);
         const role = activeRole(db, groupId, user.userId);
-        if (role === "admin") assertLastAdminStays(db.members, groupId, user.userId);
+        assertOwnerStays(role);
         db.members = db.members.filter(
           (item) => !(item.groupId === groupId && item.userId === user.userId),
         );
@@ -710,14 +782,13 @@ export function createCommunityService(store: CommunityStore) {
       await store.update((db) => {
         const group = groupById(db, groupId);
         const role = activeRole(db, group.id, user.userId);
-        const moderator = isCommunityModerator(user, db.moderators);
         const target = db.members.find(
           (item) => item.groupId === group.id && item.userId === targetId,
         );
         if (!target) throw new CommunityError(404, "not_found", "That person is not in the group.");
         const action = input.action;
         if (action === "approve" || action === "decline") {
-          if (!canReviewRequests(role) && !moderator) {
+          if (!canReviewRequests(role)) {
             throw new CommunityError(403, "forbidden", "You cannot review join requests.");
           }
           if (target.status !== "requested") return;
@@ -729,34 +800,67 @@ export function createCommunityService(store: CommunityStore) {
           target.role = "member";
           return;
         }
-        if (action === "remove") {
+        if (action === "remove" || action === "ban" || action === "unban") {
           if (targetId === user.userId) {
             throw new CommunityError(400, "invalid", "Use leave group for yourself.");
           }
-          const allowed =
-            role === "admin" || moderator || (role === "moderator" && target.role === "member");
-          if (!allowed)
-            throw new CommunityError(403, "forbidden", "You cannot remove that person.");
-          if (target.role === "admin") assertLastAdminStays(db.members, group.id, target.userId);
+          if (target.role === "owner") {
+            throw new CommunityError(
+              403,
+              "forbidden",
+              "Transfer ownership before removing the owner.",
+            );
+          }
+          const staff = role === "owner" || role === "admin";
+          const modRemovesMember =
+            role === "moderator" && target.role === "member" && action === "remove";
+          const adminTouchesAdmin =
+            role === "admin" && (target.role === "admin" || target.role === "owner");
+          if ((!staff && !modRemovesMember) || adminTouchesAdmin) {
+            throw new CommunityError(403, "forbidden", "You cannot change that person.");
+          }
+          if (action === "unban") {
+            if (role !== "owner" && role !== "admin") {
+              throw new CommunityError(403, "forbidden", "You cannot change that person.");
+            }
+            db.members = db.members.filter((item) => item !== target);
+            return;
+          }
+          if (action === "ban") {
+            if (role !== "owner" && role !== "admin") {
+              throw new CommunityError(403, "forbidden", "You cannot ban that person.");
+            }
+            target.status = "banned";
+            target.role = "member";
+            return;
+          }
           db.members = db.members.filter((item) => item !== target);
           return;
         }
         if (action === "setRole") {
-          if (role !== "admin" && !moderator) {
-            throw new CommunityError(403, "forbidden", "Only a group admin can change roles.");
-          }
           const next = input.role;
           if (next !== "admin" && next !== "moderator" && next !== "member") {
             throw new CommunityError(400, "invalid", "Choose a role.");
           }
-          if (target.status !== "active") {
-            throw new CommunityError(400, "invalid", "Approve the request first.");
+          if (target.status !== "active" || target.role === "owner") {
+            throw new CommunityError(400, "invalid", "Choose another member.");
           }
-          if (target.role === "admin" && next !== "admin") {
-            assertLastAdminStays(db.members, group.id, target.userId);
+          if (role === "owner") {
+            target.role = next;
+            return;
           }
-          target.role = next;
-          return;
+          if (
+            role === "admin" &&
+            (target.role === "moderator" || target.role === "member") &&
+            next !== "admin"
+          ) {
+            target.role = next;
+            return;
+          }
+          throw new CommunityError(403, "forbidden", "Only the owner can appoint an admin.");
+        }
+        if (action === "transfer") {
+          throw new CommunityError(400, "invalid", "Use transfer for ownership.");
         }
         throw new CommunityError(400, "invalid", "That action is not available.");
       });

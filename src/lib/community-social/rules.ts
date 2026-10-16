@@ -1,6 +1,5 @@
 import { canUseFounderRole } from "../founder-role.ts";
 import { REPORT_REASONS, type ReportReason } from "../community.ts";
-import { actorEmailKeys, assertEmail, canonicalEmail } from "../share/names.ts";
 import { CommunityError, LIMITS } from "./limits.ts";
 import type { CommunityDb, GroupRole, SocialGroup, SocialMembership, SocialPost } from "./types.ts";
 
@@ -15,20 +14,9 @@ export function isCommunityFounder(actor: ActorEmails): boolean {
   return canUseFounderRole([actor.email, ...(actor.emails ?? [])]);
 }
 
-export function isCommunityModerator(
-  actor: ActorEmails,
-  moderatorEmails: readonly string[],
-): boolean {
-  if (isCommunityFounder(actor)) return true;
-  const allow = new Set<string>();
-  for (const raw of moderatorEmails) {
-    try {
-      allow.add(canonicalEmail(assertEmail(raw)));
-    } catch {
-      /* skip a bad saved address */
-    }
-  }
-  return actorEmailKeys(actor).some((key) => allow.has(canonicalEmail(key)));
+/** Post review is the founder account only. Group mods do not review the community. */
+export function isCommunityModerator(actor: ActorEmails): boolean {
+  return isCommunityFounder(actor);
 }
 
 export function activeSuspension(db: CommunityDb, userId: string) {
@@ -55,7 +43,6 @@ export function activeRole(
 }
 
 export function canSeePost(db: CommunityDb, post: SocialPost, viewer: Viewer): boolean {
-  if (viewer.moderator) return true;
   if (viewer.userId && post.authorId === viewer.userId) return true;
   if (post.status !== "approved") return false;
   if (!post.groupId) return true;
@@ -80,23 +67,24 @@ export function inShorts(db: CommunityDb, post: SocialPost): boolean {
   return group?.visibility === "public";
 }
 
-export function canManageGroup(role: GroupRole | null, moderator: boolean): boolean {
-  return moderator || role === "admin";
+export function isClosedGroup(group: SocialGroup): boolean {
+  return group.visibility === "private" || group.visibility === "hidden";
+}
+
+export function canManageGroup(role: GroupRole | null): boolean {
+  return role === "owner" || role === "admin";
 }
 
 export function canReviewRequests(role: GroupRole | null): boolean {
-  return role === "admin" || role === "moderator";
+  return role === "owner" || role === "admin" || role === "moderator";
 }
 
-export function assertLastAdminStays(members: SocialMembership[], groupId: string, userId: string) {
-  const admins = members.filter(
-    (item) => item.groupId === groupId && item.status === "active" && item.role === "admin",
-  );
-  if (admins.length === 1 && admins[0]?.userId === userId) {
+export function assertOwnerStays(role: GroupRole | null) {
+  if (role === "owner") {
     throw new CommunityError(
       400,
       "last_admin",
-      "Choose another admin before you leave or step down.",
+      "Transfer ownership before you leave or step down.",
     );
   }
 }

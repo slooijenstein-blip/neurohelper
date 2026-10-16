@@ -17,6 +17,7 @@ import {
   CommunityClientError,
   createCommunityGroup,
   createCommunityPost,
+  deleteCommunityGroup,
   fetchCommunityFeed,
   fetchCommunityGroup,
   fetchCommunityGroups,
@@ -29,8 +30,8 @@ import {
   likeCommunityPost,
   reportCommunity,
   reviewCommunityPost,
-  setCommunityModerator,
   suspendCommunityUser,
+  transferCommunityGroup,
   updateCommunityGroup,
   uploadPreparedMedia,
   type CommunitySession,
@@ -44,9 +45,10 @@ import type {
   GroupVisibility,
 } from "@/lib/community-social/types";
 import { isClerkConfigured } from "@/lib/clerk";
+import { demoRolesAllowed } from "@/lib/demo-roles";
 import { useAppStore } from "@/lib/app-store";
 import { useDevShareUser } from "@/lib/share/dev-session";
-import type { ShareAuth } from "@/lib/share/client";
+import type { CommunityAuth } from "@/lib/community-social/api-client";
 
 type GroupDetail = { group: ClientGroup; members: ClientMember[]; posts: ClientPost[] } | null;
 
@@ -58,6 +60,8 @@ export type CommunitySocialValue = {
   moderator: boolean;
   founder: boolean;
   suspended: boolean;
+  actorName: string | null;
+  userId: string | null;
   posts: ClientPost[];
   shorts: ClientPost[];
   groups: ClientGroup[];
@@ -79,13 +83,12 @@ export type CommunitySocialValue = {
   report: (input: { postId: string; commentId?: string; reason: string }) => Promise<void>;
   review: (id: string, action: "approve" | "reject" | "remove", reason?: string) => Promise<void>;
   suspend: (userId: string, active: boolean, reason: string) => Promise<void>;
-  addModerator: (email: string) => Promise<void>;
-  removeModerator: (email: string) => Promise<void>;
   createGroup: (input: {
     name: string;
     description: string;
     rules: string;
     visibility: GroupVisibility;
+    joinQuestion?: string;
     uploadId?: string;
   }) => Promise<string>;
   saveGroup: (
@@ -95,10 +98,13 @@ export type CommunitySocialValue = {
       description: string;
       rules: string;
       visibility: GroupVisibility;
+      joinQuestion?: string;
       uploadId?: string;
     },
   ) => Promise<void>;
-  join: (id: string) => Promise<"joined" | "requested">;
+  removeGroup: (id: string) => Promise<void>;
+  transferGroup: (id: string, userId: string) => Promise<void>;
+  join: (id: string, answer?: string) => Promise<"joined" | "requested">;
   leave: (id: string) => Promise<void>;
   memberAction: (groupId: string, userId: string, action: string, role?: string) => Promise<void>;
 };
@@ -119,7 +125,7 @@ function SocialProvider({
   children: ReactNode;
 }) {
   const devUser = useDevShareUser();
-  const { state } = useAppStore();
+  const { state, prototypeDemo, demoPersona } = useAppStore();
   const role = state.profile?.role ?? "Parent";
   const [ready, setReady] = useState(false);
   const [configured, setConfigured] = useState(false);
@@ -135,11 +141,20 @@ function SocialProvider({
   const [moderators, setModerators] = useState<string[]>([]);
   const refreshGen = useRef(0);
 
-  const authFor = useCallback(async (): Promise<ShareAuth> => {
-    return { token: await getToken(), devUser };
-  }, [devUser, getToken]);
+  const demoHeader =
+    prototypeDemo &&
+    demoPersona &&
+    typeof window !== "undefined" &&
+    demoRolesAllowed(window.location.hostname)
+      ? demoPersona
+      : null;
 
-  const loadGroup = useCallback(async (id: string | null, auth: ShareAuth) => {
+  const authFor = useCallback(async (): Promise<CommunityAuth> => {
+    if (demoHeader) return { token: null, devUser: null, demoPersona: demoHeader };
+    return { token: await getToken(), devUser, demoPersona: null };
+  }, [demoHeader, devUser, getToken]);
+
+  const loadGroup = useCallback(async (id: string | null, auth: CommunityAuth) => {
     if (!id) {
       setGroup(null);
       return;
@@ -272,6 +287,8 @@ function SocialProvider({
       moderator: Boolean(session?.moderator),
       founder: Boolean(session?.founder),
       suspended: Boolean(session?.suspended),
+      actorName: session?.name ?? null,
+      userId: session?.userId ?? null,
       posts,
       shorts,
       groups,
@@ -308,14 +325,6 @@ function SocialProvider({
         await suspendCommunityUser(await authFor(), userId, active, reason);
         await refresh();
       },
-      addModerator: async (email) => {
-        await setCommunityModerator(await authFor(), email, "add");
-        await refresh();
-      },
-      removeModerator: async (email) => {
-        await setCommunityModerator(await authFor(), email, "remove");
-        await refresh();
-      },
       createGroup: async (input) => {
         const id = await createCommunityGroup(await authFor(), input);
         await refresh();
@@ -325,11 +334,20 @@ function SocialProvider({
         await updateCommunityGroup(await authFor(), id, input);
         await refresh();
       },
-      join: async (id) => {
-        const before = groups.find((item) => item.id === id);
-        await joinCommunityGroup(await authFor(), id);
+      removeGroup: async (id) => {
+        await deleteCommunityGroup(await authFor(), id);
+        setGroupId(null);
+        setGroup(null);
         await refresh();
-        return before?.visibility === "private" ? "requested" : "joined";
+      },
+      transferGroup: async (id, userId) => {
+        await transferCommunityGroup(await authFor(), id, userId);
+        await refresh();
+      },
+      join: async (id, answer) => {
+        const status = await joinCommunityGroup(await authFor(), id, answer);
+        await refresh();
+        return status;
       },
       leave: async (id) => {
         await leaveCommunityGroup(await authFor(), id);

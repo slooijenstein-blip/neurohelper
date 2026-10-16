@@ -71,9 +71,25 @@ export function LivePostCard({
           ? t("community.social.removed")
           : null;
 
+  const hue = [...post.authorName].reduce((sum, char) => sum + char.charCodeAt(0), 0) % 360;
+  const initials = post.authorName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.slice(0, 1).toUpperCase())
+    .join("");
+
   return (
     <article className="soft-card overflow-hidden" data-testid={`live-post-${post.id}`}>
       <div className="flex items-start gap-2 px-4 pt-4">
+        <span
+          aria-hidden
+          className="grid size-9 shrink-0 place-content-center rounded-full text-sm font-semibold"
+          style={{ background: `hsl(${hue} 42% 86%)` }}
+        >
+          {initials || "?"}
+        </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{post.authorName}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
