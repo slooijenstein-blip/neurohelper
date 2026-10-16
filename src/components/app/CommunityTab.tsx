@@ -27,14 +27,35 @@ import { PostDetailDialog } from "./PostDetailDialog";
 import { ArticlesPane, FollowingPane, SchedulesPane } from "./community/CommunityPanes";
 import { ComposeBox } from "./community/ComposeBox";
 import { FeedPost } from "./community/FeedPost";
+import { GroupsPane } from "./community/GroupsPane";
+import { LivePostCard } from "./community/LivePostCard";
+import { MediaShareButtons } from "./community/MediaShareButtons";
+import { ModerationPane } from "./community/ModerationPane";
+import { ShortsPane } from "./community/ShortsPane";
 import { StoriesStrip } from "./community/StoriesStrip";
 import { StoryViewer } from "./community/StoryViewer";
+import {
+  CommunitySocialProvider,
+  communityErrorText,
+  useCommunitySocial,
+} from "./community/social-context";
 import { ScreenHeader } from "./ui-bits";
 
-const PANES = ["feed", "articles", "following", "schedules"] as const;
-type CommunityPane = (typeof PANES)[number];
+const BASE_PANES = ["feed", "shorts", "groups", "articles", "following", "schedules"] as const;
+type CommunityPane = (typeof BASE_PANES)[number] | "review";
 
-export function CommunityTab({
+export function CommunityTab(props: {
+  onProfile: (id: string) => void;
+  onArticle: (id: string) => void;
+}) {
+  return (
+    <CommunitySocialProvider>
+      <CommunityTabInner {...props} />
+    </CommunitySocialProvider>
+  );
+}
+
+function CommunityTabInner({
   onProfile,
   onArticle,
 }: {
@@ -44,12 +65,19 @@ export function CommunityTab({
   const { state, update } = useAppStore();
   const { t } = useI18n();
   const prefs = useCommunityPrefs();
+  const social = useCommunitySocial();
+  const panes: CommunityPane[] = social.moderator ? [...BASE_PANES, "review"] : [...BASE_PANES];
   const [pane, setPane] = useState<CommunityPane>("feed");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [storyIndex, setStoryIndex] = useState<number | null>(null);
   const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [reportId, setReportId] = useState<string | null>(null);
+  const [liveReport, setLiveReport] = useState<{ postId: string; commentId?: string } | null>(null);
+  const [staffAction, setStaffAction] = useState<{ kind: "remove" | "suspend"; id: string } | null>(
+    null,
+  );
+  const [staffReason, setStaffReason] = useState("");
   const [reportReason, setReportReason] = useState<ReportReason>("unkind");
   const [postId, setPostId] = useState<string | null>(null);
   const [activityId, setActivityId] = useState<string | null>(null);
@@ -103,6 +131,17 @@ export function CommunityTab({
 
   const publish = (draft: { body: string; card?: Post["card"] }) => {
     if (!state.profile) return;
+    if (social.configured && social.signedIn && !draft.card) {
+      if (social.suspended) {
+        toast.error(t("community.social.suspended"));
+        return;
+      }
+      void social
+        .publishText(draft.body)
+        .then(() => toast.success(t("community.social.postedPending")))
+        .catch((err) => toast.error(communityErrorText(t, err)));
+      return;
+    }
     const post: Post = {
       id: uid(),
       authorId: state.profile.id,
@@ -157,11 +196,37 @@ export function CommunityTab({
   };
 
   const submitReport = () => {
+    if (liveReport) {
+      void social
+        .report({
+          postId: liveReport.postId,
+          ...(liveReport.commentId ? { commentId: liveReport.commentId } : {}),
+          reason: reportReason,
+        })
+        .then(() => toast.success(t("community.social.reportSent")))
+        .catch((err) => toast.error(communityErrorText(t, err)));
+      setLiveReport(null);
+      setReportReason("unkind");
+      return;
+    }
     if (!reportId) return;
     prefs.reportPost(reportId);
     toast.success(t("community.reportThanks"));
     setReportId(null);
     setReportReason("unkind");
+  };
+
+  const submitStaff = () => {
+    if (!staffAction || !staffReason.trim()) return;
+    const action =
+      staffAction.kind === "remove"
+        ? social.review(staffAction.id, "remove", staffReason.trim())
+        : social.suspend(staffAction.id, true, staffReason.trim());
+    void action
+      .then(() => toast.success(t("community.social.savedChanges")))
+      .catch((err) => toast.error(communityErrorText(t, err)));
+    setStaffAction(null);
+    setStaffReason("");
   };
 
   const chooseTag = (tag: string) => {
@@ -176,9 +241,9 @@ export function CommunityTab({
         <div
           role="tablist"
           aria-label={t("community.tabsLabel")}
-          className="mx-auto grid max-w-xl grid-cols-4 gap-1 rounded-full bg-muted p-1"
+          className="mx-auto flex max-w-xl gap-1 overflow-x-auto rounded-full bg-muted p-1"
         >
-          {PANES.map((key) => (
+          {panes.map((key) => (
             <button
               key={key}
               type="button"
@@ -187,7 +252,7 @@ export function CommunityTab({
               data-testid={`community-tab-${key}`}
               onClick={() => setPane(key)}
               className={cn(
-                "rounded-full px-1 py-1.5 text-[11px] font-semibold",
+                "shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold",
                 pane === key ? "bg-primary text-primary-foreground" : "text-muted-foreground",
               )}
             >
@@ -197,7 +262,12 @@ export function CommunityTab({
         </div>
       </div>
 
-      <div className="hide-scrollbar min-h-0 flex-1 overflow-y-auto bg-surface">
+      <div
+        className={cn(
+          "hide-scrollbar min-h-0 flex-1 bg-surface",
+          pane === "shorts" ? "flex flex-col overflow-hidden" : "overflow-y-auto",
+        )}
+      >
         {pane === "feed" ? (
           <div className="mx-auto flex w-full max-w-xl flex-col pb-8">
             <StoriesStrip myStory={prefs.myStory} seen={prefs.seen} onOpen={setStoryIndex} />
@@ -217,12 +287,59 @@ export function CommunityTab({
                 </Button>
               </div>
             ) : null}
-            <ComposeBox onPublish={publish} />
+            {social.suspended ? (
+              <p className="px-4 text-sm text-muted-foreground">
+                {t("community.social.suspended")}
+              </p>
+            ) : null}
+            {!social.signedIn && social.ready ? (
+              <p className="px-4 text-xs text-muted-foreground">{t("community.social.liveOff")}</p>
+            ) : null}
+            <ComposeBox
+              onPublish={publish}
+              notice={t("community.social.privacyLine")}
+              media={<MediaShareButtons />}
+            />
             <div
               className="space-y-3 px-4"
               data-testid="community-feed"
               aria-label={t("community.feedLabel")}
             >
+              {social.posts
+                .filter((post) => postMatchesHashtag(post.body, activeTag))
+                .map((post) => (
+                  <LivePostCard
+                    key={post.id}
+                    post={post}
+                    moderator={social.moderator}
+                    onLike={(id) =>
+                      void social
+                        .toggleLike(id)
+                        .catch((err) => toast.error(communityErrorText(t, err)))
+                    }
+                    onComment={(id, text) =>
+                      void social
+                        .comment(id, text)
+                        .catch((err) => toast.error(communityErrorText(t, err)))
+                    }
+                    onReport={(id) => {
+                      setReportReason("unkind");
+                      setLiveReport({ postId: id });
+                    }}
+                    onReportComment={(postId, commentId) => {
+                      setReportReason("unkind");
+                      setLiveReport({ postId, commentId });
+                    }}
+                    onRemove={(id) => {
+                      setStaffReason("");
+                      setStaffAction({ kind: "remove", id });
+                    }}
+                    onSuspend={(userId) => {
+                      setStaffReason("");
+                      setStaffAction({ kind: "suspend", id: userId });
+                    }}
+                  />
+                ))}
               {posts.map((post) => (
                 <FeedPost
                   key={post.id}
@@ -256,6 +373,30 @@ export function CommunityTab({
             </div>
           </div>
         ) : null}
+
+        {pane === "shorts" ? (
+          <ShortsPane
+            onReport={(id) => {
+              setReportReason("unkind");
+              setLiveReport({ postId: id });
+            }}
+          />
+        ) : null}
+
+        {pane === "groups" ? (
+          <GroupsPane
+            onReport={(id) => {
+              setReportReason("unkind");
+              setLiveReport({ postId: id });
+            }}
+            onReportComment={(postId, commentId) => {
+              setReportReason("unkind");
+              setLiveReport({ postId, commentId });
+            }}
+          />
+        ) : null}
+
+        {pane === "review" && social.moderator ? <ModerationPane /> : null}
 
         {pane === "articles" ? (
           <ArticlesPane
@@ -315,11 +456,21 @@ export function CommunityTab({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={reportId !== null} onOpenChange={(open) => !open && setReportId(null)}>
+      <Dialog
+        open={reportId !== null || liveReport !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReportId(null);
+            setLiveReport(null);
+          }
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>{t("community.reportTitle")}</DialogTitle>
-            <DialogDescription>{t("community.reportBody")}</DialogDescription>
+            <DialogDescription>
+              {liveReport ? t("community.social.reportBodyLive") : t("community.reportBody")}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">
             {REPORT_REASONS.map((reason) => (
@@ -342,6 +493,29 @@ export function CommunityTab({
           </div>
           <Button data-testid="report-submit" onClick={submitReport}>
             {t("community.reportSubmit")}
+          </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={staffAction !== null} onOpenChange={(open) => !open && setStaffAction(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {staffAction?.kind === "suspend"
+                ? t("community.social.suspend")
+                : t("community.social.remove")}
+            </DialogTitle>
+            <DialogDescription>{t("community.social.reasonPlaceholder")}</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={staffReason}
+            onChange={(event) => setStaffReason(event.target.value)}
+            placeholder={t("community.social.reasonPlaceholder")}
+            aria-label={t("community.social.reasonPlaceholder")}
+            rows={3}
+          />
+          <Button data-testid="staff-submit" onClick={submitStaff} disabled={!staffReason.trim()}>
+            {t("community.social.remove")}
           </Button>
         </DialogContent>
       </Dialog>

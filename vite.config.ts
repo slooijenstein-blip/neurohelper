@@ -14,12 +14,22 @@ function shareApiPlugin(): Plugin {
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
         const url = req.url || "";
-        if (!url.startsWith("/api/share")) {
+        const community = url.startsWith("/api/community");
+        if (!url.startsWith("/api/share") && !community) {
           next();
           return;
         }
         void (async () => {
           try {
+            if (community) {
+              const mod = (await server.ssrLoadModule(
+                "/src/lib/community-social/node-adapter.ts",
+              )) as {
+                handleCommunityNode: (req: unknown, res: unknown) => Promise<unknown>;
+              };
+              await mod.handleCommunityNode(req, res);
+              return;
+            }
             const mod = (await server.ssrLoadModule("/src/lib/share/node-adapter.ts")) as {
               handleShareNode: (req: unknown, res: unknown) => Promise<unknown>;
             };

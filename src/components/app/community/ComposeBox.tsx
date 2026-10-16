@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ImagePlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,12 @@ import { ColorCard } from "./ColorCard";
 
 export function ComposeBox({
   onPublish,
+  media,
+  notice,
 }: {
   onPublish: (draft: { body: string; card?: CommunityCard }) => void;
+  media?: ReactNode;
+  notice?: string;
 }) {
   const { t } = useI18n();
   const { state } = useAppStore();
@@ -48,6 +52,9 @@ export function ComposeBox({
         <p className="mt-2 text-[11px] leading-snug text-muted-foreground">
           {t("community.hashtagHint")}
         </p>
+        {notice ? (
+          <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{notice}</p>
+        ) : null}
         {card ? (
           <div className="mt-3">
             <ColorCard card={card} />
@@ -56,16 +63,19 @@ export function ComposeBox({
             </p>
           </div>
         ) : null}
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setCard((current) => (current ? null : "warm"))}
-          >
-            <ImagePlus />
-            {card ? t("community.removeCard") : t("community.addCard")}
-          </Button>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setCard((current) => (current ? null : "warm"))}
+            >
+              <ImagePlus />
+              {card ? t("community.removeCard") : t("community.addCard")}
+            </Button>
+            {media}
+          </div>
           <Button data-testid="compose-post" onClick={publish} disabled={!body.trim() || !profile}>
             {t("community.post")}
           </Button>
