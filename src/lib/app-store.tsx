@@ -9,6 +9,7 @@ import {
 } from "react";
 import { ACTIVITIES, type Activity, type Skill } from "./activities-data";
 import type { CommunityCard } from "./community";
+import { stripCommunitySamples, communitySamplesAllowed } from "./community-samples";
 import { demoRolesAllowed, parseDemoPersona, type DemoPersona } from "./demo-roles";
 import {
   addRoutineToMyCalendar,
@@ -849,22 +850,25 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as AppState;
-        setState((prev) => ({
-          ...prev,
-          ...parsed,
-          // Always restore derived/reference collections if missing
-          activities: prev.activities,
-          members: prev.members,
-          articles: parsed.articles?.length ? parsed.articles : prev.articles,
-          dayPlans: parsed.dayPlans ?? prev.dayPlans,
-          following: parsed.following ?? prev.following,
-          profile: parsed.profile ?? prev.profile,
-        }));
-      }
+      const allowDemo = communitySamplesAllowed(window.location.hostname, import.meta.env.DEV);
+      setState((prev) => {
+        let next = prev;
+        if (raw) {
+          const parsed = JSON.parse(raw) as AppState;
+          next = {
+            ...prev,
+            ...parsed,
+            activities: prev.activities,
+            members: prev.members,
+            articles: parsed.articles?.length ? parsed.articles : prev.articles,
+            dayPlans: parsed.dayPlans ?? prev.dayPlans,
+            following: parsed.following ?? prev.following,
+            profile: parsed.profile ?? prev.profile,
+          };
+        }
+        return allowDemo ? next : stripCommunitySamples(next);
+      });
 
-      const allowDemo = import.meta.env.DEV || demoRolesAllowed(window.location.hostname);
       if (!allowDemo) {
         window.sessionStorage.removeItem(PROTOTYPE_DEMO_KEY);
         window.sessionStorage.removeItem(DEMO_PERSONA_KEY);

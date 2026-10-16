@@ -101,6 +101,11 @@ export function MediaShareButtons({ groupId }: { groupId?: string | null }) {
         data-testid="media-gallery-input"
         onChange={(event) => void onFile(event.target.files?.[0])}
       />
+      {social.ready && social.media === "none" ? (
+        <p className="w-full text-xs text-muted-foreground" data-testid="media-unavailable">
+          {t("community.social.mediaOff")}
+        </p>
+      ) : null}
       <Button
         type="button"
         variant="ghost"

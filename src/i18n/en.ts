@@ -360,8 +360,7 @@ export const en = {
       postedPending: "Saved. The founder will review it before others can see it.",
       postedPendingGroup:
         "Saved. An owner, admin, or moderator of this group will review it before other members can see it.",
-      mediaOff:
-        "Photo and video storage is not connected on this preview yet. You can still write a text post.",
+      mediaOff: "Photo and video storage is not connected yet. You can still write a text post.",
       signInMedia: "Sign in to share a photo, video, group, or short.",
       liveOff: "Sign in to use groups, shorts, and review. Sample posts below stay on this device.",
       suspended: "Posting is paused on this account. You can still read.",
@@ -467,7 +466,7 @@ export const en = {
       openGroup: "Open group",
       setupTitle: "Photos, groups, and shorts",
       setupBody:
-        "Text posts, groups, and review use the community store already connected for shared plans. Photos and videos also need Vercel Blob. Until then, you can still post text and use the sample feed.",
+        "Text posts, groups, and review use the community store already connected for shared plans. Photos and videos also need Vercel Blob. Until then, you can still write a text post.",
       postsToday: "That is enough posts for today.",
       lastAdmin: "Choose another admin before leaving.",
       cancel: "Cancel",

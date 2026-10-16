@@ -33,6 +33,7 @@ export function StoriesStrip({
         />
         {COMMUNITY_STORIES.map((story, index) => {
           const author = state.members.find((member) => member.id === story.authorId);
+          if (!author) return null;
           return (
             <StoryBubble
               key={story.id}

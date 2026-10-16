@@ -373,10 +373,9 @@ export const es: DeepString<Messages> = {
       postedPendingGroup:
         "Guardada. Quien administra este grupo la revisará antes de que el resto de miembros la vea.",
       mediaOff:
-        "El almacenamiento de fotos y vídeos aún no está conectado en esta vista previa. Puedes escribir un texto.",
+        "El almacenamiento de fotos y vídeos aún no está conectado. Puedes escribir un texto.",
       signInMedia: "Entra para compartir una foto, un vídeo, un grupo o un corto.",
-      liveOff:
-        "Entra para usar grupos, cortos y revisión. Las publicaciones de ejemplo se quedan en este dispositivo.",
+      liveOff: "Entra para usar grupos, cortos y revisión.",
       suspended: "Las publicaciones están en pausa en esta cuenta. Puedes seguir leyendo.",
       videoLong: "Los vídeos pueden durar hasta 60 segundos.",
       videoBig: "Ese vídeo es demasiado grande. Prueba con uno de menos de 20 MB.",
@@ -484,7 +483,7 @@ export const es: DeepString<Messages> = {
       openGroup: "Abrir grupo",
       setupTitle: "Fotos, grupos y cortos",
       setupBody:
-        "Los textos, los grupos y la revisión usan el almacén de la comunidad que ya está conectado para los planes compartidos. Las fotos y los vídeos también necesitan Vercel Blob. Mientras tanto, puedes publicar texto y usar el muro de ejemplo.",
+        "Los textos, los grupos y la revisión usan el almacén de la comunidad que ya está conectado para los planes compartidos. Las fotos y los vídeos también necesitan Vercel Blob. Mientras tanto, puedes escribir un texto.",
       postsToday: "Ya hay bastantes publicaciones por hoy.",
       lastAdmin: "Elige a otra persona administradora antes de salir.",
       cancel: "Cancelar",

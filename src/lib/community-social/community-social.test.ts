@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import type { Actor } from "../share/actions.ts";
+import { EXAMPLE_PRIVATE_ID, EXAMPLE_PUBLIC_ID } from "./examples.ts";
 import { COMMUNITY_REDIS_KEY } from "./redis-store.ts";
 import { handleCommunityApi, type CommunityDeps } from "./http.ts";
 import { stripIsoBmffUserData } from "./mp4-strip.ts";
@@ -536,6 +537,101 @@ describe("community social", () => {
     assert.equal(blockedBody.signedIn, false);
     if (previous === undefined) delete process.env.VERCEL_ENV;
     else process.env.VERCEL_ENV = previous;
+  });
+
+  it("hides sample groups and demo posts from production readers", async () => {
+    const previous = process.env.VERCEL_ENV;
+    process.env.VERCEL_ENV = "preview";
+    try {
+      const store = createMemoryCommunityStore();
+      const service = createCommunityService(store);
+      const previewGroups = await service.listGroups(sam);
+      assert.equal(
+        previewGroups.some((item) => item.name === "Everyday wins"),
+        true,
+      );
+      assert.equal(
+        previewGroups.some((item) => item.name === "Quiet questions"),
+        true,
+      );
+      const demo: Actor = {
+        userId: "demo_therapist",
+        email: "demo.therapist@preview.synlumae.invalid",
+        name: "Demo Therapist",
+        isPro: true,
+      };
+      const samplePost = await service.createPost(
+        demo,
+        { body: "A made-up win from a demo account", privacyAck: true },
+        now,
+      );
+      const realPost = await service.createPost(
+        sam,
+        { body: "hello everyone", privacyAck: true },
+        now,
+      );
+      await service.review(sam, samplePost.id, { action: "approve" }, now);
+      await service.review(sam, realPost.id, { action: "approve" }, now);
+      await service.toggleLike(demo, realPost.id);
+      await service.addComment(demo, realPost.id, { text: "Nice demo reply" }, now);
+      const keptId = await service.createGroup(
+        sam,
+        {
+          name: "alicante autism",
+          description: "A local group.",
+          rules: "Be kind.",
+          visibility: "private",
+        },
+        now,
+      );
+
+      process.env.VERCEL_ENV = "production";
+      const productionGroups = await service.listGroups(sam);
+      assert.equal(
+        productionGroups.some((item) => item.name === "Everyday wins"),
+        false,
+      );
+      assert.equal(
+        productionGroups.some((item) => item.name === "Quiet questions"),
+        false,
+      );
+      assert.equal(
+        productionGroups.some((item) => item.id === keptId && item.name === "alicante autism"),
+        true,
+      );
+      const feed = await service.feed(sam);
+      assert.equal(
+        feed.some((item) => item.body === "A made-up win from a demo account"),
+        false,
+      );
+      const hello = feed.find((item) => item.body === "hello everyone");
+      assert.ok(hello);
+      assert.equal(hello.likeCount, 0);
+      assert.equal(
+        hello.comments.some((comment) => comment.text === "Nice demo reply"),
+        false,
+      );
+      await assert.rejects(
+        () => service.groupDetail(sam, EXAMPLE_PUBLIC_ID),
+        (err: unknown) => (err as { code?: string }).code === "not_found",
+      );
+      await assert.rejects(
+        () => service.groupDetail(sam, EXAMPLE_PRIVATE_ID),
+        (err: unknown) => (err as { code?: string }).code === "not_found",
+      );
+      const stored = await store.read();
+      assert.equal(
+        stored.groups.some((item) => item.id === EXAMPLE_PUBLIC_ID),
+        true,
+      );
+      assert.equal(
+        stored.posts.some((item) => item.body === "A made-up win from a demo account"),
+        true,
+      );
+    } finally {
+      if (previous === undefined) delete process.env.VERCEL_ENV;
+      else process.env.VERCEL_ENV = previous;
+    }
   });
 
   it("shows an approved public video in shorts", async () => {

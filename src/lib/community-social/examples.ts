@@ -60,7 +60,61 @@ export function ensureOwners(db: CommunityDb) {
   }
 }
 
+const SAMPLE_COMMUNITY_USERS = new Set([
+  "demo_therapist",
+  "demo_parent",
+  "demo_grandparent",
+  EXAMPLE_OWNER,
+]);
+
+/** Preview keeps the sample groups. Production must not show or create them. */
+export function productionHidesSamples(env: NodeJS.ProcessEnv): boolean {
+  return env.VERCEL_ENV === "production";
+}
+
+export function isSampleCommunityUser(userId: string | null | undefined): boolean {
+  return Boolean(userId && SAMPLE_COMMUNITY_USERS.has(userId));
+}
+
+export function isSampleGroup(group: { id: string; createdBy: string }): boolean {
+  return (
+    group.id === EXAMPLE_PUBLIC_ID ||
+    group.id === EXAMPLE_PRIVATE_ID ||
+    isSampleCommunityUser(group.createdBy)
+  );
+}
+
+export function presentCommunityDb(db: CommunityDb, env: NodeJS.ProcessEnv): CommunityDb {
+  if (!productionHidesSamples(env)) return db;
+  const hiddenGroups = new Set(
+    db.groups.filter((group) => isSampleGroup(group)).map((group) => group.id),
+  );
+  const posts = db.posts
+    .filter(
+      (post) =>
+        !(post.groupId && hiddenGroups.has(post.groupId)) && !isSampleCommunityUser(post.authorId),
+    )
+    .map((post) => ({
+      ...post,
+      likeUserIds: post.likeUserIds.filter((userId) => !isSampleCommunityUser(userId)),
+      comments: post.comments.filter((comment) => !isSampleCommunityUser(comment.authorId)),
+    }));
+  const visiblePosts = new Set(posts.map((post) => post.id));
+  return {
+    ...db,
+    groups: db.groups.filter((group) => !hiddenGroups.has(group.id)),
+    members: db.members.filter(
+      (member) => !hiddenGroups.has(member.groupId) && !isSampleCommunityUser(member.userId),
+    ),
+    posts,
+    reports: db.reports.filter(
+      (report) => visiblePosts.has(report.postId) && !isSampleCommunityUser(report.reporterId),
+    ),
+  };
+}
+
 export function seedExampleGroups(db: CommunityDb) {
+  if (productionHidesSamples(process.env)) return;
   for (const example of EXAMPLES) {
     if (db.groups.some((group) => group.id === example.id)) continue;
     const { ownerId, ownerName, ...fields } = example;

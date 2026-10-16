@@ -3374,7 +3374,42 @@ function ensureOwners(db) {
     if (admin) admin.role = "owner";
   }
 }
+function productionHidesSamples(env) {
+  return env.VERCEL_ENV === "production";
+}
+function isSampleCommunityUser(userId) {
+  return Boolean(userId && SAMPLE_COMMUNITY_USERS.has(userId));
+}
+function isSampleGroup(group) {
+  return group.id === EXAMPLE_PUBLIC_ID || group.id === EXAMPLE_PRIVATE_ID || isSampleCommunityUser(group.createdBy);
+}
+function presentCommunityDb(db, env) {
+  if (!productionHidesSamples(env)) return db;
+  const hiddenGroups = new Set(
+    db.groups.filter((group) => isSampleGroup(group)).map((group) => group.id)
+  );
+  const posts = db.posts.filter(
+    (post) => !(post.groupId && hiddenGroups.has(post.groupId)) && !isSampleCommunityUser(post.authorId)
+  ).map((post) => ({
+    ...post,
+    likeUserIds: post.likeUserIds.filter((userId) => !isSampleCommunityUser(userId)),
+    comments: post.comments.filter((comment) => !isSampleCommunityUser(comment.authorId))
+  }));
+  const visiblePosts = new Set(posts.map((post) => post.id));
+  return {
+    ...db,
+    groups: db.groups.filter((group) => !hiddenGroups.has(group.id)),
+    members: db.members.filter(
+      (member) => !hiddenGroups.has(member.groupId) && !isSampleCommunityUser(member.userId)
+    ),
+    posts,
+    reports: db.reports.filter(
+      (report) => visiblePosts.has(report.postId) && !isSampleCommunityUser(report.reporterId)
+    )
+  };
+}
 function seedExampleGroups(db) {
+  if (productionHidesSamples(process.env)) return;
   for (const example of EXAMPLES) {
     if (db.groups.some((group) => group.id === example.id)) continue;
     const { ownerId, ownerName, ...fields } = example;
@@ -3395,7 +3430,7 @@ function seedExampleGroups(db) {
     });
   }
 }
-var EXAMPLE_PUBLIC_ID, EXAMPLE_PRIVATE_ID, EXAMPLE_OWNER, EXAMPLE_AT, EXAMPLES;
+var EXAMPLE_PUBLIC_ID, EXAMPLE_PRIVATE_ID, EXAMPLE_OWNER, EXAMPLE_AT, EXAMPLES, SAMPLE_COMMUNITY_USERS;
 var init_examples = __esm({
   "src/lib/community-social/examples.ts"() {
     "use strict";
@@ -3425,6 +3460,12 @@ var init_examples = __esm({
         ownerName: "Demo Therapist"
       }
     ];
+    SAMPLE_COMMUNITY_USERS = /* @__PURE__ */ new Set([
+      "demo_therapist",
+      "demo_parent",
+      "demo_grandparent",
+      EXAMPLE_OWNER
+    ]);
   }
 });
 
@@ -3644,6 +3685,22 @@ function takeUpload(db, actor, uploadId) {
   db.uploads.splice(index, 1);
   return upload.media;
 }
+function assertVisibleGroup(group) {
+  if (productionHidesSamples(process.env) && isSampleGroup(group)) {
+    throw new CommunityError(404, "not_found", "That group is not here.");
+  }
+}
+function assertVisiblePost(db, post) {
+  if (!productionHidesSamples(process.env)) return;
+  if (isSampleCommunityUser(post.authorId)) {
+    throw new CommunityError(404, "not_found", "That post is not here.");
+  }
+  if (!post.groupId) return;
+  const group = db.groups.find((item) => item.id === post.groupId);
+  if (group && isSampleGroup(group)) {
+    throw new CommunityError(404, "not_found", "That post is not here.");
+  }
+}
 function assertGroupMember(db, groupId, userId) {
   const role = activeRole(db, groupId, userId);
   if (!role) throw new CommunityError(403, "forbidden", "Join this group before posting.");
@@ -3701,7 +3758,7 @@ function createCommunityService(store) {
       };
     },
     async feed(actor) {
-      const db = await store.read();
+      const db = presentCommunityDb(await store.read(), process.env);
       const viewer = viewerOf(actor);
       const posts = newest(
         db.posts.filter((post) => inMainFeed(post, viewer) && canSeePost(db, post, viewer))
@@ -3709,7 +3766,7 @@ function createCommunityService(store) {
       return posts.slice(0, 100).map((post) => toClientPost(db, post, viewer.userId));
     },
     async shorts(actor) {
-      const db = await store.read();
+      const db = presentCommunityDb(await store.read(), process.env);
       const viewer = viewerOf(actor);
       const posts = newest(
         db.posts.filter((post) => inShorts(db, post) && canSeePost(db, post, viewer))
@@ -3717,7 +3774,7 @@ function createCommunityService(store) {
       return posts.slice(0, 60).map((post) => toClientPost(db, post, viewer.userId));
     },
     async listGroups(actor) {
-      const db = await readyDb();
+      const db = presentCommunityDb(await readyDb(), process.env);
       const userId = actor?.userId ?? null;
       return db.groups.slice().sort((a, b) => a.createdAt < b.createdAt ? 1 : -1).filter((group) => {
         if (group.visibility !== "hidden") return true;
@@ -3725,9 +3782,11 @@ function createCommunityService(store) {
       }).map((group) => summarizeGroup(db, group.id, userId));
     },
     async groupDetail(actor, groupId) {
-      const db = await readyDb();
+      const stored = await readyDb();
+      const group = groupById(stored, groupId);
+      assertVisibleGroup(group);
+      const db = presentCommunityDb(stored, process.env);
       const viewer = viewerOf(actor);
-      const group = groupById(db, groupId);
       const role = activeRole(db, group.id, viewer.userId);
       if (isClosedGroup(group) && !role) {
         return {
@@ -3768,7 +3827,7 @@ function createCommunityService(store) {
         const body = clipText(input.body, LIMITS.maxBody);
         const groupId = typeof input.groupId === "string" && input.groupId ? input.groupId : null;
         if (groupId) {
-          groupById(db2, groupId);
+          assertVisibleGroup(groupById(db2, groupId));
           assertGroupMember(db2, groupId, user.userId);
         }
         let media = null;
@@ -3839,6 +3898,7 @@ function createCommunityService(store) {
       await store.update((db) => {
         const viewer = viewerOf(user);
         const post = requirePost(db, postId);
+        assertVisiblePost(db, post);
         if (!canSeePost(db, post, viewer) || post.status !== "approved") {
           throw new CommunityError(403, "forbidden", "You cannot like that post.");
         }
@@ -3855,6 +3915,7 @@ function createCommunityService(store) {
         assertNotSuspended(db, user.userId);
         const viewer = viewerOf(user);
         const post = requirePost(db, postId);
+        assertVisiblePost(db, post);
         if (!canSeePost(db, post, viewer) || post.status !== "approved") {
           throw new CommunityError(403, "forbidden", "You cannot comment on that post.");
         }
@@ -3882,6 +3943,7 @@ function createCommunityService(store) {
       await store.update((db) => {
         const viewer = viewerOf(user);
         const post = requirePost(db, postId);
+        assertVisiblePost(db, post);
         if (!canSeePost(db, post, viewer)) {
           throw new CommunityError(403, "forbidden", "You cannot report that.");
         }
@@ -3917,7 +3979,7 @@ function createCommunityService(store) {
     },
     async queue(actor) {
       const user = requireUser(actor);
-      const db = await store.read();
+      const db = presentCommunityDb(await store.read(), process.env);
       if (!isCommunityModerator(user)) {
         throw new CommunityError(
           403,
@@ -3933,8 +3995,10 @@ function createCommunityService(store) {
     },
     async groupQueue(actor, groupId) {
       const user = requireUser(actor);
-      const db = await store.read();
-      const group = groupById(db, groupId);
+      const stored = await store.read();
+      const group = groupById(stored, groupId);
+      assertVisibleGroup(group);
+      const db = presentCommunityDb(stored, process.env);
       const role = activeRole(db, group.id, user.userId);
       if (!canReviewRequests(role)) {
         throw new CommunityError(
@@ -4082,6 +4146,7 @@ function createCommunityService(store) {
       const user = requireUser(actor);
       await store.update((db) => {
         const group = groupById(db, groupId);
+        assertVisibleGroup(group);
         const role = activeRole(db, group.id, user.userId);
         if (!canManageGroup(role)) {
           throw new CommunityError(
@@ -4110,6 +4175,7 @@ function createCommunityService(store) {
       const user = requireUser(actor);
       await store.update((db) => {
         const group = groupById(db, groupId);
+        assertVisibleGroup(group);
         if (activeRole(db, group.id, user.userId) !== "owner") {
           throw new CommunityError(403, "forbidden", "Only the owner can delete the group.");
         }
@@ -4127,6 +4193,7 @@ function createCommunityService(store) {
       const user = requireUser(actor);
       await store.update((db) => {
         const group = groupById(db, groupId);
+        assertVisibleGroup(group);
         if (activeRole(db, group.id, user.userId) !== "owner") {
           throw new CommunityError(403, "forbidden", "Only the owner can transfer the group.");
         }
@@ -4151,6 +4218,7 @@ function createCommunityService(store) {
       let result = "joined";
       await store.update((db) => {
         const group = groupById(db, groupId);
+        assertVisibleGroup(group);
         const existing = membershipOf(db, group.id, user.userId);
         if (existing?.status === "banned") {
           throw new CommunityError(403, "forbidden", "You cannot join this group.");
@@ -4188,7 +4256,7 @@ function createCommunityService(store) {
     async leaveGroup(actor, groupId) {
       const user = requireUser(actor);
       await store.update((db) => {
-        groupById(db, groupId);
+        assertVisibleGroup(groupById(db, groupId));
         const role = activeRole(db, groupId, user.userId);
         assertOwnerStays(role);
         db.members = db.members.filter(
@@ -4201,6 +4269,7 @@ function createCommunityService(store) {
       const targetId = typeof input.userId === "string" ? input.userId : "";
       await store.update((db) => {
         const group = groupById(db, groupId);
+        assertVisibleGroup(group);
         const role = activeRole(db, group.id, user.userId);
         const target = db.members.find(
           (item) => item.groupId === group.id && item.userId === targetId
