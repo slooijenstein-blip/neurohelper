@@ -52,6 +52,7 @@ export function GroupsPane({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [draft, setDraft] = useState("");
   const [reason, setReason] = useState("");
+  const [groupReasons, setGroupReasons] = useState<Record<string, string>>({});
   const detail = social.group;
   const openGroupId = detail?.group.id ?? null;
 
@@ -133,6 +134,136 @@ export function GroupsPane({
             <span className="font-semibold">{t("community.social.rulesLabel")}. </span>
             {group.rules}
           </p>
+        ) : null}
+        {canReview ? (
+          <section className="soft-card space-y-3 p-3" data-testid="group-review-queue">
+            <div>
+              <h3 className="text-sm font-semibold">{t("community.social.groupQueueTitle")}</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t("community.social.groupQueueHelp")}
+              </p>
+            </div>
+            {social.groupQueue.length === 0 ? (
+              <p className="text-sm text-muted-foreground" data-testid="group-review-empty">
+                {t("community.social.groupQueueEmpty")}
+              </p>
+            ) : null}
+            {social.groupQueue.map((post) => (
+              <article key={post.id} className="space-y-2" data-testid={`group-review-${post.id}`}>
+                <p className="text-sm font-semibold">{post.authorName}</p>
+                {post.body ? <p className="whitespace-pre-wrap text-sm">{post.body}</p> : null}
+                <Input
+                  value={groupReasons[post.id] ?? ""}
+                  onChange={(event) =>
+                    setGroupReasons((prev) => ({ ...prev, [post.id]: event.target.value }))
+                  }
+                  placeholder={t("community.social.reasonPlaceholder")}
+                  aria-label={t("community.social.reasonPlaceholder")}
+                />
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    data-testid={`group-approve-${post.id}`}
+                    onClick={() =>
+                      void social
+                        .review(post.id, "approve")
+                        .then(() => toast.success(t("community.social.approve")))
+                        .catch((err) => toast.error(communityErrorText(t, err)))
+                    }
+                  >
+                    {t("community.social.approve")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    data-testid={`group-reject-${post.id}`}
+                    onClick={() => {
+                      const note = (groupReasons[post.id] ?? "").trim();
+                      if (!note) {
+                        toast.message(t("community.social.reasonPlaceholder"));
+                        return;
+                      }
+                      void social
+                        .review(post.id, "reject", note)
+                        .then(() => toast.success(t("community.social.reject")))
+                        .catch((err) => toast.error(communityErrorText(t, err)));
+                    }}
+                  >
+                    {t("community.social.reject")}
+                  </Button>
+                </div>
+              </article>
+            ))}
+            <div>
+              <h4 className="text-sm font-semibold">{t("community.social.reportsTitle")}</h4>
+              {social.groupReports.length === 0 ? (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t("community.social.noReports")}
+                </p>
+              ) : null}
+              <ul className="mt-2 space-y-2">
+                {social.groupReports.map((report) => (
+                  <li key={report.id} className="rounded-xl border border-border px-3 py-2 text-sm">
+                    <p className="font-semibold">{report.reporterName}</p>
+                    <p>{report.excerpt}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t(`community.reasons.${report.reason}`)}
+                    </p>
+                    {report.commentId ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="mt-2"
+                        onClick={() =>
+                          void social
+                            .removeComment(report.postId, report.commentId || "")
+                            .then(() => toast.success(t("community.social.removeComment")))
+                            .catch((err) => toast.error(communityErrorText(t, err)))
+                        }
+                      >
+                        {t("community.social.removeComment")}
+                      </Button>
+                    ) : social.groupQueue.some((post) => post.id === report.postId) ? null : (
+                      <div className="mt-2 space-y-2">
+                        <Input
+                          value={groupReasons[report.id] ?? ""}
+                          onChange={(event) =>
+                            setGroupReasons((prev) => ({
+                              ...prev,
+                              [report.id]: event.target.value,
+                            }))
+                          }
+                          placeholder={t("community.social.reasonPlaceholder")}
+                          aria-label={t("community.social.reasonPlaceholder")}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            const note = (groupReasons[report.id] ?? "").trim();
+                            if (!note) {
+                              toast.message(t("community.social.reasonPlaceholder"));
+                              return;
+                            }
+                            void social
+                              .review(report.postId, "remove", note)
+                              .then(() => toast.success(t("community.social.remove")))
+                              .catch((err) => toast.error(communityErrorText(t, err)));
+                          }}
+                        >
+                          {t("community.social.remove")}
+                        </Button>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
         ) : null}
         {group.banned ? (
           <p className="text-sm text-muted-foreground">{t("community.social.bannedNotice")}</p>
@@ -441,7 +572,7 @@ export function GroupsPane({
                   .publishText(draft.trim(), group.id)
                   .then(() => {
                     setDraft("");
-                    toast.success(t("community.social.postedPending"));
+                    toast.success(t("community.social.postedPendingGroup"));
                   })
                   .catch((err) => toast.error(communityErrorText(t, err)));
               }}

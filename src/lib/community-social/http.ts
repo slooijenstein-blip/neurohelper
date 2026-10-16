@@ -127,6 +127,7 @@ type Route =
   | { name: "moderators" }
   | { name: "groups" }
   | { name: "group"; id: string }
+  | { name: "group-queue"; id: string }
   | { name: "join"; id: string }
   | { name: "leave"; id: string }
   | { name: "delete-group"; id: string }
@@ -165,6 +166,8 @@ function match(pathname: string): Route | null {
     return { name: "moderators" };
   if (rest.length === 1 && rest[0] === "groups") return { name: "groups" };
   if (rest.length === 2 && rest[0] === "groups") return { name: "group", id: rest[1]! };
+  if (rest.length === 3 && rest[0] === "groups" && rest[2] === "queue")
+    return { name: "group-queue", id: rest[1]! };
   if (rest.length === 3 && rest[0] === "groups" && rest[2] === "join")
     return { name: "join", id: rest[1]! };
   if (rest.length === 3 && rest[0] === "groups" && rest[2] === "leave")
@@ -378,6 +381,8 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
       return json({ groups: await service.listGroups(actor) });
     if (route.name === "group" && req.method === "GET")
       return json(await service.groupDetail(actor, route.id));
+    if (route.name === "group-queue" && req.method === "GET")
+      return json(await service.groupQueue(actor, route.id));
     if (route.name === "queue" && req.method === "GET") return json(await service.queue(actor));
 
     if (req.method !== "POST") return json({ error: "Not found.", code: "not_found" }, 404);

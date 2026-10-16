@@ -3649,6 +3649,29 @@ function assertGroupMember(db, groupId, userId) {
   if (!role) throw new CommunityError(403, "forbidden", "Join this group before posting.");
   return role;
 }
+function assertCanReviewPost(db, user, post) {
+  if (isCommunityModerator(user)) return;
+  const role = post.groupId ? activeRole(db, post.groupId, user.userId) : null;
+  if (post.groupId && canReviewRequests(role)) return;
+  throw new CommunityError(
+    403,
+    "forbidden",
+    post.groupId ? "You can only review posts in a group you run." : "Only the founder account can review the main feed."
+  );
+}
+function toClientReport(item) {
+  return {
+    id: item.id,
+    targetType: item.targetType,
+    postId: item.postId,
+    ...item.commentId ? { commentId: item.commentId } : {},
+    excerpt: item.excerpt,
+    reporterName: item.reporterName,
+    reason: item.reason,
+    note: item.note,
+    createdAt: item.createdAt
+  };
+}
 function capPosts(db) {
   if (db.posts.length <= LIMITS.maxStoredPosts) return;
   db.posts.sort((a, b) => a.createdAt < b.createdAt ? -1 : 1);
@@ -3905,27 +3928,36 @@ function createCommunityService(store) {
       const posts = newest(db.posts.filter((post) => post.status === "pending")).map(
         (post) => toClientPost(db, post, user.userId)
       );
-      const reports = db.reports.filter((item) => item.status === "open").map((item) => ({
-        id: item.id,
-        targetType: item.targetType,
-        postId: item.postId,
-        ...item.commentId ? { commentId: item.commentId } : {},
-        excerpt: item.excerpt,
-        reporterName: item.reporterName,
-        reason: item.reason,
-        note: item.note,
-        createdAt: item.createdAt
-      }));
+      const reports = db.reports.filter((item) => item.status === "open").map(toClientReport);
       return { posts, reports, moderators: [...db.moderators] };
+    },
+    async groupQueue(actor, groupId) {
+      const user = requireUser(actor);
+      const db = await store.read();
+      const group = groupById(db, groupId);
+      const role = activeRole(db, group.id, user.userId);
+      if (!canReviewRequests(role)) {
+        throw new CommunityError(
+          403,
+          "forbidden",
+          "Only a group owner, admin, or moderator can review this group."
+        );
+      }
+      const posts = newest(
+        db.posts.filter((post) => post.groupId === group.id && post.status === "pending")
+      ).map((post) => toClientPost(db, post, user.userId));
+      const inGroup = new Set(
+        db.posts.filter((post) => post.groupId === group.id).map((post) => post.id)
+      );
+      const reports = db.reports.filter((item) => item.status === "open" && inGroup.has(item.postId)).map(toClientReport);
+      return { posts, reports };
     },
     async review(actor, postId, input, now) {
       const user = requireUser(actor);
       let removedUrl = null;
       await store.update((db) => {
-        if (!isCommunityModerator(user)) {
-          throw new CommunityError(403, "forbidden", "Only the founder account can review posts.");
-        }
         const post = requirePost(db, postId);
+        assertCanReviewPost(db, user, post);
         const action = input.action;
         if (action === "approve") {
           if (post.status === "removed") {
@@ -3958,14 +3990,8 @@ function createCommunityService(store) {
     async removeComment(actor, postId, commentId) {
       const user = requireUser(actor);
       await store.update((db) => {
-        if (!isCommunityModerator(user)) {
-          throw new CommunityError(
-            403,
-            "forbidden",
-            "Only the founder account can remove a comment."
-          );
-        }
         const post = requirePost(db, postId);
+        assertCanReviewPost(db, user, post);
         const comment = post.comments.find((item) => item.id === commentId);
         if (!comment) throw new CommunityError(404, "not_found", "That comment is not here.");
         comment.status = "removed";
@@ -4363,6 +4389,8 @@ function match(pathname) {
     return { name: "moderators" };
   if (rest.length === 1 && rest[0] === "groups") return { name: "groups" };
   if (rest.length === 2 && rest[0] === "groups") return { name: "group", id: rest[1] };
+  if (rest.length === 3 && rest[0] === "groups" && rest[2] === "queue")
+    return { name: "group-queue", id: rest[1] };
   if (rest.length === 3 && rest[0] === "groups" && rest[2] === "join")
     return { name: "join", id: rest[1] };
   if (rest.length === 3 && rest[0] === "groups" && rest[2] === "leave")
@@ -4549,6 +4577,8 @@ async function handleCommunityApi(req, deps) {
       return json({ groups: await service.listGroups(actor) });
     if (route.name === "group" && req.method === "GET")
       return json(await service.groupDetail(actor, route.id));
+    if (route.name === "group-queue" && req.method === "GET")
+      return json(await service.groupQueue(actor, route.id));
     if (route.name === "queue" && req.method === "GET") return json(await service.queue(actor));
     if (req.method !== "POST") return json({ error: "Not found.", code: "not_found" }, 404);
     const body = route.name === "media-post" ? {} : await readJson(req);

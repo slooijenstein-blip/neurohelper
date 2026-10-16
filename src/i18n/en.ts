@@ -350,7 +350,7 @@ export const en = {
       preparing: "Preparing…",
       privacyTitle: "Before you post",
       privacyBody:
-        "Photos and videos can show a child's face. Post only with consent from a parent or guardian. Synlumae removes location data from photos and from phone videos it can read. The founder reviews the post before other people can see it.",
+        "Photos and videos can show a child's face. Post only with consent from a parent or guardian. Synlumae removes location data from photos and from phone videos it can read. Someone reviews the post before other people can see it. In a group, that is an owner, admin, or moderator of that group. On the main feed, that is the founder.",
       consentLabel: "I have consent to share this, and I have not included a location.",
       caption: "Write a caption…",
       postMedia: "Share",
@@ -358,6 +358,8 @@ export const en = {
       rejected: "Not published",
       removed: "Removed",
       postedPending: "Saved. The founder will review it before others can see it.",
+      postedPendingGroup:
+        "Saved. An owner, admin, or moderator of this group will review it before other members can see it.",
       mediaOff:
         "Photo and video storage is not connected on this preview yet. You can still write a text post.",
       signInMedia: "Sign in to share a photo, video, group, or short.",
@@ -374,8 +376,9 @@ export const en = {
       nextShort: "Next video",
       prevShort: "Previous video",
       reportComment: "Report comment",
-      reportSent: "Report sent. The founder will see it.",
-      reportBodyLive: "The founder will see this report. It is not shown on the post.",
+      reportSent: "Report sent. The people who review this space will see it.",
+      reportBodyLive:
+        "The people who review this space will see this report. It is not shown on the post.",
       remove: "Remove",
       suspend: "Pause this person's posting",
       unsuspend: "Allow posting again",
@@ -393,7 +396,13 @@ export const en = {
       addModerator: "Add moderator",
       moderatorAdded: "Moderator added",
       removeModerator: "Remove moderator",
-      youFounder: "Only this founder account can review posts and reports.",
+      youFounder:
+        "This account reviews the main feed and every group. Group owners, admins, and moderators review only their own group.",
+      groupQueueTitle: "Posts waiting in this group",
+      groupQueueHelp:
+        "You can approve or reject posts and reports in this group only. You cannot review the main feed or another group.",
+      groupQueueEmpty: "No posts are waiting in this group.",
+      removeComment: "Remove comment",
       groupsHelp: "A space for families and therapists who share a topic.",
       createGroup: "Create a group",
       groupName: "Group name",

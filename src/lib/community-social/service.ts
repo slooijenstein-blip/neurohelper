@@ -152,6 +152,34 @@ function assertGroupMember(db: CommunityDb, groupId: string, userId: string) {
   return role;
 }
 
+/** Founder reviews every post. Group staff review only posts inside a group they run. */
+function assertCanReviewPost(db: CommunityDb, user: Actor, post: SocialPost) {
+  if (isCommunityModerator(user)) return;
+  const role = post.groupId ? activeRole(db, post.groupId, user.userId) : null;
+  if (post.groupId && canReviewRequests(role)) return;
+  throw new CommunityError(
+    403,
+    "forbidden",
+    post.groupId
+      ? "You can only review posts in a group you run."
+      : "Only the founder account can review the main feed.",
+  );
+}
+
+function toClientReport(item: CommunityDb["reports"][number]): ClientReport {
+  return {
+    id: item.id,
+    targetType: item.targetType,
+    postId: item.postId,
+    ...(item.commentId ? { commentId: item.commentId } : {}),
+    excerpt: item.excerpt,
+    reporterName: item.reporterName,
+    reason: item.reason,
+    note: item.note,
+    createdAt: item.createdAt,
+  };
+}
+
 function capPosts(db: CommunityDb) {
   if (db.posts.length <= LIMITS.maxStoredPosts) return;
   db.posts.sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1));
@@ -463,18 +491,32 @@ export function createCommunityService(store: CommunityStore) {
       );
       const reports: ClientReport[] = db.reports
         .filter((item) => item.status === "open")
-        .map((item) => ({
-          id: item.id,
-          targetType: item.targetType,
-          postId: item.postId,
-          ...(item.commentId ? { commentId: item.commentId } : {}),
-          excerpt: item.excerpt,
-          reporterName: item.reporterName,
-          reason: item.reason,
-          note: item.note,
-          createdAt: item.createdAt,
-        }));
+        .map(toClientReport);
       return { posts, reports, moderators: [...db.moderators] };
+    },
+
+    async groupQueue(actor: Actor | null, groupId: string) {
+      const user = requireUser(actor);
+      const db = await store.read();
+      const group = groupById(db, groupId);
+      const role = activeRole(db, group.id, user.userId);
+      if (!canReviewRequests(role)) {
+        throw new CommunityError(
+          403,
+          "forbidden",
+          "Only a group owner, admin, or moderator can review this group.",
+        );
+      }
+      const posts = newest(
+        db.posts.filter((post) => post.groupId === group.id && post.status === "pending"),
+      ).map((post) => toClientPost(db, post, user.userId));
+      const inGroup = new Set(
+        db.posts.filter((post) => post.groupId === group.id).map((post) => post.id),
+      );
+      const reports = db.reports
+        .filter((item) => item.status === "open" && inGroup.has(item.postId))
+        .map(toClientReport);
+      return { posts, reports };
     },
 
     async review(
@@ -486,10 +528,8 @@ export function createCommunityService(store: CommunityStore) {
       const user = requireUser(actor);
       let removedUrl: string | null = null;
       await store.update((db) => {
-        if (!isCommunityModerator(user)) {
-          throw new CommunityError(403, "forbidden", "Only the founder account can review posts.");
-        }
         const post = requirePost(db, postId);
+        assertCanReviewPost(db, user, post);
         const action = input.action;
         if (action === "approve") {
           if (post.status === "removed") {
@@ -523,14 +563,8 @@ export function createCommunityService(store: CommunityStore) {
     async removeComment(actor: Actor | null, postId: string, commentId: string) {
       const user = requireUser(actor);
       await store.update((db) => {
-        if (!isCommunityModerator(user)) {
-          throw new CommunityError(
-            403,
-            "forbidden",
-            "Only the founder account can remove a comment.",
-          );
-        }
         const post = requirePost(db, postId);
+        assertCanReviewPost(db, user, post);
         const comment = post.comments.find((item) => item.id === commentId);
         if (!comment) throw new CommunityError(404, "not_found", "That comment is not here.");
         comment.status = "removed";

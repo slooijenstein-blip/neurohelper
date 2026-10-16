@@ -23,11 +23,13 @@ import {
   fetchCommunityGroups,
   fetchCommunityHealth,
   fetchCommunitySession,
+  fetchGroupQueue,
   fetchCommunityShorts,
   fetchModerationQueue,
   joinCommunityGroup,
   leaveCommunityGroup,
   likeCommunityPost,
+  removeCommunityComment,
   reportCommunity,
   reviewCommunityPost,
   suspendCommunityUser,
@@ -68,6 +70,8 @@ export type CommunitySocialValue = {
   group: GroupDetail;
   queue: ClientPost[];
   reports: ClientReport[];
+  groupQueue: ClientPost[];
+  groupReports: ClientReport[];
   moderators: string[];
   refresh: () => Promise<void>;
   openGroup: (id: string | null) => Promise<void>;
@@ -82,6 +86,7 @@ export type CommunitySocialValue = {
   comment: (id: string, text: string) => Promise<void>;
   report: (input: { postId: string; commentId?: string; reason: string }) => Promise<void>;
   review: (id: string, action: "approve" | "reject" | "remove", reason?: string) => Promise<void>;
+  removeComment: (postId: string, commentId: string) => Promise<void>;
   suspend: (userId: string, active: boolean, reason: string) => Promise<void>;
   createGroup: (input: {
     name: string;
@@ -138,6 +143,8 @@ function SocialProvider({
   const [group, setGroup] = useState<GroupDetail>(null);
   const [queue, setQueue] = useState<ClientPost[]>([]);
   const [reports, setReports] = useState<ClientReport[]>([]);
+  const [groupQueue, setGroupQueue] = useState<ClientPost[]>([]);
+  const [groupReports, setGroupReports] = useState<ClientReport[]>([]);
   const [moderators, setModerators] = useState<string[]>([]);
   const refreshGen = useRef(0);
 
@@ -157,9 +164,21 @@ function SocialProvider({
   const loadGroup = useCallback(async (id: string | null, auth: CommunityAuth) => {
     if (!id) {
       setGroup(null);
+      setGroupQueue([]);
+      setGroupReports([]);
       return;
     }
-    setGroup(await fetchCommunityGroup(auth, id));
+    const detail = await fetchCommunityGroup(auth, id);
+    setGroup(detail);
+    const role = detail.group.myRole;
+    if (role === "owner" || role === "admin" || role === "moderator") {
+      const waiting = await fetchGroupQueue(auth, id);
+      setGroupQueue(waiting.posts);
+      setGroupReports(waiting.reports);
+    } else {
+      setGroupQueue([]);
+      setGroupReports([]);
+    }
   }, []);
 
   const refresh = useCallback(async () => {
@@ -176,6 +195,8 @@ function SocialProvider({
       setGroups([]);
       setQueue([]);
       setReports([]);
+      setGroupQueue([]);
+      setGroupReports([]);
       return;
     }
     const auth = await authFor();
@@ -295,6 +316,8 @@ function SocialProvider({
       group,
       queue,
       reports,
+      groupQueue,
+      groupReports,
       moderators,
       refresh,
       openGroup,
@@ -319,6 +342,10 @@ function SocialProvider({
       },
       review: async (id, action, reason) => {
         await reviewCommunityPost(await authFor(), id, action, reason);
+        await refresh();
+      },
+      removeComment: async (postId, commentId) => {
+        await removeCommunityComment(await authFor(), postId, commentId);
         await refresh();
       },
       suspend: async (userId, active, reason) => {
@@ -373,6 +400,8 @@ function SocialProvider({
       posts,
       publishMedia,
       publishText,
+      groupQueue,
+      groupReports,
       queue,
       ready,
       refresh,

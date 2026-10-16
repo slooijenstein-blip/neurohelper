@@ -361,7 +361,7 @@ export const es: DeepString<Messages> = {
       preparing: "Preparando…",
       privacyTitle: "Antes de publicar",
       privacyBody:
-        "Las fotos y los vídeos pueden mostrar la cara de un niño o una niña. Publícalos solo con el consentimiento de madre, padre o tutor. Synlumae quita los datos de ubicación de las fotos y de los vídeos del móvil que puede leer. La cuenta fundadora revisa la publicación antes de que otras personas la vean.",
+        "Las fotos y los vídeos pueden mostrar la cara de un niño o una niña. Publícalos solo con el consentimiento de madre, padre o tutor. Synlumae quita los datos de ubicación de las fotos y de los vídeos del móvil que puede leer. Alguien revisa la publicación antes de que otras personas la vean. En un grupo, lo hace quien lo administra. En el muro principal, lo hace la cuenta fundadora.",
       consentLabel: "Tengo consentimiento para compartir esto y no he incluido una ubicación.",
       caption: "Escribe un texto…",
       postMedia: "Compartir",
@@ -370,6 +370,8 @@ export const es: DeepString<Messages> = {
       removed: "Retirada",
       postedPending:
         "Guardada. La cuenta fundadora la revisará antes de que otras personas la vean.",
+      postedPendingGroup:
+        "Guardada. Quien administra este grupo la revisará antes de que el resto de miembros la vea.",
       mediaOff:
         "El almacenamiento de fotos y vídeos aún no está conectado en esta vista previa. Puedes escribir un texto.",
       signInMedia: "Entra para compartir una foto, un vídeo, un grupo o un corto.",
@@ -389,8 +391,9 @@ export const es: DeepString<Messages> = {
       nextShort: "Vídeo siguiente",
       prevShort: "Vídeo anterior",
       reportComment: "Denunciar comentario",
-      reportSent: "Denuncia enviada. La cuenta fundadora la verá.",
-      reportBodyLive: "La cuenta fundadora verá esta denuncia. No se muestra en la publicación.",
+      reportSent: "Denuncia enviada. Quien revisa este espacio la verá.",
+      reportBodyLive:
+        "Quien revisa este espacio verá esta denuncia. No se muestra en la publicación.",
       remove: "Retirar",
       suspend: "Pausar las publicaciones de esta persona",
       unsuspend: "Permitir publicar de nuevo",
@@ -408,7 +411,13 @@ export const es: DeepString<Messages> = {
       addModerator: "Añadir moderación",
       moderatorAdded: "Persona moderadora añadida",
       removeModerator: "Quitar moderación",
-      youFounder: "Solo esta cuenta fundadora puede revisar publicaciones y denuncias.",
+      youFounder:
+        "Esta cuenta revisa el muro principal y todos los grupos. Quien administra un grupo solo revisa ese grupo.",
+      groupQueueTitle: "Publicaciones en espera en este grupo",
+      groupQueueHelp:
+        "Puedes aprobar o rechazar publicaciones y denuncias solo de este grupo. No puedes revisar el muro principal ni otro grupo.",
+      groupQueueEmpty: "No hay publicaciones en espera en este grupo.",
+      removeComment: "Retirar comentario",
       groupsHelp: "Un espacio para familias y terapeutas que comparten un tema.",
       createGroup: "Crear un grupo",
       groupName: "Nombre del grupo",

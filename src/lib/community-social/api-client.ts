@@ -93,6 +93,16 @@ export async function fetchCommunityGroup(
   return parse(response);
 }
 
+export async function fetchGroupQueue(
+  auth: ShareAuth,
+  id: string,
+): Promise<{ posts: ClientPost[]; reports: ClientReport[] }> {
+  const response = await fetch(`/api/community/groups/${encodeURIComponent(id)}/queue`, {
+    headers: authHeaders(auth),
+  });
+  return parse(response);
+}
+
 export async function fetchModerationQueue(auth: ShareAuth): Promise<{
   posts: ClientPost[];
   reports: ClientReport[];
@@ -147,6 +157,18 @@ export async function reportCommunity(
   body: { targetType: "post" | "comment"; postId: string; commentId?: string; reason: string },
 ): Promise<void> {
   await postJson(auth, "/api/community/reports", body);
+}
+
+export async function removeCommunityComment(
+  auth: ShareAuth,
+  postId: string,
+  commentId: string,
+): Promise<void> {
+  await postJson(
+    auth,
+    `/api/community/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}/remove`,
+    {},
+  );
 }
 
 export async function reviewCommunityPost(

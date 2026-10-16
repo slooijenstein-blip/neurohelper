@@ -217,6 +217,136 @@ describe("community social", () => {
     );
   });
 
+  it("lets group staff review only posts and reports inside their group", async () => {
+    const service = createCommunityService(createMemoryCommunityStore());
+    const guest: Actor = {
+      userId: "user_guest",
+      email: "guest@example.com",
+      name: "Guest",
+      isPro: false,
+    };
+    const groupId = await service.createGroup(
+      maya,
+      { name: "Evening songs", description: "Night.", rules: "No names.", visibility: "private" },
+      now,
+    );
+    await service.joinGroup(guest, groupId, now, "I listen too.");
+    await service.memberAction(maya, groupId, { userId: guest.userId, action: "approve" });
+    const groupPost = await service.createPost(
+      guest,
+      { body: "Inside the group", privacyAck: true, groupId, authorRole: "Parent" },
+      now,
+    );
+    const feedPost = await service.createPost(
+      guest,
+      { body: "On the main feed", privacyAck: true, authorRole: "Parent" },
+      now,
+    );
+    const otherId = await service.createGroup(
+      guest,
+      { name: "Guest circle", description: "Mine.", rules: "No names.", visibility: "public" },
+      now,
+    );
+    const otherPost = await service.createPost(
+      guest,
+      { body: "Another group", privacyAck: true, groupId: otherId, authorRole: "Parent" },
+      now,
+    );
+    const forbidden = (err: unknown) => (err as { code?: string }).code === "forbidden";
+    await assert.rejects(() => service.groupQueue(guest, groupId), forbidden);
+    await assert.rejects(
+      () => service.review(guest, groupPost.id, { action: "approve" }, now),
+      forbidden,
+    );
+    await assert.rejects(
+      () => service.review(maya, feedPost.id, { action: "approve" }, now),
+      forbidden,
+    );
+    await assert.rejects(
+      () => service.review(maya, otherPost.id, { action: "approve" }, now),
+      forbidden,
+    );
+    await assert.rejects(() => service.queue(maya), forbidden);
+    await assert.rejects(() => service.groupQueue(sam, groupId), forbidden);
+    const waiting = await service.groupQueue(maya, groupId);
+    assert.deepEqual(
+      waiting.posts.map((item) => item.id),
+      [groupPost.id],
+    );
+    assert.equal(
+      (await service.groupQueue(guest, otherId)).posts.some((item) => item.id === groupPost.id),
+      false,
+    );
+    await service.review(maya, groupPost.id, { action: "approve" }, now);
+    assert.equal(
+      (await service.groupDetail(guest, groupId)).posts.some(
+        (item) => item.id === groupPost.id && item.status === "approved",
+      ),
+      true,
+    );
+    await service.report(
+      guest,
+      { targetType: "post", postId: groupPost.id, reason: "unkind" },
+      now,
+    );
+    assert.equal((await service.groupQueue(maya, groupId)).reports.length, 1);
+    await service.review(sam, feedPost.id, { action: "approve" }, now);
+    await service.report(maya, { targetType: "post", postId: feedPost.id, reason: "spam" }, now);
+    assert.equal(
+      (await service.groupQueue(maya, groupId)).reports.some((item) => item.postId === feedPost.id),
+      false,
+    );
+    const founderQueue = await service.queue(sam);
+    assert.equal(
+      founderQueue.posts.some((item) => item.id === otherPost.id),
+      true,
+    );
+    assert.equal(
+      founderQueue.reports.some((item) => item.postId === feedPost.id),
+      true,
+    );
+    await service.review(sam, otherPost.id, { action: "approve" }, now);
+    const second = await service.createPost(
+      guest,
+      { body: "One more", privacyAck: true, groupId, authorRole: "Parent" },
+      now,
+    );
+    await service.memberAction(maya, groupId, {
+      userId: guest.userId,
+      action: "setRole",
+      role: "moderator",
+    });
+    await service.review(
+      guest,
+      second.id,
+      { action: "reject", reason: "Not for this group." },
+      now,
+    );
+    assert.equal((await service.groupQueue(maya, groupId)).posts.length, 0);
+    await service.addComment(guest, groupPost.id, { text: "A note", authorRole: "Parent" }, now);
+    const commented = (await service.groupDetail(guest, groupId)).posts.find(
+      (item) => item.id === groupPost.id,
+    );
+    const commentId = commented?.comments[0]?.id;
+    assert.ok(commentId);
+    await service.report(
+      maya,
+      { targetType: "comment", postId: groupPost.id, commentId, reason: "unkind" },
+      now,
+    );
+    await service.removeComment(guest, groupPost.id, commentId!);
+    assert.equal(
+      (await service.groupQueue(maya, groupId)).reports.some(
+        (item) => item.commentId === commentId,
+      ),
+      false,
+    );
+    await assert.rejects(
+      () => service.removeComment(guest, feedPost.id, "cmt_missingcomment01"),
+      forbidden,
+    );
+  });
+
   it("runs a private group with requests, roles, and the same review", async () => {
     const service = createCommunityService(createMemoryCommunityStore());
     const groupId = await service.createGroup(
