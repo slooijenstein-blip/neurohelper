@@ -3116,23 +3116,55 @@ var init_limits = __esm({
 });
 
 // src/lib/community-social/media-url.ts
-function isPublicBlobUrl(url, userId) {
+function localMediaPath(id) {
+  return `/api/community/media/${id}`;
+}
+function localUploadId(url) {
+  if (!url) return null;
+  const match2 = /^\/api\/community\/media\/(cupl_[a-z0-9]{8,32})$/.exec(url);
+  return match2?.[1] ?? null;
+}
+function isBlobHostUrl(url) {
   try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:") return false;
-    const host = parsed.hostname;
-    const hosted = host.endsWith(".public.blob.vercel-storage.com") || host.endsWith(".blob.vercel-storage.com");
-    if (!hosted) return false;
-    const path5 = decodeURIComponent(parsed.pathname);
-    return path5.includes(`/community/${userId}/`);
+    return new URL(url).hostname.endsWith(".blob.vercel-storage.com");
   } catch {
     return false;
   }
 }
-function localMediaPath(id) {
-  return `/api/community/media/${id}`;
+function isOwnedBlobPath(pathname, userId) {
+  if (!userId || !/^[a-zA-Z0-9_-]{1,80}$/.test(userId)) return false;
+  const file = blobFileName(pathname);
+  if (!file) return false;
+  return file.userId === userId;
+}
+function isSafeBlobPath(pathname) {
+  return blobFileName(pathname) !== null;
+}
+function blobFileName(pathname) {
+  if (!pathname || pathname.length > 300) return null;
+  if (pathname.includes("\\") || pathname.includes("\0") || pathname.includes("://")) return null;
+  const parts = pathname.split("/");
+  if (parts.length !== 3) return null;
+  const [root, userId, file] = parts;
+  if (root !== "community" || !userId || !file) return null;
+  if (!/^[a-zA-Z0-9_-]{1,80}$/.test(userId)) return null;
+  if (!/^[a-zA-Z0-9._-]{1,180}$/.test(file)) return null;
+  return { userId, file };
+}
+function blobUploadLimits(pathname) {
+  const parsed = blobFileName(pathname);
+  if (!parsed) return null;
+  const ext = parsed.file.split(".").pop()?.toLowerCase() ?? "";
+  const image = IMAGE_EXT[ext];
+  if (image) return { allowedContentTypes: [image], maximumSizeInBytes: LIMITS.maxImageBytes };
+  const video = VIDEO_EXT[ext];
+  if (video) return { allowedContentTypes: [video], maximumSizeInBytes: LIMITS.maxVideoBytes };
+  return null;
 }
 function mediaFromUpload(input) {
+  if (isBlobHostUrl(input.url)) {
+    throw new CommunityError(400, "invalid", "That file is not in community storage.");
+  }
   const contentType = input.contentType.toLowerCase();
   if (input.kind === "image" && !IMAGE_TYPES.has(contentType)) {
     throw new CommunityError(400, "invalid", "Use a JPEG, PNG, or WebP picture.");
@@ -3164,7 +3196,8 @@ function mediaFromUpload(input) {
     bytes: Math.round(input.bytes),
     ...width ? { width } : {},
     ...height ? { height } : {},
-    ...input.kind === "video" ? { durationSec: Math.round(input.durationSec ?? 0) } : {}
+    ...input.kind === "video" ? { durationSec: Math.round(input.durationSec ?? 0) } : {},
+    ...input.blobPath ? { blobPath: input.blobPath } : {}
   };
 }
 function optionalEdge(value) {
@@ -3174,13 +3207,23 @@ function optionalEdge(value) {
   }
   return Math.round(value);
 }
-var IMAGE_TYPES, VIDEO_TYPES;
+var IMAGE_TYPES, VIDEO_TYPES, IMAGE_EXT, VIDEO_EXT;
 var init_media_url = __esm({
   "src/lib/community-social/media-url.ts"() {
     "use strict";
     init_limits();
     IMAGE_TYPES = /* @__PURE__ */ new Set(["image/jpeg", "image/png", "image/webp"]);
     VIDEO_TYPES = /* @__PURE__ */ new Set(["video/mp4", "video/quicktime"]);
+    IMAGE_EXT = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp"
+    };
+    VIDEO_EXT = {
+      mp4: "video/mp4",
+      mov: "video/quicktime"
+    };
   }
 });
 
@@ -3225,6 +3268,7 @@ function asGroup(value) {
     rules: typeof row.rules === "string" ? row.rules : "",
     visibility: asVisibility(row.visibility),
     coverUrl: typeof row.coverUrl === "string" ? row.coverUrl : null,
+    ...typeof row.coverBlobPath === "string" ? { coverBlobPath: row.coverBlobPath } : {},
     joinQuestion: typeof row.joinQuestion === "string" ? row.joinQuestion : "",
     createdBy: typeof row.createdBy === "string" ? row.createdBy : "",
     createdAt: typeof row.createdAt === "string" ? row.createdAt : ""
@@ -3547,6 +3591,33 @@ function canManageGroup(role) {
 function canReviewRequests(role) {
   return role === "owner" || role === "admin" || role === "moderator";
 }
+function postMediaAccess(db, post, viewer) {
+  if (!post.media) return "missing";
+  if (!viewer.userId) return "unauthorized";
+  if (post.status === "rejected" || post.status === "removed") return "forbidden";
+  const group = post.groupId ? db.groups.find((item) => item.id === post.groupId) : void 0;
+  if (post.groupId && !group) return "missing";
+  if (post.status === "pending") {
+    if (post.authorId === viewer.userId || viewer.founder) return "allow";
+    if (group && canReviewRequests(activeRole(db, group.id, viewer.userId))) return "allow";
+    if (group?.visibility === "hidden") return "missing";
+    return "forbidden";
+  }
+  if (post.status !== "approved") return "forbidden";
+  if (!group) return "allow";
+  if (group.visibility === "public") return "allow";
+  if (activeRole(db, group.id, viewer.userId)) return "allow";
+  if (group.visibility === "hidden") return "missing";
+  return "forbidden";
+}
+function groupCoverAccess(db, group, userId) {
+  if (!group.coverBlobPath && !group.coverUrl) return "missing";
+  if (!userId) return "unauthorized";
+  if (group.visibility === "public") return "allow";
+  if (activeRole(db, group.id, userId)) return "allow";
+  if (group.visibility === "hidden") return "missing";
+  return "forbidden";
+}
 function assertOwnerStays(role) {
   if (role === "owner") {
     throw new CommunityError(
@@ -3606,13 +3677,14 @@ function summarizeGroup(db, groupId, userId) {
   );
   const role = mine?.status === "active" ? mine.role : null;
   const inside = role !== null || !isClosedGroup(group);
+  const cover = groupCoverAccess(db, group, userId);
   return {
     id: group.id,
     name: group.name,
     description: group.description,
     rules: inside ? group.rules : "",
     visibility: group.visibility,
-    coverUrl: group.coverUrl,
+    coverUrl: cover === "allow" ? localMediaPath(group.id) : null,
     joinQuestion: group.joinQuestion,
     memberCount: active.length,
     myRole: role,
@@ -3646,7 +3718,7 @@ function toClientPost(db, post, viewerId) {
     ...group ? { groupName: group.name } : {},
     media: post.media ? {
       kind: post.media.kind,
-      url: post.media.url,
+      url: localMediaPath(post.id),
       ...post.media.width ? { width: post.media.width } : {},
       ...post.media.height ? { height: post.media.height } : {},
       ...post.media.durationSec ? { durationSec: post.media.durationSec } : {}
@@ -3672,6 +3744,23 @@ function requirePost(db, id) {
   const post = db.posts.find((item) => item.id === id);
   if (!post) throw new CommunityError(404, "not_found", "That post is not here.");
   return post;
+}
+function assertMediaAccess(access) {
+  if (access === "allow") return;
+  if (access === "unauthorized") {
+    throw new CommunityError(401, "unauthorized", "Sign in to continue.");
+  }
+  if (access === "missing") {
+    throw new CommunityError(404, "not_found", "That file is not here.");
+  }
+  throw new CommunityError(403, "forbidden", "You cannot view that photo or video.");
+}
+function mediaLocator(media, ownerId) {
+  return {
+    contentType: media.contentType,
+    blobPath: media.blobPath && isOwnedBlobPath(media.blobPath, ownerId) ? media.blobPath : null,
+    localId: localUploadId(media.url)
+  };
 }
 function takeUpload(db, actor, uploadId) {
   if (!isCommunityId(uploadId, "cupl")) {
@@ -3893,6 +3982,43 @@ function createCommunityService(store) {
       });
       return id;
     },
+    async openMedia(actor, id) {
+      const db = presentCommunityDb(await store.read(), process.env);
+      const viewer = {
+        userId: actor?.userId ?? null,
+        founder: actor ? isCommunityFounder(actor) : false
+      };
+      if (isCommunityId(id, "cpost")) {
+        const post = db.posts.find((item) => item.id === id);
+        if (!post?.media) throw new CommunityError(404, "not_found", "That file is not here.");
+        assertVisiblePost(db, post);
+        assertMediaAccess(postMediaAccess(db, post, viewer));
+        return mediaLocator(post.media, post.authorId);
+      }
+      if (isCommunityId(id, "cupl")) {
+        if (!actor) throw new CommunityError(401, "unauthorized", "Sign in to continue.");
+        const upload = db.uploads.find((item) => item.id === id);
+        if (!upload || productionHidesSamples(process.env) && isSampleCommunityUser(upload.userId)) {
+          throw new CommunityError(404, "not_found", "That file is not here.");
+        }
+        if (upload.userId !== actor.userId) {
+          throw new CommunityError(403, "forbidden", "You cannot view that photo or video.");
+        }
+        return mediaLocator(upload.media, upload.userId);
+      }
+      if (isCommunityId(id, "cgrp")) {
+        const group = db.groups.find((item) => item.id === id);
+        if (!group) throw new CommunityError(404, "not_found", "That file is not here.");
+        assertVisibleGroup(group);
+        assertMediaAccess(groupCoverAccess(db, group, viewer.userId));
+        return {
+          contentType: "image/jpeg",
+          blobPath: group.coverBlobPath && isSafeBlobPath(group.coverBlobPath) ? group.coverBlobPath : null,
+          localId: localUploadId(group.coverUrl)
+        };
+      }
+      throw new CommunityError(404, "not_found", "That file is not here.");
+    },
     async toggleLike(actor, postId) {
       const user = requireUser(actor);
       await store.update((db) => {
@@ -4018,7 +4144,7 @@ function createCommunityService(store) {
     },
     async review(actor, postId, input, now) {
       const user = requireUser(actor);
-      let removedUrl = null;
+      let removed = null;
       await store.update((db) => {
         const post = requirePost(db, postId);
         assertCanReviewPost(db, user, post);
@@ -4034,7 +4160,9 @@ function createCommunityService(store) {
           if (!reason) throw new CommunityError(400, "invalid", "Add a short reason.");
           post.status = action === "reject" ? "rejected" : "removed";
           post.statusReason = reason;
-          if (action === "remove" && post.media) removedUrl = post.media.url;
+          if (action === "remove" && post.media) {
+            removed = { url: post.media.url, blobPath: post.media.blobPath ?? null };
+          }
         } else {
           throw new CommunityError(400, "invalid", "Choose approve, reject, or remove.");
         }
@@ -4049,7 +4177,7 @@ function createCommunityService(store) {
           }
         }
       });
-      return { removedUrl };
+      return { removed };
     },
     async removeComment(actor, postId, commentId) {
       const user = requireUser(actor);
@@ -4111,12 +4239,14 @@ function createCommunityService(store) {
         if (name.length < 2) throw new CommunityError(400, "invalid", "Give the group a name.");
         const visibility = parseVisibility(input.visibility);
         let coverUrl = null;
+        let coverBlobPath;
         if (typeof input.uploadId === "string" && input.uploadId) {
           const media = takeUpload(db, user, input.uploadId);
           if (media.kind !== "image") {
             throw new CommunityError(400, "invalid", "The cover needs to be a picture.");
           }
-          coverUrl = media.url;
+          if (media.blobPath) coverBlobPath = media.blobPath;
+          else coverUrl = media.url;
         }
         id = newId("cgrp");
         db.groups.unshift({
@@ -4126,6 +4256,7 @@ function createCommunityService(store) {
           rules: clipText(input.rules, LIMITS.maxGroupRules),
           visibility,
           coverUrl,
+          ...coverBlobPath ? { coverBlobPath } : {},
           joinQuestion: clipText(input.joinQuestion, LIMITS.maxJoinQuestion),
           createdBy: user.userId,
           createdAt: now
@@ -4144,6 +4275,7 @@ function createCommunityService(store) {
     },
     async updateGroup(actor, groupId, input) {
       const user = requireUser(actor);
+      let replaced = null;
       await store.update((db) => {
         const group = groupById(db, groupId);
         assertVisibleGroup(group);
@@ -4167,27 +4299,47 @@ function createCommunityService(store) {
           if (media.kind !== "image") {
             throw new CommunityError(400, "invalid", "The cover needs to be a picture.");
           }
-          group.coverUrl = media.url;
+          if (group.coverUrl || group.coverBlobPath) {
+            replaced = { url: group.coverUrl, blobPath: group.coverBlobPath ?? null };
+          }
+          if (media.blobPath) {
+            group.coverBlobPath = media.blobPath;
+            group.coverUrl = null;
+          } else {
+            delete group.coverBlobPath;
+            group.coverUrl = media.url;
+          }
         }
       });
+      return replaced;
     },
     async deleteGroup(actor, groupId) {
       const user = requireUser(actor);
+      let forgotten = [];
       await store.update((db) => {
         const group = groupById(db, groupId);
         assertVisibleGroup(group);
         if (activeRole(db, group.id, user.userId) !== "owner") {
           throw new CommunityError(403, "forbidden", "Only the owner can delete the group.");
         }
+        const removed = [];
+        if (group.coverUrl || group.coverBlobPath) {
+          removed.push({ url: group.coverUrl, blobPath: group.coverBlobPath ?? null });
+        }
         db.groups = db.groups.filter((item) => item.id !== group.id);
         db.members = db.members.filter((item) => item.groupId !== group.id);
         for (const post of db.posts) {
           if (post.groupId === group.id && post.status !== "removed") {
+            if (post.media) {
+              removed.push({ url: post.media.url, blobPath: post.media.blobPath ?? null });
+            }
             post.status = "removed";
             post.statusReason = "The group was deleted.";
           }
         }
+        forgotten = removed;
       });
+      return forgotten;
     },
     async transferOwnership(actor, groupId, targetId) {
       const user = requireUser(actor);
@@ -4355,6 +4507,7 @@ var init_service2 = __esm({
     "use strict";
     init_examples();
     init_limits();
+    init_media_url();
     init_rules();
   }
 });
@@ -4362,8 +4515,8 @@ var init_service2 = __esm({
 // src/lib/community-social/http.ts
 import { mkdirSync as mkdirSync3, readFileSync as readFileSync3, unlinkSync, writeFileSync as writeFileSync3 } from "node:fs";
 import path4 from "node:path";
-import { handleUpload } from "@vercel/blob/client";
-import { del } from "@vercel/blob";
+import { del, get, issueSignedToken } from "@vercel/blob";
+import { handleUploadPresigned } from "@vercel/blob/client";
 function readEnv3(env, name) {
   return env[name];
 }
@@ -4383,7 +4536,11 @@ function createCommunityDeps(env = process.env) {
     storeName = "file";
   }
   const blobToken = readEnv3(env, "BLOB_READ_WRITE_TOKEN") || null;
-  const media = blobToken ? "blob" : !readEnv3(env, "VERCEL") && store ? "local" : "none";
+  const blobStoreId = readEnv3(env, "BLOB_STORE_ID") || null;
+  const oidc = Boolean(
+    blobStoreId && (readEnv3(env, "VERCEL") || readEnv3(env, "VERCEL_OIDC_TOKEN"))
+  );
+  const media = oidc || blobToken ? "blob" : !readEnv3(env, "VERCEL") && store ? "local" : "none";
   const share = shareDeps(env);
   return {
     configured: Boolean(store),
@@ -4393,7 +4550,8 @@ function createCommunityDeps(env = process.env) {
     service: store ? createCommunityService(store) : null,
     authenticate: (req) => share.authenticate(req),
     localMediaDir: readEnv3(env, "COMMUNITY_MEDIA_DIR") || path4.join(process.cwd(), ".data", "community-media"),
-    blobToken
+    blobToken,
+    blobStoreId
   };
 }
 function communityDeps(env = process.env) {
@@ -4401,7 +4559,9 @@ function communityDeps(env = process.env) {
     readEnv3(env, "UPSTASH_REDIS_REST_URL") || readEnv3(env, "KV_REST_API_URL") || "",
     readEnv3(env, "SHARE_STORE") || "",
     readEnv3(env, "VERCEL") ? "vercel" : "local",
+    readEnv3(env, "BLOB_STORE_ID") || "",
     readEnv3(env, "BLOB_READ_WRITE_TOKEN") ? "blob" : "noblob",
+    readEnv3(env, "VERCEL_OIDC_TOKEN") ? "oidc" : "nooidc",
     readEnv3(env, "CLERK_SECRET_KEY") ? "clerk" : "noclerk"
   ].join("|");
   if (runtime2?.key === key) return runtime2.deps;
@@ -4505,26 +4665,29 @@ function uploadFields(input) {
     bytes: input.bytes,
     ...input.width !== void 0 ? { width: input.width } : {},
     ...input.height !== void 0 ? { height: input.height } : {},
-    ...input.durationSec !== void 0 ? { durationSec: input.durationSec } : {}
+    ...input.durationSec !== void 0 ? { durationSec: input.durationSec } : {},
+    ...input.blobPath ? { blobPath: input.blobPath } : {}
   });
 }
-async function forgetMedia(deps, url) {
-  if (!url) return;
-  if (url.startsWith("/api/community/media/")) {
-    const id = url.split("/").pop() || "";
-    if (!isCommunityId(id, "cupl")) return;
+function blobCommand(deps) {
+  if (deps.blobStoreId) return { storeId: deps.blobStoreId };
+  if (deps.blobToken) return { token: deps.blobToken };
+  return {};
+}
+async function forgetMedia(deps, target) {
+  if (target.blobPath && isSafeBlobPath(target.blobPath)) {
     try {
-      unlinkSync(path4.join(deps.localMediaDir, id));
-      unlinkSync(path4.join(deps.localMediaDir, `${id}.json`));
-    } catch {
+      await del(target.blobPath, blobCommand(deps));
+    } catch (err) {
+      console.error("blob delete", err);
     }
-    return;
   }
-  if (!deps.blobToken || !url.includes(".blob.vercel-storage.com")) return;
+  const id = target.url?.split("/").pop() || "";
+  if (!target.url?.startsWith("/api/community/media/") || !isCommunityId(id, "cupl")) return;
   try {
-    await del(url, { token: deps.blobToken });
-  } catch (err) {
-    console.error("blob delete", err);
+    unlinkSync(path4.join(deps.localMediaDir, id));
+    unlinkSync(path4.join(deps.localMediaDir, `${id}.json`));
+  } catch {
   }
 }
 function saveLocalFile(deps, id, bytes, contentType) {
@@ -4539,29 +4702,23 @@ async function handleCommunityApi(req, deps) {
     return json({ ok: deps.configured, store: deps.storeName, media: deps.media });
   }
   if (route.name === "media-get" && req.method === "GET") {
-    if (!isCommunityId(route.id, "cupl"))
-      return json({ error: "Not found.", code: "not_found" }, 404);
     try {
-      const meta = JSON.parse(
-        readFileSync3(path4.join(deps.localMediaDir, `${route.id}.json`), "utf8")
-      );
-      const bytes = readFileSync3(path4.join(deps.localMediaDir, route.id));
-      return new Response(bytes, {
-        headers: {
-          "content-type": meta.contentType || "application/octet-stream",
-          "cache-control": "private, max-age=3600",
-          "x-content-type-options": "nosniff"
-        }
-      });
-    } catch {
+      const service = requireService(deps);
+      const actor = await actorOf(deps, req);
+      const opened = await service.openMedia(actor, route.id);
+      if (opened.blobPath)
+        return await streamPrivateBlob(deps, opened.blobPath, opened.contentType);
+      if (opened.localId) return readLocalMedia(deps, opened.localId, opened.contentType);
       return json({ error: "Not found.", code: "not_found" }, 404);
+    } catch (err) {
+      return errorResponse(err);
     }
   }
   try {
     const service = requireService(deps);
     const now = (/* @__PURE__ */ new Date()).toISOString();
     if (route.name === "blob" && req.method === "POST") {
-      if (deps.media !== "blob" || !deps.blobToken) {
+      if (deps.media !== "blob") {
         throw new CommunityError(
           503,
           "media_not_configured",
@@ -4571,32 +4728,46 @@ async function handleCommunityApi(req, deps) {
       const actor2 = await actorOf(deps, req);
       if (!actor2) return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
       const body2 = await req.json();
-      const result = await handleUpload({
-        body: body2,
-        request: req,
-        token: deps.blobToken,
-        onBeforeGenerateToken: async (pathname) => {
-          const expected = `community/${actor2.userId}/`;
-          if (!pathname.startsWith(expected)) {
-            throw new CommunityError(400, "invalid", "That file path is not allowed.");
+      try {
+        const result = await handleUploadPresigned({
+          body: body2,
+          request: req,
+          getSignedToken: async (pathname) => {
+            const limits = blobUploadLimits(pathname);
+            if (!isOwnedBlobPath(pathname, actor2.userId) || !limits) {
+              throw new CommunityError(400, "invalid", "That file path is not allowed.");
+            }
+            const validUntil = Date.now() + 10 * 60 * 1e3;
+            const token = await issueSignedToken({
+              pathname,
+              operations: ["put"],
+              allowedContentTypes: limits.allowedContentTypes,
+              maximumSizeInBytes: limits.maximumSizeInBytes,
+              validUntil,
+              ...blobCommand(deps)
+            });
+            return {
+              token,
+              urlOptions: {
+                allowedContentTypes: limits.allowedContentTypes,
+                maximumSizeInBytes: limits.maximumSizeInBytes,
+                addRandomSuffix: false,
+                allowOverwrite: false,
+                validUntil
+              }
+            };
           }
-          return {
-            allowedContentTypes: [
-              "image/jpeg",
-              "image/png",
-              "image/webp",
-              "video/mp4",
-              "video/quicktime"
-            ],
-            maximumSizeInBytes: LIMITS.maxVideoBytes,
-            addRandomSuffix: true,
-            tokenPayload: actor2.userId
-          };
-        },
-        onUploadCompleted: async () => {
-        }
-      });
-      return json(result);
+        });
+        return json(result);
+      } catch (err) {
+        if (err instanceof CommunityError) throw err;
+        console.error("blob upload", err);
+        throw new CommunityError(
+          503,
+          "media_not_configured",
+          "Photo and video storage is not connected yet."
+        );
+      }
     }
     if (route.name === "media-post" && req.method === "POST") {
       if (deps.media !== "local") {
@@ -4673,7 +4844,7 @@ async function handleCommunityApi(req, deps) {
     }
     if (route.name === "review") {
       const result = await service.review(actor, route.id, body, now);
-      await forgetMedia(deps, result.removedUrl);
+      if (result.removed) await forgetMedia(deps, result.removed);
       return json({ ok: true });
     }
     if (route.name === "suspend") {
@@ -4689,7 +4860,8 @@ async function handleCommunityApi(req, deps) {
       return json({ id }, 201);
     }
     if (route.name === "group") {
-      await service.updateGroup(actor, route.id, body);
+      const replaced = await service.updateGroup(actor, route.id, body);
+      if (replaced) await forgetMedia(deps, replaced);
       return json({ ok: true });
     }
     if (route.name === "join") {
@@ -4701,7 +4873,8 @@ async function handleCommunityApi(req, deps) {
       return json({ ok: true });
     }
     if (route.name === "delete-group") {
-      await service.deleteGroup(actor, route.id);
+      const forgotten = await service.deleteGroup(actor, route.id);
+      for (const item of forgotten) await forgetMedia(deps, item);
       return json({ ok: true });
     }
     if (route.name === "transfer") {
@@ -4722,25 +4895,33 @@ async function handleCommunityApi(req, deps) {
         );
       }
       if (!actor) return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
-      const url = typeof body["url"] === "string" ? body["url"] : "";
-      if (!isPublicBlobUrl(url, actor.userId)) {
+      const pathname = typeof body["pathname"] === "string" ? body["pathname"] : "";
+      if (!isOwnedBlobPath(pathname, actor.userId) || !blobUploadLimits(pathname)) {
         throw new CommunityError(400, "invalid", "That file is not in community storage.");
       }
       const kindValue = body["kind"];
       const kind = kindValue === "video" || kindValue === "image" ? kindValue : null;
       if (!kind) throw new CommunityError(400, "invalid", "Choose a photo or video.");
       const contentType = body["contentType"];
-      const media = uploadFields({
-        url,
-        kind,
-        contentType: typeof contentType === "string" ? contentType : "",
-        bytes: numberField(body["bytes"]) ?? 0,
-        width: numberField(body["width"]),
-        height: numberField(body["height"]),
-        durationSec: numberField(body["durationSec"])
-      });
+      let media;
+      try {
+        media = uploadFields({
+          url: "pending",
+          kind,
+          contentType: typeof contentType === "string" ? contentType : "",
+          bytes: numberField(body["bytes"]) ?? 0,
+          width: numberField(body["width"]),
+          height: numberField(body["height"]),
+          durationSec: numberField(body["durationSec"]),
+          blobPath: pathname
+        });
+      } catch (err) {
+        await forgetMedia(deps, { url: null, blobPath: pathname });
+        throw err;
+      }
       const uploadId = await service.saveUpload(actor, media, now);
-      return json({ uploadId, url });
+      await serviceReplaceUploadUrl(deps, uploadId, localMediaPath(uploadId));
+      return json({ uploadId });
     }
     return json({ error: "Not found.", code: "not_found" }, 404);
   } catch (err) {
@@ -4748,6 +4929,55 @@ async function handleCommunityApi(req, deps) {
       return json({ error: "Request body must be JSON.", code: "invalid_json" }, 400);
     }
     return errorResponse(err);
+  }
+}
+function readLocalMedia(deps, id, fallbackType) {
+  try {
+    const meta = JSON.parse(readFileSync3(path4.join(deps.localMediaDir, `${id}.json`), "utf8"));
+    const bytes = readFileSync3(path4.join(deps.localMediaDir, id));
+    return new Response(bytes, {
+      headers: {
+        "content-type": meta.contentType || fallbackType || "application/octet-stream",
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff"
+      }
+    });
+  } catch {
+    return json({ error: "Not found.", code: "not_found" }, 404);
+  }
+}
+async function streamPrivateBlob(deps, blobPath, fallbackType) {
+  if (deps.media !== "blob") {
+    throw new CommunityError(
+      503,
+      "media_not_configured",
+      "Photo and video storage is not connected yet."
+    );
+  }
+  try {
+    const result = await get(blobPath, {
+      access: "private",
+      useCache: false,
+      ...blobCommand(deps)
+    });
+    if (!result || result.statusCode !== 200 || !result.stream) {
+      return json({ error: "Not found.", code: "not_found" }, 404);
+    }
+    return new Response(result.stream, {
+      headers: {
+        "content-type": result.blob.contentType || fallbackType || "application/octet-stream",
+        "content-length": String(result.blob.size),
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff"
+      }
+    });
+  } catch (err) {
+    console.error("blob read", err);
+    throw new CommunityError(
+      503,
+      "media_not_configured",
+      "Photo and video storage is not connected yet."
+    );
   }
 }
 async function serviceReplaceUploadUrl(deps, uploadId, url) {

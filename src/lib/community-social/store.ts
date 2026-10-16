@@ -58,6 +58,7 @@ function asGroup(value: unknown): SocialGroup | null {
     rules: typeof row.rules === "string" ? row.rules : "",
     visibility: asVisibility(row.visibility),
     coverUrl: typeof row.coverUrl === "string" ? row.coverUrl : null,
+    ...(typeof row.coverBlobPath === "string" ? { coverBlobPath: row.coverBlobPath } : {}),
     joinQuestion: typeof row.joinQuestion === "string" ? row.joinQuestion : "",
     createdBy: typeof row.createdBy === "string" ? row.createdBy : "",
     createdAt: typeof row.createdAt === "string" ? row.createdAt : "",

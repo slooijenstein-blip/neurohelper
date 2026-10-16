@@ -22,9 +22,10 @@ import {
   fetchCommunityGroup,
   fetchCommunityGroups,
   fetchCommunityHealth,
+  fetchCommunityMedia,
   fetchCommunitySession,
-  fetchGroupQueue,
   fetchCommunityShorts,
+  fetchGroupQueue,
   fetchModerationQueue,
   joinCommunityGroup,
   leaveCommunityGroup,
@@ -112,6 +113,7 @@ export type CommunitySocialValue = {
   join: (id: string, answer?: string) => Promise<"joined" | "requested">;
   leave: (id: string) => Promise<void>;
   memberAction: (groupId: string, userId: string, action: string, role?: string) => Promise<void>;
+  openMedia: (url: string) => Promise<string | null>;
 };
 
 const CommunitySocialContext = createContext<CommunitySocialValue | null>(null);
@@ -286,6 +288,16 @@ function SocialProvider({
     [authFor, media, refresh, role, session?.userId],
   );
 
+  const openMedia = useCallback(
+    async (url: string) => {
+      if (!url.startsWith("/api/community/media/")) return url || null;
+      const file = await fetchCommunityMedia(await authFor(), url);
+      if (!file) return null;
+      return URL.createObjectURL(file);
+    },
+    [authFor],
+  );
+
   const uploadImage = useCallback(
     async (prepared: PreparedMedia) => {
       if (!session?.userId || media === "none") {
@@ -324,6 +336,7 @@ function SocialProvider({
       publishText,
       publishMedia,
       uploadImage,
+      openMedia,
       toggleLike: async (id) => {
         await likeCommunityPost(await authFor(), id);
         await refresh();
@@ -398,6 +411,7 @@ function SocialProvider({
       moderators,
       openGroup,
       posts,
+      openMedia,
       publishMedia,
       publishText,
       groupQueue,

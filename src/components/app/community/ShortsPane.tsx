@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { ClientPost } from "@/lib/community-social/types";
+import { AuthedMedia } from "./AuthedMedia";
 import { communityErrorText, useCommunitySocial } from "./social-context";
 
 export function ShortsPane({ onReport }: { onReport: (postId: string) => void }) {
@@ -21,22 +22,46 @@ export function ShortsPane({ onReport }: { onReport: (postId: string) => void })
     const root = scroller.current;
     if (!root) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const videos = [...root.querySelectorAll("video")];
+    const tryPlay = (video: HTMLVideoElement) => {
+      if (reduce || !video.src) return;
+      void video.play().catch(() => undefined);
+    };
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           const video = entry.target as HTMLVideoElement;
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.7 && !reduce) {
-            void video.play().catch(() => undefined);
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
+            video.dataset["inview"] = "1";
+            tryPlay(video);
           } else {
+            delete video.dataset["inview"];
             video.pause();
           }
         }
       },
       { root, threshold: [0.7] },
     );
-    for (const video of videos) observer.observe(video);
-    return () => observer.disconnect();
+    const watch = () => {
+      for (const node of root.querySelectorAll("video")) {
+        if (node.dataset["watched"] === "1") continue;
+        node.dataset["watched"] = "1";
+        observer.observe(node);
+      }
+    };
+    const onReady = (event: Event) => {
+      const video = event.target;
+      if (!(video instanceof HTMLVideoElement) || video.dataset["inview"] !== "1") return;
+      tryPlay(video);
+    };
+    watch();
+    const changes = new MutationObserver(watch);
+    changes.observe(root, { childList: true, subtree: true });
+    root.addEventListener("loadeddata", onReady, true);
+    return () => {
+      observer.disconnect();
+      changes.disconnect();
+      root.removeEventListener("loadeddata", onReady, true);
+    };
   }, [social.shorts]);
 
   const step = (direction: number) => {
@@ -106,15 +131,18 @@ export function ShortsPane({ onReport }: { onReport: (postId: string) => void })
               className="relative flex h-full shrink-0 snap-start snap-always items-center justify-center"
               data-testid={`short-${post.id}`}
             >
-              <video
-                src={post.media?.url}
-                muted={!sound}
-                loop
-                playsInline
-                preload="metadata"
-                className="h-full w-full object-contain"
-                onClick={() => setSoundId(sound ? null : post.id)}
-              />
+              {post.media?.url ? (
+                <AuthedMedia
+                  url={post.media.url}
+                  kind="video"
+                  muted={!sound}
+                  loop
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-contain"
+                  onClick={() => setSoundId(sound ? null : post.id)}
+                />
+              ) : null}
               <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 pr-20">
                 <p className="text-sm font-semibold">{post.authorName}</p>
                 {post.body ? <p className="mt-1 text-sm">{post.body}</p> : null}
