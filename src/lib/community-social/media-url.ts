@@ -4,23 +4,72 @@ import type { MediaKind, SocialMedia } from "./types.ts";
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const VIDEO_TYPES = new Set(["video/mp4", "video/quicktime"]);
 
-export function isPublicBlobUrl(url: string, userId: string): boolean {
+const IMAGE_EXT: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+const VIDEO_EXT: Record<string, string> = {
+  mp4: "video/mp4",
+  mov: "video/quicktime",
+};
+
+export function localMediaPath(id: string): string {
+  return `/api/community/media/${id}`;
+}
+
+export function localUploadId(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const match = /^\/api\/community\/media\/(cupl_[a-z0-9]{8,32})$/.exec(url);
+  return match?.[1] ?? null;
+}
+
+export function isBlobHostUrl(url: string): boolean {
   try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:") return false;
-    const host = parsed.hostname;
-    const hosted =
-      host.endsWith(".public.blob.vercel-storage.com") || host.endsWith(".blob.vercel-storage.com");
-    if (!hosted) return false;
-    const path = decodeURIComponent(parsed.pathname);
-    return path.includes(`/community/${userId}/`);
+    return new URL(url).hostname.endsWith(".blob.vercel-storage.com");
   } catch {
     return false;
   }
 }
 
-export function localMediaPath(id: string): string {
-  return `/api/community/media/${id}`;
+/** Pathname only. Never a URL, and only inside this member's community folder. */
+export function isOwnedBlobPath(pathname: string, userId: string): boolean {
+  if (!userId || !/^[a-zA-Z0-9_-]{1,80}$/.test(userId)) return false;
+  const file = blobFileName(pathname);
+  if (!file) return false;
+  return file.userId === userId;
+}
+
+export function isSafeBlobPath(pathname: string): boolean {
+  return blobFileName(pathname) !== null;
+}
+
+function blobFileName(pathname: string): { userId: string; file: string } | null {
+  if (!pathname || pathname.length > 300) return null;
+  if (pathname.includes("\\") || pathname.includes("\0") || pathname.includes("://")) return null;
+  const parts = pathname.split("/");
+  if (parts.length !== 3) return null;
+  const [root, userId, file] = parts;
+  if (root !== "community" || !userId || !file) return null;
+  if (!/^[a-zA-Z0-9_-]{1,80}$/.test(userId)) return null;
+  if (!/^[a-zA-Z0-9._-]{1,180}$/.test(file)) return null;
+  return { userId, file };
+}
+
+export function blobUploadLimits(pathname: string): {
+  allowedContentTypes: string[];
+  maximumSizeInBytes: number;
+} | null {
+  const parsed = blobFileName(pathname);
+  if (!parsed) return null;
+  const ext = parsed.file.split(".").pop()?.toLowerCase() ?? "";
+  const image = IMAGE_EXT[ext];
+  if (image) return { allowedContentTypes: [image], maximumSizeInBytes: LIMITS.maxImageBytes };
+  const video = VIDEO_EXT[ext];
+  if (video) return { allowedContentTypes: [video], maximumSizeInBytes: LIMITS.maxVideoBytes };
+  return null;
 }
 
 export function mediaFromUpload(input: {
@@ -31,7 +80,11 @@ export function mediaFromUpload(input: {
   width?: number;
   height?: number;
   durationSec?: number;
+  blobPath?: string;
 }): SocialMedia {
+  if (isBlobHostUrl(input.url)) {
+    throw new CommunityError(400, "invalid", "That file is not in community storage.");
+  }
   const contentType = input.contentType.toLowerCase();
   if (input.kind === "image" && !IMAGE_TYPES.has(contentType)) {
     throw new CommunityError(400, "invalid", "Use a JPEG, PNG, or WebP picture.");
@@ -64,6 +117,7 @@ export function mediaFromUpload(input: {
     ...(width ? { width } : {}),
     ...(height ? { height } : {}),
     ...(input.kind === "video" ? { durationSec: Math.round(input.durationSec ?? 0) } : {}),
+    ...(input.blobPath ? { blobPath: input.blobPath } : {}),
   };
 }
 

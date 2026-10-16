@@ -79,6 +79,51 @@ export function canReviewRequests(role: GroupRole | null): boolean {
   return role === "owner" || role === "admin" || role === "moderator";
 }
 
+export type MediaAccess = "allow" | "unauthorized" | "forbidden" | "missing";
+
+/**
+ * Approved media: any signed-in member who can see the post.
+ * Pending media: the uploader, the founder, or a owner/admin/moderator of that group.
+ * Private and hidden groups stay members-only once a post is approved.
+ * The founder does not bypass a closed group for approved media.
+ */
+export function postMediaAccess(
+  db: CommunityDb,
+  post: SocialPost,
+  viewer: { userId: string | null; founder: boolean },
+): MediaAccess {
+  if (!post.media) return "missing";
+  if (!viewer.userId) return "unauthorized";
+  if (post.status === "rejected" || post.status === "removed") return "forbidden";
+  const group = post.groupId ? db.groups.find((item) => item.id === post.groupId) : undefined;
+  if (post.groupId && !group) return "missing";
+  if (post.status === "pending") {
+    if (post.authorId === viewer.userId || viewer.founder) return "allow";
+    if (group && canReviewRequests(activeRole(db, group.id, viewer.userId))) return "allow";
+    if (group?.visibility === "hidden") return "missing";
+    return "forbidden";
+  }
+  if (post.status !== "approved") return "forbidden";
+  if (!group) return "allow";
+  if (group.visibility === "public") return "allow";
+  if (activeRole(db, group.id, viewer.userId)) return "allow";
+  if (group.visibility === "hidden") return "missing";
+  return "forbidden";
+}
+
+export function groupCoverAccess(
+  db: CommunityDb,
+  group: SocialGroup,
+  userId: string | null,
+): MediaAccess {
+  if (!group.coverBlobPath && !group.coverUrl) return "missing";
+  if (!userId) return "unauthorized";
+  if (group.visibility === "public") return "allow";
+  if (activeRole(db, group.id, userId)) return "allow";
+  if (group.visibility === "hidden") return "missing";
+  return "forbidden";
+}
+
 export function assertOwnerStays(role: GroupRole | null) {
   if (role === "owner") {
     throw new CommunityError(

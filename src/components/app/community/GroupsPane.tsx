@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n/I18nProvider";
 import { prepareCommunityFile } from "@/lib/community-social/prepare-media";
 import type { ClientPost, GroupVisibility } from "@/lib/community-social/types";
+import { AuthedMedia } from "./AuthedMedia";
 import { LivePostCard } from "./LivePostCard";
 import { MediaShareButtons } from "./MediaShareButtons";
 import { communityErrorText, useCommunitySocial } from "./social-context";
@@ -113,7 +114,12 @@ export function GroupsPane({
           {t("community.social.back")}
         </Button>
         {group.coverUrl ? (
-          <img src={group.coverUrl} alt="" className="h-36 w-full rounded-xl object-cover" />
+          <AuthedMedia
+            url={group.coverUrl}
+            kind="image"
+            alt=""
+            className="h-36 w-full rounded-xl object-cover"
+          />
         ) : null}
         <div>
           <h2 className="text-lg font-semibold">{group.name}</h2>
@@ -152,6 +158,16 @@ export function GroupsPane({
               <article key={post.id} className="space-y-2" data-testid={`group-review-${post.id}`}>
                 <p className="text-sm font-semibold">{post.authorName}</p>
                 {post.body ? <p className="whitespace-pre-wrap text-sm">{post.body}</p> : null}
+                {post.media ? (
+                  <AuthedMedia
+                    url={post.media.url}
+                    kind={post.media.kind}
+                    alt={post.body || t("community.social.photoAlt")}
+                    controls={post.media.kind === "video"}
+                    playsInline
+                    className="max-h-48 w-full rounded-lg bg-black object-cover"
+                  />
+                ) : null}
                 <Input
                   value={groupReasons[post.id] ?? ""}
                   onChange={(event) =>
@@ -664,7 +680,12 @@ export function GroupsPane({
               className="soft-card flex w-full items-center gap-3 p-3 text-left"
             >
               {group.coverUrl ? (
-                <img src={group.coverUrl} alt="" className="size-14 rounded-lg object-cover" />
+                <AuthedMedia
+                  url={group.coverUrl}
+                  kind="image"
+                  alt=""
+                  className="size-14 rounded-lg object-cover"
+                />
               ) : (
                 <span className="grid size-14 place-content-center rounded-lg bg-accent text-xs font-semibold">
                   {group.name.slice(0, 1)}

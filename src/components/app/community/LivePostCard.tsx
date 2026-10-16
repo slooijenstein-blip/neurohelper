@@ -15,6 +15,7 @@ import { ROLES, type Role } from "@/lib/app-store";
 import type { ClientPost } from "@/lib/community-social/types";
 import { cn } from "@/lib/utils";
 import { RoleTag } from "../ui-bits";
+import { AuthedMedia } from "./AuthedMedia";
 
 function asRole(value: string): Role | null {
   return (ROLES as readonly string[]).includes(value) ? (value as Role) : null;
@@ -148,15 +149,17 @@ export function LivePostCard({
         </p>
       ) : null}
       {post.media?.kind === "image" ? (
-        <img
-          src={post.media.url}
+        <AuthedMedia
+          url={post.media.url}
+          kind="image"
           alt={post.body || t("community.social.photoAlt")}
           className="max-h-96 w-full object-cover"
         />
       ) : null}
       {post.media?.kind === "video" ? (
-        <video
-          src={post.media.url}
+        <AuthedMedia
+          url={post.media.url}
+          kind="video"
           controls
           playsInline
           preload="metadata"

@@ -265,6 +265,21 @@ export async function communityMemberAction(
   await postJson(auth, `/api/community/groups/${encodeURIComponent(groupId)}/members`, body);
 }
 
+function extensionFor(prepared: PreparedMedia): string {
+  const type = prepared.file.type;
+  if (type === "image/png") return "png";
+  if (type === "image/webp") return "webp";
+  if (type === "video/mp4") return "mp4";
+  if (type === "video/quicktime") return "mov";
+  return prepared.kind === "video" ? "mp4" : "jpg";
+}
+
+export async function fetchCommunityMedia(auth: CommunityAuth, url: string): Promise<Blob | null> {
+  const response = await fetch(url, { headers: authHeaders(auth) });
+  if (!response.ok) return null;
+  return response.blob();
+}
+
 export async function uploadPreparedMedia(
   auth: CommunityAuth,
   userId: string,
@@ -286,23 +301,31 @@ export async function uploadPreparedMedia(
     const body = await parse<{ uploadId: string }>(response);
     return body.uploadId;
   }
-  const { upload } = await import("@vercel/blob/client");
+  const { uploadPresigned } = await import("@vercel/blob/client");
   const headers: Record<string, string> = {};
   if (auth.token) headers["authorization"] = `Bearer ${auth.token}`;
   if (auth.devUser && import.meta.env.DEV) headers["x-share-dev-user"] = auth.devUser;
   if (auth.demoPersona) headers["x-synlumae-demo-persona"] = auth.demoPersona;
-  const blob = await upload(
-    `community/${userId}/${prepared.kind === "image" ? "photo.jpg" : "video.mp4"}`,
-    prepared.file,
-    {
-      access: "public",
-      handleUploadUrl: "/api/community/blob",
-      contentType: prepared.file.type,
-      headers,
-    },
-  );
+  let uploaded: { pathname: string };
+  try {
+    uploaded = await uploadPresigned(
+      `community/${userId}/${crypto.randomUUID()}.${extensionFor(prepared)}`,
+      prepared.file,
+      {
+        access: "private",
+        handleUploadUrl: "/api/community/blob",
+        contentType: prepared.file.type,
+        headers,
+      },
+    );
+  } catch {
+    throw new CommunityClientError(
+      "media_not_configured",
+      "Photo and video storage is not connected yet.",
+    );
+  }
   const saved = (await postJson(auth, "/api/community/uploads", {
-    url: blob.url,
+    pathname: uploaded.pathname,
     kind: prepared.kind,
     contentType: prepared.file.type,
     bytes: prepared.file.size,
