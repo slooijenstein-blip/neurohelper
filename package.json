@@ -10,8 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test": "node --experimental-strip-types --test src/lib/clerk-profile.test.ts src/lib/help/countries.test.ts src/i18n/translate.test.ts src/lib/pro-access.test.ts src/lib/calendar/permissions.test.ts src/lib/calendar/child-age.test.ts src/lib/activity-locale.test.ts src/lib/share/share.test.ts src/lib/share/care-edit.test.ts src/lib/share/pro-request.test.ts src/lib/founder-role.test.ts src/lib/community.test.ts src/lib/demo-roles.test.ts src/lib/my-calendar.test.ts src/lib/helper.test.ts",
-    "build:api": "node scripts/bundle-share-api.mjs",
+    "test": "node --experimental-strip-types --test src/lib/clerk-profile.test.ts src/lib/help/countries.test.ts src/i18n/translate.test.ts src/lib/pro-access.test.ts src/lib/calendar/permissions.test.ts src/lib/calendar/child-age.test.ts src/lib/activity-locale.test.ts src/lib/share/share.test.ts src/lib/share/care-edit.test.ts src/lib/share/pro-request.test.ts src/lib/founder-role.test.ts src/lib/community.test.ts src/lib/community-social/community-social.test.ts src/lib/demo-roles.test.ts src/lib/my-calendar.test.ts src/lib/helper.test.ts",
+    "build:api": "node scripts/bundle-share-api.mjs && node scripts/bundle-community-api.mjs",
     "deploy:pages": "node scripts/deploy-pages.mjs"
   },
   "overrides": {
@@ -53,6 +53,7 @@
     "@tanstack/react-router": "1.170.41",
     "@tanstack/react-start": "1.168.60",
     "@tanstack/router-plugin": "1.168.42",
+    "@vercel/blob": "^2.3.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

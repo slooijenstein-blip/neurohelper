@@ -91,6 +91,15 @@ function DevShareButtons() {
       >
         Dev live Parent
       </Button>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        data-testid="dev-live-founder"
+        onClick={() => enter("user_founder|s.looijenstein@synlumae.com|Sam|1")}
+      >
+        Dev live Founder
+      </Button>
     </div>
   );
 }
