@@ -595,7 +595,9 @@ export function GroupsPane({
                 void social
                   .publishText(draft.trim(), group.id, {
                     ...(tags.length ? { tagUserIds: tags.map((person) => person.userId) } : {}),
-                    ...(shares.length ? { shareUserIds: shares.map((person) => person.userId) } : {}),
+                    ...(shares.length
+                      ? { shareUserIds: shares.map((person) => person.userId) }
+                      : {}),
                   })
                   .then(() => {
                     setDraft("");
