@@ -272,8 +272,9 @@ function blobCommand(deps: CommunityDeps): { token?: string; storeId?: string } 
 
 async function forgetMedia(
   deps: CommunityDeps,
-  target: { url: string | null; blobPath: string | null },
+  target: { url: string | null; blobPath: string | null } | null,
 ) {
+  if (!target) return;
   if (target.blobPath && isSafeBlobPath(target.blobPath)) {
     try {
       await del(target.blobPath, blobCommand(deps));
@@ -461,12 +462,12 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
     }
     if (route.name === "edit-post") {
       const result = await service.editPost(actor, route.id, body, now);
-      await forgetMedia(deps, result.removedUrl);
+      if (result.removed) await forgetMedia(deps, result.removed);
       return json({ post: result.post });
     }
     if (route.name === "delete-post") {
       const result = await service.deletePost(actor, route.id);
-      await forgetMedia(deps, result.removedUrl);
+      if (result.removed) await forgetMedia(deps, result.removed);
       return json({ ok: true });
     }
     if (route.name === "untag") {

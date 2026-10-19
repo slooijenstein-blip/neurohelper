@@ -742,6 +742,31 @@ describe("community http", () => {
     const guest = await handleCommunityApi(new Request("http://local/api/community/feed"), deps);
     const guestBody = (await guest.json()) as { posts: unknown[] };
     assert.equal(guestBody.posts.length, 0);
+    const createdBody = (await created.json()) as { post: { id: string } };
+    const edited = await handleCommunityApi(
+      new Request(`http://local/api/community/posts/${createdBody.post.id}/edit`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-user": "maya" },
+        body: JSON.stringify({ body: "Hello families, revised", tagUserIds: [] }),
+      }),
+      deps,
+    );
+    assert.equal(edited.status, 200);
+    const editedBody = (await edited.json()) as {
+      post: { body: string; status: string; editedAt?: string };
+    };
+    assert.equal(editedBody.post.body, "Hello families, revised");
+    assert.equal(editedBody.post.status, "pending");
+    assert.equal(typeof editedBody.post.editedAt, "string");
+    const removed = await handleCommunityApi(
+      new Request(`http://local/api/community/posts/${createdBody.post.id}/delete`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-user": "maya" },
+        body: JSON.stringify({}),
+      }),
+      deps,
+    );
+    assert.equal(removed.status, 200);
   });
 
   it("uses the private store when Vercel has a blob store id and no read-write token", () => {

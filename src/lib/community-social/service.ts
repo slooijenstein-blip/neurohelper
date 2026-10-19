@@ -193,6 +193,12 @@ function assertMediaAccess(access: MediaAccess) {
   throw new CommunityError(403, "forbidden", "You cannot view that photo or video.");
 }
 
+function mediaToForget(media: SocialMedia | null | undefined): ForgottenMedia | null {
+  if (!media) return null;
+  if (!media.url && !media.blobPath) return null;
+  return { url: media.url, blobPath: media.blobPath ?? null };
+}
+
 function mediaLocator(media: SocialMedia, ownerId: string): StoredMedia {
   return {
     contentType: media.contentType,
@@ -483,7 +489,7 @@ export function createCommunityService(store: CommunityStore) {
       now: string,
     ) {
       const user = requireUser(actor);
-      let removedUrl: string | null = null;
+      let removed: ForgottenMedia | null = null;
       await store.update((db) => {
         assertNotSuspended(db, user.userId);
         const post = requirePost(db, postId);
@@ -497,7 +503,7 @@ export function createCommunityService(store: CommunityStore) {
         const body = clipText(input.body, LIMITS.maxBody);
         let media = post.media;
         if (input.removeMedia === true) {
-          if (post.media?.url) removedUrl = post.media.url;
+          removed = mediaToForget(post.media);
           media = null;
         }
         if (typeof input.uploadId === "string" && input.uploadId) {
@@ -509,7 +515,7 @@ export function createCommunityService(store: CommunityStore) {
             );
           }
           const next = takeUpload(db, user, input.uploadId);
-          if (post.media?.url && post.media.url !== next.url) removedUrl = post.media.url;
+          if (post.media && post.media.url !== next.url) removed = mediaToForget(post.media);
           media = next;
         }
         if (!body && !media) {
@@ -538,23 +544,23 @@ export function createCommunityService(store: CommunityStore) {
         post.consent = post.consent || input.consent === true;
       });
       const db = await store.read();
-      return { post: toClientPost(db, requirePost(db, postId), user.userId), removedUrl };
+      return { post: toClientPost(db, requirePost(db, postId), user.userId), removed };
     },
 
     async deletePost(actor: Actor | null, postId: string) {
       const user = requireUser(actor);
-      let removedUrl: string | null = null;
+      let removed: ForgottenMedia | null = null;
       await store.update((db) => {
         const post = requirePost(db, postId);
         assertVisiblePost(db, post);
         if (post.authorId !== user.userId) {
           throw new CommunityError(403, "forbidden", "Only the author can delete this post.");
         }
-        if (post.media?.url) removedUrl = post.media.url;
+        removed = mediaToForget(post.media);
         db.posts = db.posts.filter((item) => item.id !== post.id);
         db.reports = db.reports.filter((item) => item.postId !== post.id);
       });
-      return { removedUrl };
+      return { removed };
     },
 
     async removeOwnTag(actor: Actor | null, postId: string) {
