@@ -15,7 +15,15 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { prepareCommunityFile, type PreparedMedia } from "@/lib/community-social/prepare-media";
 import { communityErrorText, useCommunitySocial } from "./social-context";
 
-export function MediaShareButtons({ groupId }: { groupId?: string | null }) {
+export function MediaShareButtons({
+  groupId,
+  tagUserIds,
+  shareUserIds,
+}: {
+  groupId?: string | null;
+  tagUserIds?: string[];
+  shareUserIds?: string[];
+}) {
   const { t } = useI18n();
   const social = useCommunitySocial();
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -72,6 +80,8 @@ export function MediaShareButtons({ groupId }: { groupId?: string | null }) {
         prepared,
         caption: caption.trim(),
         ...(groupId ? { groupId } : {}),
+        ...(tagUserIds?.length ? { tagUserIds } : {}),
+        ...(shareUserIds?.length ? { shareUserIds } : {}),
       });
       toast.success(t("community.social.postedPending"));
       reset();

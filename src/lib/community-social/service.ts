@@ -33,9 +33,19 @@ import {
   type Viewer,
 } from "./rules.ts";
 import type { CommunityStore } from "./store.ts";
+import {
+  knownPeople,
+  rememberPerson,
+  resolveShares,
+  resolveTags,
+  searchPeople,
+  sharesOf,
+  tagsOf,
+} from "./people.ts";
 import type {
   ClientComment,
   ClientMember,
+  ClientPerson,
   ClientPost,
   ClientReport,
   CommunityDb,
@@ -124,7 +134,23 @@ export function toClientPost(
     likeCount: post.likeUserIds.length,
     liked: Boolean(viewerId && post.likeUserIds.includes(viewerId)),
     comments: post.comments.filter((comment) => comment.status === "visible").map(toComment),
+    tags: tagsOf(post).map((tag) => ({ userId: tag.userId, name: tag.name })),
+    ...(post.editedAt ? { editedAt: post.editedAt } : {}),
   };
+}
+
+function profileVisible(
+  db: CommunityDb,
+  post: SocialPost,
+  viewer: Viewer,
+  mode: "author" | "tagged",
+): boolean {
+  if (post.status === "removed" || post.status === "rejected") return false;
+  if (post.status === "pending") {
+    return mode === "author" && viewer.userId === post.authorId;
+  }
+  if (post.status !== "approved") return false;
+  return canSeePost(db, post, viewer);
 }
 
 function newest(posts: SocialPost[]): SocialPost[] {
@@ -259,6 +285,15 @@ export function createCommunityService(store: CommunityStore) {
 
   return {
     async session(actor: Actor | null) {
+      if (actor) {
+        const current = await store.read();
+        const known = (current.people ?? []).find((item) => item.userId === actor.userId);
+        if (!known || known.name !== actor.name) {
+          await store.update((db) =>
+            rememberPerson(db, { userId: actor.userId, name: actor.name, role: "Parent" }),
+          );
+        }
+      }
       const db = await store.read();
       const viewer = viewerOf(actor);
       return {
@@ -349,6 +384,8 @@ export function createCommunityService(store: CommunityStore) {
         uploadId?: unknown;
         groupId?: unknown;
         authorRole?: unknown;
+        tagUserIds?: unknown;
+        shareUserIds?: unknown;
       },
       now: string,
     ) {
@@ -401,6 +438,13 @@ export function createCommunityService(store: CommunityStore) {
         if (postsToday(db, user.userId, now) >= LIMITS.postsPerDay) {
           throw new CommunityError(429, "limit", "That is enough posts for today.");
         }
+        rememberPerson(db, {
+          userId: user.userId,
+          name: user.name,
+          role: assertRole(input.authorRole),
+        });
+        const tags = resolveTags(db, input.tagUserIds, groupId, user.userId);
+        const shares = resolveShares(db, input.shareUserIds, groupId, user.userId, now);
         created = {
           id: newId("cpost"),
           authorId: user.userId,
@@ -415,12 +459,177 @@ export function createCommunityService(store: CommunityStore) {
           consent: input.consent === true,
           likeUserIds: [],
           comments: [],
+          tags,
+          shares,
         };
         db.posts.unshift(created);
         capPosts(db);
       });
       const db = await store.read();
       return toClientPost(db, created!, user.userId);
+    },
+
+    async editPost(
+      actor: Actor | null,
+      postId: string,
+      input: {
+        body?: unknown;
+        uploadId?: unknown;
+        removeMedia?: unknown;
+        tagUserIds?: unknown;
+        shareUserIds?: unknown;
+        consent?: unknown;
+      },
+      now: string,
+    ) {
+      const user = requireUser(actor);
+      let removedUrl: string | null = null;
+      await store.update((db) => {
+        assertNotSuspended(db, user.userId);
+        const post = requirePost(db, postId);
+        assertVisiblePost(db, post);
+        if (post.authorId !== user.userId) {
+          throw new CommunityError(403, "forbidden", "Only the author can edit this post.");
+        }
+        if (post.status === "removed") {
+          throw new CommunityError(400, "invalid", "That post was removed.");
+        }
+        const body = clipText(input.body, LIMITS.maxBody);
+        let media = post.media;
+        if (input.removeMedia === true) {
+          if (post.media?.url) removedUrl = post.media.url;
+          media = null;
+        }
+        if (typeof input.uploadId === "string" && input.uploadId) {
+          if (input.consent !== true) {
+            throw new CommunityError(
+              400,
+              "consent_required",
+              "Confirm you have consent before posting a photo or video.",
+            );
+          }
+          const next = takeUpload(db, user, input.uploadId);
+          if (post.media?.url && post.media.url !== next.url) removedUrl = post.media.url;
+          media = next;
+        }
+        if (!body && !media) {
+          throw new CommunityError(400, "invalid", "Write something or add a photo or video.");
+        }
+        const tags = resolveTags(
+          db,
+          input.tagUserIds ?? tagsOf(post).map((tag) => tag.userId),
+          post.groupId,
+          user.userId,
+        );
+        const added = resolveShares(db, input.shareUserIds, post.groupId, user.userId, now);
+        const shares = sharesOf(post);
+        for (const share of added) {
+          if (!shares.some((item) => item.userId === share.userId)) shares.push(share);
+        }
+        post.body = body;
+        post.media = media;
+        post.tags = tags;
+        post.shares = shares;
+        post.editedAt = now;
+        post.status = "pending";
+        delete post.statusReason;
+        delete post.reviewedAt;
+        delete post.reviewedBy;
+        post.consent = post.consent || input.consent === true;
+      });
+      const db = await store.read();
+      return { post: toClientPost(db, requirePost(db, postId), user.userId), removedUrl };
+    },
+
+    async deletePost(actor: Actor | null, postId: string) {
+      const user = requireUser(actor);
+      let removedUrl: string | null = null;
+      await store.update((db) => {
+        const post = requirePost(db, postId);
+        assertVisiblePost(db, post);
+        if (post.authorId !== user.userId) {
+          throw new CommunityError(403, "forbidden", "Only the author can delete this post.");
+        }
+        if (post.media?.url) removedUrl = post.media.url;
+        db.posts = db.posts.filter((item) => item.id !== post.id);
+        db.reports = db.reports.filter((item) => item.postId !== post.id);
+      });
+      return { removedUrl };
+    },
+
+    async removeOwnTag(actor: Actor | null, postId: string) {
+      const user = requireUser(actor);
+      await store.update((db) => {
+        const post = requirePost(db, postId);
+        assertVisiblePost(db, post);
+        const tags = tagsOf(post);
+        if (!tags.some((tag) => tag.userId === user.userId)) {
+          throw new CommunityError(404, "not_found", "You are not tagged on that post.");
+        }
+        post.tags = tags.filter((tag) => tag.userId !== user.userId);
+      });
+    },
+
+    async findPeople(actor: Actor | null, query: string, groupId: string | null) {
+      const user = requireUser(actor);
+      const db = presentCommunityDb(await store.read(), process.env);
+      if (groupId) assertVisibleGroup(groupById(db, groupId));
+      return searchPeople(db, query, groupId, user.userId).map((person) => ({
+        userId: person.userId,
+        name: person.name,
+        role: person.role,
+      }));
+    },
+
+    async person(_actor: Actor | null, userId: string): Promise<ClientPerson> {
+      const db = presentCommunityDb(await store.read(), process.env);
+      const found = knownPeople(db).find((item) => item.userId === userId) ?? null;
+      if (!found || found.userId.startsWith("child_")) {
+        throw new CommunityError(404, "not_found", "That person is not here.");
+      }
+      if (productionHidesSamples(process.env) && isSampleCommunityUser(found.userId)) {
+        throw new CommunityError(404, "not_found", "That person is not here.");
+      }
+      return { userId: found.userId, name: found.name, role: found.role };
+    },
+
+    async profilePosts(actor: Actor | null, userId: string) {
+      const viewer = viewerOf(actor);
+      const db = presentCommunityDb(await store.read(), process.env);
+      const posts = newest(
+        db.posts.filter(
+          (post) => post.authorId === userId && profileVisible(db, post, viewer, "author"),
+        ),
+      ).slice(0, 60);
+      return posts.map((post) => toClientPost(db, post, viewer.userId));
+    },
+
+    async profileTagged(actor: Actor | null, userId: string) {
+      const viewer = viewerOf(actor);
+      const db = presentCommunityDb(await store.read(), process.env);
+      const posts = newest(
+        db.posts.filter(
+          (post) =>
+            tagsOf(post).some((tag) => tag.userId === userId) &&
+            profileVisible(db, post, viewer, "tagged"),
+        ),
+      ).slice(0, 60);
+      return posts.map((post) => toClientPost(db, post, viewer.userId));
+    },
+
+    async sharedWith(actor: Actor | null) {
+      const user = requireUser(actor);
+      const viewer = viewerOf(user);
+      const db = presentCommunityDb(await store.read(), process.env);
+      const posts = newest(
+        db.posts.filter(
+          (post) =>
+            sharesOf(post).some((share) => share.userId === user.userId) &&
+            post.status === "approved" &&
+            canSeePost(db, post, viewer),
+        ),
+      ).slice(0, 60);
+      return posts.map((post) => toClientPost(db, post, viewer.userId));
     },
 
     async saveUpload(actor: Actor | null, media: SocialMedia, now: string) {

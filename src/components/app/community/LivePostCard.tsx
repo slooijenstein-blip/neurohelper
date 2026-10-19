@@ -1,7 +1,15 @@
 import { useState } from "react";
+import { toast } from "sonner";
 import { Flag, Heart, MessageCircle, MoreHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,13 +17,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n/I18nProvider";
 import { postTimeParts, splitHashtags } from "@/lib/community";
 import { ROLES, type Role } from "@/lib/app-store";
-import type { ClientPost } from "@/lib/community-social/types";
+import { prepareCommunityFile } from "@/lib/community-social/prepare-media";
+import type { ClientPerson, ClientPost } from "@/lib/community-social/types";
 import { cn } from "@/lib/utils";
 import { RoleTag } from "../ui-bits";
 import { AuthedMedia } from "./AuthedMedia";
+import { PersonPicker } from "./PersonPicker";
+import { communityErrorText, useCommunitySocial } from "./social-context";
 
 function asRole(value: string): Role | null {
   return (ROLES as readonly string[]).includes(value) ? (value as Role) : null;
@@ -49,6 +61,8 @@ export function LivePostCard({
   onReportComment,
   onRemove,
   onSuspend,
+  onOpenProfile,
+  onChanged,
 }: {
   post: ClientPost;
   moderator: boolean;
@@ -58,10 +72,23 @@ export function LivePostCard({
   onReportComment: (postId: string, commentId: string) => void;
   onRemove?: (id: string) => void;
   onSuspend?: (userId: string) => void;
+  onOpenProfile?: (userId: string) => void;
+  onChanged?: () => void;
 }) {
   const { t } = useI18n();
+  const social = useCommunitySocial();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [editBody, setEditBody] = useState(post.body);
+  const [editTags, setEditTags] = useState<ClientPerson[]>([]);
+  const [editShares, setEditShares] = useState<ClientPerson[]>([]);
+  const [removeMedia, setRemoveMedia] = useState(false);
+  const [nextFile, setNextFile] = useState<File | null>(null);
+  const [saving, setSaving] = useState(false);
+  const mine = social.userId === post.authorId;
+  const taggedMe = post.tags.some((tag) => tag.userId === social.userId && !mine);
   const role = asRole(post.authorRole);
   const statusLabel =
     post.status === "pending"
@@ -92,11 +119,21 @@ export function LivePostCard({
           {initials || "?"}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{post.authorName}</p>
+          <button
+            type="button"
+            className="truncate text-left text-sm font-semibold"
+            data-testid={`open-author-${post.id}`}
+            onClick={() => onOpenProfile?.(post.authorId)}
+          >
+            {post.authorName}
+          </button>
           <p className="mt-0.5 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
             {role ? <RoleTag role={role} /> : <span>{post.authorRole}</span>}
             <span aria-hidden>·</span>
             <TimeLabel iso={post.createdAt} />
+            {post.editedAt ? (
+              <span data-testid={`edited-${post.id}`}>{t("community.social.edited")}</span>
+            ) : null}
             {post.groupName ? (
               <>
                 <span aria-hidden>·</span>
@@ -105,7 +142,7 @@ export function LivePostCard({
             ) : null}
           </p>
         </div>
-        {moderator && post.status === "approved" ? (
+        {mine || (moderator && post.status === "approved") ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -113,17 +150,45 @@ export function LivePostCard({
                 size="icon"
                 className="size-8"
                 aria-label={t("community.actions")}
+                data-testid={`post-menu-${post.id}`}
               >
                 <MoreHorizontal />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onRemove?.(post.id)}>
-                {t("community.social.remove")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onSuspend?.(post.authorId)}>
-                {t("community.social.suspend")}
-              </DropdownMenuItem>
+              {mine ? (
+                <DropdownMenuItem
+                  data-testid={`edit-post-${post.id}`}
+                  onClick={() => {
+                    setEditBody(post.body);
+                    setEditTags(post.tags.map((tag) => ({ ...tag, role: "" })));
+                    setEditShares([]);
+                    setRemoveMedia(false);
+                    setNextFile(null);
+                    setEditing(true);
+                  }}
+                >
+                  {t("community.social.editPost")}
+                </DropdownMenuItem>
+              ) : null}
+              {mine ? (
+                <DropdownMenuItem
+                  data-testid={`delete-post-${post.id}`}
+                  onClick={() => setConfirming(true)}
+                >
+                  {t("community.social.deletePost")}
+                </DropdownMenuItem>
+              ) : null}
+              {moderator && post.status === "approved" ? (
+                <DropdownMenuItem onClick={() => onRemove?.(post.id)}>
+                  {t("community.social.remove")}
+                </DropdownMenuItem>
+              ) : null}
+              {moderator && post.status === "approved" ? (
+                <DropdownMenuItem onClick={() => onSuspend?.(post.authorId)}>
+                  {t("community.social.suspend")}
+                </DropdownMenuItem>
+              ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
         ) : null}
@@ -147,6 +212,34 @@ export function LivePostCard({
             ),
           )}
         </p>
+      ) : null}
+      {post.tags.length ? (
+        <p className="px-4 pb-2 text-[11px] text-muted-foreground" data-testid={`tags-${post.id}`}>
+          {t("community.social.taggedWith", {
+            names: post.tags.map((tag) => tag.name).join(", "),
+          })}
+        </p>
+      ) : null}
+      {taggedMe ? (
+        <div className="px-4 pb-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            data-testid={`remove-tag-${post.id}`}
+            onClick={() => {
+              void social
+                .untag(post.id)
+                .then(() => {
+                  toast.success(t("community.social.tagRemoved"));
+                  onChanged?.();
+                })
+                .catch((err) => toast.error(communityErrorText(t, err)));
+            }}
+          >
+            {t("community.social.removeTag")}
+          </Button>
+        </div>
       ) : null}
       {post.media?.kind === "image" ? (
         <AuthedMedia
@@ -239,6 +332,105 @@ export function LivePostCard({
           ) : null}
         </div>
       ) : null}
+      <Dialog open={editing} onOpenChange={setEditing}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("community.social.editTitle")}</DialogTitle>
+            <DialogDescription>{t("community.social.editSaved")}</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            data-testid={`edit-body-${post.id}`}
+            value={editBody}
+            onChange={(event) => setEditBody(event.target.value)}
+            rows={4}
+          />
+          {post.media && !removeMedia && !nextFile ? (
+            <Button type="button" variant="outline" onClick={() => setRemoveMedia(true)}>
+              {t("community.social.removeMedia")}
+            </Button>
+          ) : null}
+          {social.media !== "none" ? (
+            <label className="text-xs font-semibold text-primary">
+              {t("community.social.replaceMedia")}
+              <input
+                data-testid={`edit-media-${post.id}`}
+                type="file"
+                accept="image/*,video/*"
+                className="mt-1 block w-full text-xs"
+                onChange={(event) => setNextFile(event.target.files?.[0] ?? null)}
+              />
+            </label>
+          ) : null}
+          <PersonPicker
+            groupId={post.groupId}
+            tags={editTags}
+            shares={editShares}
+            onTags={setEditTags}
+            onShares={setEditShares}
+            testPrefix="edit-"
+          />
+          <Button
+            type="button"
+            data-testid={`save-edit-${post.id}`}
+            disabled={saving}
+            onClick={() => {
+              setSaving(true);
+              void (async () => {
+                try {
+                  let uploadId: string | undefined;
+                  if (nextFile) {
+                    const prepared = await prepareCommunityFile(nextFile);
+                    uploadId = await social.uploadImage(prepared);
+                  }
+                  await social.editPost(post.id, {
+                    body: editBody,
+                    tagUserIds: editTags.map((person) => person.userId),
+                    ...(editShares.length
+                      ? { shareUserIds: editShares.map((person) => person.userId) }
+                      : {}),
+                    ...(removeMedia ? { removeMedia: true } : {}),
+                    ...(uploadId ? { uploadId, consent: true } : {}),
+                  });
+                  toast.success(t("community.social.editSaved"));
+                  setEditing(false);
+                  onChanged?.();
+                } catch (err) {
+                  toast.error(communityErrorText(t, err));
+                } finally {
+                  setSaving(false);
+                }
+              })();
+            }}
+          >
+            {t("community.social.saveEdit")}
+          </Button>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={confirming} onOpenChange={setConfirming}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("community.social.deletePostTitle")}</DialogTitle>
+            <DialogDescription>{t("community.social.deletePostBody")}</DialogDescription>
+          </DialogHeader>
+          <Button
+            type="button"
+            variant="destructive"
+            data-testid={`confirm-delete-${post.id}`}
+            onClick={() => {
+              void social
+                .deletePost(post.id)
+                .then(() => {
+                  toast.success(t("community.social.postDeleted"));
+                  setConfirming(false);
+                  onChanged?.();
+                })
+                .catch((err) => toast.error(communityErrorText(t, err)));
+            }}
+          >
+            {t("community.social.deletePostConfirm")}
+          </Button>
+        </DialogContent>
+      </Dialog>
     </article>
   );
 }

@@ -24,6 +24,7 @@ export function emptyDb(): CommunityDb {
     suspensions: [],
     moderators: [],
     uploads: [],
+    people: [],
   };
 }
 
@@ -95,6 +96,18 @@ export function coerceDb(value: unknown): CommunityDb {
     suspensions: asArray(row.suspensions),
     moderators: asArray<string>(row.moderators).filter((item) => typeof item === "string"),
     uploads: asArray(row.uploads),
+    people: asArray(row.people).flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const person = item as { userId?: unknown; name?: unknown; role?: unknown };
+      if (typeof person.userId !== "string" || person.userId.startsWith("child_")) return [];
+      return [
+        {
+          userId: person.userId,
+          name: typeof person.name === "string" && person.name.trim() ? person.name : "Member",
+          role: typeof person.role === "string" && person.role.trim() ? person.role : "Parent",
+        },
+      ];
+    }),
   };
 }
 

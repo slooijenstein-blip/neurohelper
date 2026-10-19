@@ -34,28 +34,15 @@ import { ModerationPane } from "./community/ModerationPane";
 import { ShortsPane } from "./community/ShortsPane";
 import { StoriesStrip } from "./community/StoriesStrip";
 import { StoryViewer } from "./community/StoryViewer";
-import {
-  CommunitySocialProvider,
-  communityErrorText,
-  useCommunitySocial,
-} from "./community/social-context";
+import { communityErrorText, useCommunitySocial } from "./community/social-context";
+import { PersonPicker } from "./community/PersonPicker";
+import type { ClientPerson } from "@/lib/community-social/types";
 import { ScreenHeader } from "./ui-bits";
 
 const BASE_PANES = ["feed", "shorts", "groups", "articles", "following", "schedules"] as const;
 type CommunityPane = (typeof BASE_PANES)[number] | "review";
 
-export function CommunityTab(props: {
-  onProfile: (id: string) => void;
-  onArticle: (id: string) => void;
-}) {
-  return (
-    <CommunitySocialProvider>
-      <CommunityTabInner {...props} />
-    </CommunitySocialProvider>
-  );
-}
-
-function CommunityTabInner({
+export function CommunityTab({
   onProfile,
   onArticle,
 }: {
@@ -86,6 +73,8 @@ function CommunityTabInner({
   const [articleTitle, setArticleTitle] = useState("");
   const [articleTags, setArticleTags] = useState("");
   const [articleBody, setArticleBody] = useState("");
+  const [tags, setTags] = useState<ClientPerson[]>([]);
+  const [shares, setShares] = useState<ClientPerson[]>([]);
 
   const posts = useMemo(() => {
     const bodyOf = (post: Post) => (post.bodyKey ? t(post.bodyKey) : plainPostBody(post.body));
@@ -137,8 +126,15 @@ function CommunityTabInner({
         return;
       }
       void social
-        .publishText(draft.body)
-        .then(() => toast.success(t("community.social.postedPending")))
+        .publishText(draft.body, null, {
+          ...(tags.length ? { tagUserIds: tags.map((person) => person.userId) } : {}),
+          ...(shares.length ? { shareUserIds: shares.map((person) => person.userId) } : {}),
+        })
+        .then(() => {
+          setTags([]);
+          setShares([]);
+          toast.success(t("community.social.postedPending"));
+        })
         .catch((err) => toast.error(communityErrorText(t, err)));
       return;
     }
@@ -295,10 +291,20 @@ function CommunityTabInner({
             {!social.signedIn && social.ready ? (
               <p className="px-4 text-xs text-muted-foreground">{t("community.social.liveOff")}</p>
             ) : null}
+            {social.signedIn ? (
+              <div className="px-4">
+                <PersonPicker tags={tags} shares={shares} onTags={setTags} onShares={setShares} />
+              </div>
+            ) : null}
             <ComposeBox
               onPublish={publish}
               notice={t("community.social.privacyLine")}
-              media={<MediaShareButtons />}
+              media={
+                <MediaShareButtons
+                  tagUserIds={tags.map((person) => person.userId)}
+                  shareUserIds={shares.map((person) => person.userId)}
+                />
+              }
             />
             <div
               className="space-y-3 px-4"
@@ -312,6 +318,7 @@ function CommunityTabInner({
                     key={post.id}
                     post={post}
                     moderator={social.moderator}
+                    onOpenProfile={(id) => onProfile(`social:${id}`)}
                     onLike={(id) =>
                       void social
                         .toggleLike(id)
@@ -385,6 +392,7 @@ function CommunityTabInner({
 
         {pane === "groups" ? (
           <GroupsPane
+            onOpenProfile={(id) => onProfile(`social:${id}`)}
             onReport={(id) => {
               setReportReason("unkind");
               setLiveReport({ postId: id });

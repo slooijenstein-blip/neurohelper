@@ -4,6 +4,7 @@ export type CommunityAuth = ShareAuth & { demoPersona?: string | null };
 import type {
   ClientGroup,
   ClientMember,
+  ClientPerson,
   ClientPost,
   ClientReport,
   GroupVisibility,
@@ -130,10 +131,86 @@ export async function createCommunityPost(
     uploadId?: string;
     groupId?: string | null;
     authorRole?: string;
+    tagUserIds?: string[];
+    shareUserIds?: string[];
   },
 ): Promise<ClientPost> {
   const result = (await postJson(auth, "/api/community/posts", body)) as { post: ClientPost };
   return result.post;
+}
+
+export async function editCommunityPost(
+  auth: ShareAuth,
+  id: string,
+  body: {
+    body: string;
+    uploadId?: string;
+    removeMedia?: boolean;
+    consent?: boolean;
+    tagUserIds: string[];
+    shareUserIds?: string[];
+  },
+): Promise<ClientPost> {
+  const result = (await postJson(
+    auth,
+    `/api/community/posts/${encodeURIComponent(id)}/edit`,
+    body,
+  )) as {
+    post: ClientPost;
+  };
+  return result.post;
+}
+
+export async function deleteCommunityPost(auth: ShareAuth, id: string): Promise<void> {
+  await postJson(auth, `/api/community/posts/${encodeURIComponent(id)}/delete`, {});
+}
+
+export async function untagCommunityPost(auth: ShareAuth, id: string): Promise<void> {
+  await postJson(auth, `/api/community/posts/${encodeURIComponent(id)}/untag`, {});
+}
+
+export async function searchCommunityPeople(
+  auth: ShareAuth,
+  query: string,
+  groupId?: string | null,
+): Promise<ClientPerson[]> {
+  const params = new URLSearchParams({ q: query });
+  if (groupId) params.set("groupId", groupId);
+  const response = await fetch(`/api/community/people/search?${params.toString()}`, {
+    headers: authHeaders(auth),
+  });
+  const body = await parse<{ people: ClientPerson[] }>(response);
+  return body.people;
+}
+
+export async function fetchCommunityPerson(auth: ShareAuth, id: string): Promise<ClientPerson> {
+  const response = await fetch(`/api/community/people/${encodeURIComponent(id)}`, {
+    headers: authHeaders(auth),
+  });
+  const body = await parse<{ person: ClientPerson }>(response);
+  return body.person;
+}
+
+export async function fetchProfilePosts(auth: ShareAuth, id: string): Promise<ClientPost[]> {
+  const response = await fetch(`/api/community/people/${encodeURIComponent(id)}/posts`, {
+    headers: authHeaders(auth),
+  });
+  const body = await parse<{ posts: ClientPost[] }>(response);
+  return body.posts;
+}
+
+export async function fetchTaggedPosts(auth: ShareAuth, id: string): Promise<ClientPost[]> {
+  const response = await fetch(`/api/community/people/${encodeURIComponent(id)}/tagged`, {
+    headers: authHeaders(auth),
+  });
+  const body = await parse<{ posts: ClientPost[] }>(response);
+  return body.posts;
+}
+
+export async function fetchSharedPosts(auth: ShareAuth): Promise<ClientPost[]> {
+  const response = await fetch("/api/community/inbox", { headers: authHeaders(auth) });
+  const body = await parse<{ posts: ClientPost[] }>(response);
+  return body.posts;
 }
 
 export async function likeCommunityPost(auth: ShareAuth, id: string): Promise<void> {

@@ -32,6 +32,8 @@ import { HelperChat, OpenHelperProvider } from "./HelperChat";
 import { ProfileTab } from "./ProfileTab";
 import { ProTab } from "./ProTab";
 import { ProfileView } from "./ProfileView";
+import { CommunityProfile } from "./community/CommunityProfile";
+import { CommunitySocialProvider } from "./community/social-context";
 import { ArticleView } from "./ArticleView";
 import { AuthLoading } from "./AuthScreen";
 import { BrandLogo } from "./BrandLogo";
@@ -99,6 +101,11 @@ function AppShell({
         setProfileId(id);
       }}
     />
+  ) : profileId?.startsWith("social:") ? (
+    <CommunityProfile
+      userId={profileId.slice("social:".length)}
+      onBack={() => setProfileId(null)}
+    />
   ) : profileId ? (
     <ProfileView
       id={profileId}
@@ -121,15 +128,63 @@ function AppShell({
   );
 
   return (
-    <OpenHelperProvider onOpen={() => setHelperOpen(true)}>
-      <div className="phone-shell">
-        <aside className="app-sidebar">
-          <div className="mb-8 px-2">
-            <BrandLogo variant="lockup" className="h-10 w-auto max-w-full" />
-            <p className="mt-1 text-xs text-muted-foreground">{t("brand.tagline")}</p>
+    <CommunitySocialProvider>
+      <OpenHelperProvider onOpen={() => setHelperOpen(true)}>
+        <div className="phone-shell">
+          <aside className="app-sidebar">
+            <div className="mb-8 px-2">
+              <BrandLogo variant="lockup" className="h-10 w-auto max-w-full" />
+              <p className="mt-1 text-xs text-muted-foreground">{t("brand.tagline")}</p>
+            </div>
+
+            <nav className="flex flex-1 flex-col gap-1" aria-label={t("nav.label")}>
+              {tabs.map((key) => {
+                const { labelKey, icon: Icon } = TAB_META[key];
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    data-nav={key}
+                    onClick={() => goTab(key)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                      tab === key && !articleId && !profileId
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    <Icon
+                      className={cn(
+                        "size-5",
+                        tab === key && !articleId && !profileId && "fill-primary/15",
+                      )}
+                    />
+                    {t(labelKey)}
+                  </button>
+                );
+              })}
+            </nav>
+
+            <p className="mt-auto px-2 pt-6 text-[11px] text-muted-foreground">
+              {t("brand.signedInAs", { name: state.profile?.name ?? t("roles.caregiver") })}
+            </p>
+          </aside>
+
+          <div className="app-main">
+            <div className="app-screen min-h-0">{screen}</div>
+            <DemoRoleBar
+              onChoose={() => {
+                setArticleId(null);
+                setProfileId(null);
+              }}
+            />
           </div>
 
-          <nav className="flex flex-1 flex-col gap-1" aria-label={t("nav.label")}>
+          <nav
+            className="app-tabbar"
+            aria-label={t("nav.label")}
+            style={{ ["--app-tab-count" as string]: String(tabs.length) }}
+          >
             {tabs.map((key) => {
               const { labelKey, icon: Icon } = TAB_META[key];
               return (
@@ -139,10 +194,10 @@ function AppShell({
                   data-nav={key}
                   onClick={() => goTab(key)}
                   className={cn(
-                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                    "flex flex-col items-center gap-1 rounded-lg py-1 text-[9px] font-semibold transition-colors",
                     tab === key && !articleId && !profileId
-                      ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "text-primary"
+                      : "text-muted-foreground",
                   )}
                 >
                   <Icon
@@ -156,74 +211,28 @@ function AppShell({
               );
             })}
           </nav>
-
-          <p className="mt-auto px-2 pt-6 text-[11px] text-muted-foreground">
-            {t("brand.signedInAs", { name: state.profile?.name ?? t("roles.caregiver") })}
-          </p>
-        </aside>
-
-        <div className="app-main">
-          <div className="app-screen min-h-0">{screen}</div>
-          <DemoRoleBar
-            onChoose={() => {
-              setArticleId(null);
-              setProfileId(null);
-            }}
-          />
         </div>
-
-        <nav
-          className="app-tabbar"
-          aria-label={t("nav.label")}
-          style={{ ["--app-tab-count" as string]: String(tabs.length) }}
-        >
-          {tabs.map((key) => {
-            const { labelKey, icon: Icon } = TAB_META[key];
-            return (
-              <button
-                key={key}
-                type="button"
-                data-nav={key}
-                onClick={() => goTab(key)}
-                className={cn(
-                  "flex flex-col items-center gap-1 rounded-lg py-1 text-[9px] font-semibold transition-colors",
-                  tab === key && !articleId && !profileId
-                    ? "text-primary"
-                    : "text-muted-foreground",
-                )}
-              >
-                <Icon
-                  className={cn(
-                    "size-5",
-                    tab === key && !articleId && !profileId && "fill-primary/15",
-                  )}
-                />
-                {t(labelKey)}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-      <HelperChat
-        open={helperOpen}
-        onOpenChange={setHelperOpen}
-        onOpenActivity={(id) => {
-          setHelperOpen(false);
-          setActivityId(id);
-        }}
-        onOpenHelp={(hub, itemId) => {
-          setHelperOpen(false);
-          setHelpFocus({ kind: "item", hub, itemId });
-          goTab("help");
-        }}
-        onOpenSupport={() => {
-          setHelperOpen(false);
-          setHelpFocus({ kind: "support" });
-          goTab("help");
-        }}
-      />
-      <ActivityDetailDialog activityId={activityId} onClose={() => setActivityId(null)} />
-    </OpenHelperProvider>
+        <HelperChat
+          open={helperOpen}
+          onOpenChange={setHelperOpen}
+          onOpenActivity={(id) => {
+            setHelperOpen(false);
+            setActivityId(id);
+          }}
+          onOpenHelp={(hub, itemId) => {
+            setHelperOpen(false);
+            setHelpFocus({ kind: "item", hub, itemId });
+            goTab("help");
+          }}
+          onOpenSupport={() => {
+            setHelperOpen(false);
+            setHelpFocus({ kind: "support" });
+            goTab("help");
+          }}
+        />
+        <ActivityDetailDialog activityId={activityId} onClose={() => setActivityId(null)} />
+      </OpenHelperProvider>
+    </CommunitySocialProvider>
   );
 }
 

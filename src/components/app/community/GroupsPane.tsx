@@ -13,10 +13,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n/I18nProvider";
 import { prepareCommunityFile } from "@/lib/community-social/prepare-media";
-import type { ClientPost, GroupVisibility } from "@/lib/community-social/types";
+import type { ClientPerson, ClientPost, GroupVisibility } from "@/lib/community-social/types";
 import { AuthedMedia } from "./AuthedMedia";
 import { LivePostCard } from "./LivePostCard";
 import { MediaShareButtons } from "./MediaShareButtons";
+import { PersonPicker } from "./PersonPicker";
 import { communityErrorText, useCommunitySocial } from "./social-context";
 
 function roleLabel(t: (key: string) => string, role: string) {
@@ -35,9 +36,11 @@ function visibilityLabel(t: (key: string) => string, visibility: string) {
 export function GroupsPane({
   onReport,
   onReportComment,
+  onOpenProfile,
 }: {
   onReport: (postId: string) => void;
   onReportComment: (postId: string, commentId: string) => void;
+  onOpenProfile?: (userId: string) => void;
 }) {
   const { t } = useI18n();
   const social = useCommunitySocial();
@@ -52,6 +55,8 @@ export function GroupsPane({
   const [inviteCode, setInviteCode] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [draft, setDraft] = useState("");
+  const [tags, setTags] = useState<ClientPerson[]>([]);
+  const [shares, setShares] = useState<ClientPerson[]>([]);
   const [reason, setReason] = useState("");
   const [groupReasons, setGroupReasons] = useState<Record<string, string>>({});
   const detail = social.group;
@@ -585,9 +590,14 @@ export function GroupsPane({
                 event.preventDefault();
                 if (!draft.trim() || social.suspended) return;
                 void social
-                  .publishText(draft.trim(), group.id)
+                  .publishText(draft.trim(), group.id, {
+                    ...(tags.length ? { tagUserIds: tags.map((person) => person.userId) } : {}),
+                    ...(shares.length ? { shareUserIds: shares.map((person) => person.userId) } : {}),
+                  })
                   .then(() => {
                     setDraft("");
+                    setTags([]);
+                    setShares([]);
                     toast.success(t("community.social.postedPendingGroup"));
                   })
                   .catch((err) => toast.error(communityErrorText(t, err)));
@@ -604,8 +614,21 @@ export function GroupsPane({
                 {t("community.post")}
               </Button>
             </form>
-            <div className="mt-2 flex flex-wrap gap-1">
-              <MediaShareButtons groupId={group.id} />
+            <div className="mt-2 space-y-2">
+              <PersonPicker
+                groupId={group.id}
+                tags={tags}
+                shares={shares}
+                onTags={setTags}
+                onShares={setShares}
+              />
+              <div className="flex flex-wrap gap-1">
+                <MediaShareButtons
+                  groupId={group.id}
+                  tagUserIds={tags.map((person) => person.userId)}
+                  shareUserIds={shares.map((person) => person.userId)}
+                />
+              </div>
             </div>
           </div>
         ) : null}
@@ -615,6 +638,7 @@ export function GroupsPane({
               key={post.id}
               post={post}
               moderator={social.moderator}
+              {...(onOpenProfile ? { onOpenProfile } : {})}
               onLike={(id) => void social.toggleLike(id)}
               onComment={(id, text) => void social.comment(id, text)}
               onReport={onReport}

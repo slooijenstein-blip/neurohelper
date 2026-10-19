@@ -1010,3 +1010,159 @@ describe("private community media", () => {
     assert.equal(JSON.stringify(body).includes("blob.vercel-storage.com"), false);
   });
 });
+
+describe("edit, delete, tags, and profile posts", () => {
+  const outsider: Actor = {
+    userId: "user_outsider",
+    email: "out@example.com",
+    name: "Outsider",
+    isPro: false,
+  };
+  const forbidden = (err: unknown) => (err as { code?: string }).code === "forbidden";
+  const invalid = (err: unknown) => (err as { code?: string }).code === "invalid";
+
+  it("lets only the author edit, sends the post back for review, and shows edited", async () => {
+    const service = createCommunityService(createMemoryCommunityStore());
+    const post = await service.createPost(
+      maya,
+      { body: "First words", privacyAck: true, authorRole: "Parent" },
+      now,
+    );
+    await assert.rejects(() => service.editPost(sam, post.id, { body: "Changed" }, now), forbidden);
+    const edited = await service.editPost(maya, post.id, { body: "Clearer words" }, now);
+    assert.equal(edited.post.body, "Clearer words");
+    assert.equal(edited.post.status, "pending");
+    assert.equal(typeof edited.post.editedAt, "string");
+    assert.equal(
+      (await service.feed(sam)).some((item) => item.id === post.id),
+      false,
+    );
+    assert.equal(
+      (await service.queue(sam)).posts.some((item) => item.id === post.id),
+      true,
+    );
+    await assert.rejects(() => service.deletePost(sam, post.id), forbidden);
+    await service.deletePost(maya, post.id);
+    assert.equal(
+      (await service.queue(sam)).posts.some((item) => item.id === post.id),
+      false,
+    );
+  });
+
+  it("keeps group review for an edited group post and hides it from non-members", async () => {
+    const service = createCommunityService(createMemoryCommunityStore());
+    const groupId = await service.createGroup(
+      maya,
+      { name: "Quiet room", description: "Private.", rules: "No names.", visibility: "private" },
+      now,
+    );
+    await service.joinGroup(sam, groupId, now, "I am listening.");
+    await service.memberAction(maya, groupId, { userId: sam.userId, action: "approve" });
+    const post = await service.createPost(
+      maya,
+      { body: "A private note", privacyAck: true, groupId, authorRole: "Parent" },
+      now,
+    );
+    await service.review(sam, post.id, { action: "approve" }, now);
+    await assert.rejects(
+      () => service.editPost(sam, post.id, { body: "Staff rewrite" }, now),
+      forbidden,
+    );
+    const edited = await service.editPost(
+      maya,
+      post.id,
+      { body: "A private note, revised", tagUserIds: [sam.userId] },
+      now,
+    );
+    assert.equal(edited.post.status, "pending");
+    assert.equal(
+      edited.post.tags.some((tag) => tag.userId === sam.userId),
+      true,
+    );
+    assert.equal(
+      (await service.groupQueue(maya, groupId)).posts.some((item) => item.id === post.id),
+      true,
+    );
+    assert.equal(
+      (await service.profilePosts(outsider, maya.userId)).some((item) => item.id === post.id),
+      false,
+    );
+    assert.equal(
+      (await service.profilePosts(maya, maya.userId)).some((item) => item.id === post.id),
+      true,
+    );
+    await service.session(outsider);
+    await assert.rejects(
+      () => service.editPost(maya, post.id, { body: "Nope", tagUserIds: [outsider.userId] }, now),
+      forbidden,
+    );
+    await service.review(sam, post.id, { action: "approve" }, now);
+    assert.equal(
+      (await service.profilePosts(sam, maya.userId)).some((item) => item.id === post.id),
+      true,
+    );
+    assert.equal(
+      (await service.profilePosts(outsider, maya.userId)).some((item) => item.id === post.id),
+      false,
+    );
+    assert.equal(
+      (await service.profileTagged(sam, sam.userId)).some((item) => item.id === post.id),
+      true,
+    );
+    assert.equal(
+      (await service.profileTagged(outsider, sam.userId)).some((item) => item.id === post.id),
+      false,
+    );
+    await service.removeOwnTag(sam, post.id);
+    assert.equal((await service.profileTagged(sam, sam.userId)).length, 0);
+    const still = (await service.profilePosts(sam, maya.userId)).find(
+      (item) => item.id === post.id,
+    );
+    assert.equal(still?.status, "approved");
+  });
+
+  it("shares only with people who can see the post, and only after approval", async () => {
+    const service = createCommunityService(createMemoryCommunityStore());
+    await service.session(sam);
+    const post = await service.createPost(
+      maya,
+      {
+        body: "For Sam",
+        privacyAck: true,
+        authorRole: "Parent",
+        shareUserIds: [sam.userId],
+      },
+      now,
+    );
+    assert.equal((await service.sharedWith(sam)).length, 0);
+    await service.review(sam, post.id, { action: "approve" }, now);
+    assert.equal(
+      (await service.sharedWith(sam)).some((item) => item.id === post.id),
+      true,
+    );
+    assert.equal((await service.sharedWith(outsider)).length, 0);
+    await assert.rejects(
+      () =>
+        service.createPost(
+          maya,
+          { body: "Child", privacyAck: true, tagUserIds: ["child_noa"] },
+          now,
+        ),
+      invalid,
+    );
+  });
+
+  it("shows the author their pending post and hides it from everyone else", async () => {
+    const service = createCommunityService(createMemoryCommunityStore());
+    const post = await service.createPost(
+      maya,
+      { body: "Waiting", privacyAck: true, authorRole: "Parent" },
+      now,
+    );
+    const mine = await service.profilePosts(maya, maya.userId);
+    assert.equal(mine[0]?.status, "pending");
+    assert.equal((await service.profilePosts(sam, maya.userId)).length, 0);
+    assert.equal((await service.profileTagged(sam, sam.userId)).length, 0);
+    void post;
+  });
+});
