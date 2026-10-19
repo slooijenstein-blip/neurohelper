@@ -83,7 +83,9 @@ export function MediaShareButtons({
         ...(tagUserIds?.length ? { tagUserIds } : {}),
         ...(shareUserIds?.length ? { shareUserIds } : {}),
       });
-      toast.success(t("community.social.postedPending"));
+      toast.success(
+        groupId ? t("community.social.postedPendingGroup") : t("community.social.postedPending"),
+      );
       reset();
     } catch (err) {
       toast.error(communityErrorText(t, err));
