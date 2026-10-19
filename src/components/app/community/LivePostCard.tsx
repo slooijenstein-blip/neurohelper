@@ -364,6 +364,7 @@ export function LivePostCard({
             shares={editShares}
             onTags={setEditTags}
             onShares={setEditShares}
+            testPrefix="edit-"
           />
           <Button
             type="button"

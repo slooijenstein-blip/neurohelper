@@ -132,25 +132,26 @@ export function PersonPicker({
   shares,
   onTags,
   onShares,
+  testPrefix = "",
 }: {
   groupId?: string | null;
   tags: ClientPerson[];
   shares: ClientPerson[];
   onTags: (people: ClientPerson[]) => void;
   onShares: (people: ClientPerson[]) => void;
+  testPrefix?: string;
 }) {
   const { t } = useI18n();
-  const taken = [...tags.map((person) => person.userId), ...shares.map((person) => person.userId)];
 
   return (
     <div className="space-y-2" data-testid="person-picker">
       <NameSearch
         label={t("community.social.tagPeople")}
         placeholder={t("community.social.tagPlaceholder")}
-        testId="tag-search"
+        testId={`${testPrefix}tag-search`}
         groupId={groupId}
         selected={tags}
-        exclude={taken}
+        exclude={tags.map((person) => person.userId)}
         onSelect={(person) => {
           if (!person.name) onTags(tags.filter((item) => item.userId !== person.userId));
           else if (!tags.some((item) => item.userId === person.userId)) onTags([...tags, person]);
@@ -159,10 +160,10 @@ export function PersonPicker({
       <NameSearch
         label={t("community.social.sharePeople")}
         placeholder={t("community.social.sharePlaceholder")}
-        testId="share-search"
+        testId={`${testPrefix}share-search`}
         groupId={groupId}
         selected={shares}
-        exclude={taken}
+        exclude={shares.map((person) => person.userId)}
         onSelect={(person) => {
           if (!person.name) onShares(shares.filter((item) => item.userId !== person.userId));
           else if (!shares.some((item) => item.userId === person.userId))
