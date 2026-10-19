@@ -82,11 +82,32 @@ function AppShell({
     if (tab === "children" && (isPro || !hasLinkedChildren)) onTab("activities");
   }, [tab, isPro, hasLinkedChildren, onTab]);
 
-  const goTab = (key: TabKey) => {
+  const [tabEpoch, setTabEpoch] = useState(0);
+
+  const goTab = (key: TabKey, opts?: { keepFocus?: boolean }) => {
+    const same = key === tab && !articleId && !profileId;
     setArticleId(null);
     setProfileId(null);
+    setActivityId(null);
+    setHelperOpen(false);
     // Recreate Help so a temporary country lookup does not outlive this visit.
     if (key === "help") setHelpNonce((n) => n + 1);
+    if (same) {
+      // A helper tap sets the article, then asks for Help. Do not wipe that focus.
+      if (!opts?.keepFocus) setHelpFocus(null);
+      if (key === "pro") cal.selectChild(null);
+      setTabEpoch((n) => n + 1);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const root = document.querySelector(".app-screen");
+          if (!(root instanceof HTMLElement)) return;
+          window.scrollTo(0, 0);
+          for (const node of [root, ...root.querySelectorAll("*")]) {
+            if (node instanceof HTMLElement && node.scrollTop > 0) node.scrollTop = 0;
+          }
+        });
+      });
+    }
     onTab(key);
   };
 
@@ -107,16 +128,24 @@ function AppShell({
     />
   ) : (
     {
-      activities: <ActivitiesTab />,
-      children: hasLinkedChildren ? <ChildrenTab /> : <ActivitiesTab />,
-      pro: <ProTab />,
-      schedule: <ScheduleTab />,
-      journey: <JourneyTab />,
+      activities: <ActivitiesTab key={tabEpoch} />,
+      children: hasLinkedChildren ? (
+        <ChildrenTab key={tabEpoch} />
+      ) : (
+        <ActivitiesTab key={tabEpoch} />
+      ),
+      pro: <ProTab key={tabEpoch} />,
+      schedule: <ScheduleTab key={tabEpoch} />,
+      journey: <JourneyTab key={tabEpoch} />,
       community: (
-        <CommunityTab onProfile={(id) => setProfileId(id)} onArticle={(id) => setArticleId(id)} />
+        <CommunityTab
+          key={tabEpoch}
+          onProfile={(id) => setProfileId(id)}
+          onArticle={(id) => setArticleId(id)}
+        />
       ),
       help: <HelpTab key={helpNonce} focus={helpFocus} onFocusHandled={clearHelpFocus} />,
-      profile: <ProfileTab />,
+      profile: <ProfileTab key={tabEpoch} />,
     }[tab === "pro" && !isPro ? "activities" : tab]
   );
 
@@ -214,12 +243,12 @@ function AppShell({
         onOpenHelp={(hub, itemId) => {
           setHelperOpen(false);
           setHelpFocus({ kind: "item", hub, itemId });
-          goTab("help");
+          goTab("help", { keepFocus: true });
         }}
         onOpenSupport={() => {
           setHelperOpen(false);
           setHelpFocus({ kind: "support" });
-          goTab("help");
+          goTab("help", { keepFocus: true });
         }}
       />
       <ActivityDetailDialog activityId={activityId} onClose={() => setActivityId(null)} />
