@@ -9,6 +9,13 @@ import {
   splitHashtags,
 } from "./community.ts";
 import { stripCommunitySamples } from "./community-samples.ts";
+import {
+  googleTranslateUrl,
+  languageCode,
+  sameLanguage,
+  translateCommunityText,
+  translatorLanguage,
+} from "./community-translate.ts";
 
 describe("community feed", () => {
   const now = new Date(2026, 8, 30, 9, 0, 0);
@@ -126,5 +133,53 @@ describe("community feed", () => {
     assert.equal(stripped.templates[1]?.likes, 2);
     assert.deepEqual(stripped.following, ["user_friend"]);
     assert.deepEqual(stripped.profile?.followers, ["user_friend"]);
+  });
+});
+
+describe("community translate", () => {
+  it("maps the app language and builds a free Google Translate link", () => {
+    assert.equal(translatorLanguage("es"), "es");
+    assert.equal(translatorLanguage("es-ES"), "es");
+    assert.equal(translatorLanguage("en"), "en");
+    assert.equal(languageCode("es-ES"), "es");
+    assert.equal(languageCode("und"), null);
+    assert.equal(sameLanguage("en-US", "en"), true);
+    assert.equal(sameLanguage("es", "en"), false);
+    const url = new URL(googleTranslateUrl("Hola #calma", "en"));
+    assert.equal(url.origin + url.pathname, "https://translate.google.com/");
+    assert.equal(url.searchParams.get("sl"), "auto");
+    assert.equal(url.searchParams.get("tl"), "en");
+    assert.equal(url.searchParams.get("text"), "Hola #calma");
+  });
+
+  it("uses the on-device translator when the source language is known", async () => {
+    const result = await translateCommunityText("We waited.", "es", {
+      detect: async () => "en",
+      canTranslate: async () => true,
+      translate: async (text, source, target) => `${text} (${source}->${target})`,
+    });
+    assert.deepEqual(result, { kind: "text", text: "We waited. (en->es)" });
+  });
+
+  it("leaves a post that is already in the app language", async () => {
+    const result = await translateCommunityText("Esperamos.", "es", {
+      detect: async () => "es-ES",
+      canTranslate: async () => true,
+      translate: async () => "should not run",
+    });
+    assert.deepEqual(result, { kind: "already" });
+  });
+
+  it("opens Google Translate when this browser cannot translate", async () => {
+    const result = await translateCommunityText("We waited.", "es", {});
+    assert.equal(result.kind, "link");
+    if (result.kind !== "link") return;
+    assert.equal(new URL(result.url).searchParams.get("tl"), "es");
+    const failed = await translateCommunityText("Bonjour.", "es", {
+      detect: async () => "fr",
+      canTranslate: async () => false,
+      translate: async () => "should not run",
+    });
+    assert.equal(failed.kind, "link");
   });
 });

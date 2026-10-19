@@ -4,9 +4,9 @@ import { describe, it } from "node:test";
 import type { Actor } from "../share/actions.ts";
 import { EXAMPLE_PRIVATE_ID, EXAMPLE_PUBLIC_ID } from "./examples.ts";
 import { COMMUNITY_REDIS_KEY } from "./redis-store.ts";
-import { handleCommunityApi, type CommunityDeps } from "./http.ts";
+import { createCommunityDeps, handleCommunityApi, type CommunityDeps } from "./http.ts";
 import { stripIsoBmffUserData } from "./mp4-strip.ts";
-import { isPublicBlobUrl } from "./media-url.ts";
+import { isOwnedBlobPath } from "./media-url.ts";
 import { createCommunityService } from "./service.ts";
 import { createMemoryCommunityStore } from "./store.ts";
 
@@ -74,21 +74,13 @@ describe("community media", () => {
     assert.equal(stripIsoBmffUserData(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8])).ok, false);
   });
 
-  it("only accepts this user's blob address", () => {
+  it("only accepts this user's private blob pathname", () => {
+    assert.equal(isOwnedBlobPath("community/user_maya/photo.jpg", "user_maya"), true);
+    assert.equal(isOwnedBlobPath("community/user_sam/photo.jpg", "user_maya"), false);
+    assert.equal(isOwnedBlobPath("community/user_maya/../user_sam/photo.jpg", "user_maya"), false);
     assert.equal(
-      isPublicBlobUrl(
-        "https://abc.public.blob.vercel-storage.com/community/user_maya/photo-abc.jpg",
-        "user_maya",
-      ),
-      true,
-    );
-    assert.equal(
-      isPublicBlobUrl("https://example.com/community/user_maya/photo.jpg", "user_maya"),
-      false,
-    );
-    assert.equal(
-      isPublicBlobUrl(
-        "https://abc.public.blob.vercel-storage.com/community/user_sam/photo.jpg",
+      isOwnedBlobPath(
+        "https://store.private.blob.vercel-storage.com/community/user_maya/photo.jpg",
         "user_maya",
       ),
       false,
@@ -489,6 +481,7 @@ describe("community social", () => {
       authenticate: async () => null,
       localMediaDir: "/tmp",
       blobToken: null,
+      blobStoreId: null,
     };
     const previous = process.env.VERCEL_ENV;
     process.env.VERCEL_ENV = "preview";
@@ -669,6 +662,37 @@ describe("community social", () => {
     assert.equal(liked?.liked, true);
     assert.equal(liked?.comments.length, 1);
   });
+
+  it("gives the browser an app address instead of a blob host", async () => {
+    const service = createCommunityService(createMemoryCommunityStore());
+    const uploadId = await service.saveUpload(
+      maya,
+      {
+        kind: "image",
+        url: "pending",
+        blobPath: "community/user_maya/photo.jpg",
+        contentType: "image/jpeg",
+        bytes: 120,
+        width: 8,
+        height: 8,
+      },
+      now,
+    );
+    const post = await service.createPost(
+      maya,
+      {
+        body: "A picture",
+        privacyAck: true,
+        consent: true,
+        uploadId,
+        authorRole: "Parent",
+      },
+      now,
+    );
+    assert.equal(post.media?.url, `/api/community/media/${post.id}`);
+    assert.equal(JSON.stringify(post).includes("blob.vercel-storage.com"), false);
+    assert.equal(JSON.stringify(post).includes("community/user_maya"), false);
+  });
 });
 
 describe("community http", () => {
@@ -682,6 +706,7 @@ describe("community http", () => {
       authenticate: async () => null,
       localMediaDir: "",
       blobToken: null,
+      blobStoreId: null,
     };
     const health = await handleCommunityApi(new Request("http://local/api/community/health"), deps);
     assert.equal(health.status, 200);
@@ -703,6 +728,7 @@ describe("community http", () => {
       authenticate: async (req) => (req.headers.get("x-user") === "maya" ? maya : null),
       localMediaDir: "",
       blobToken: null,
+      blobStoreId: null,
     };
     const created = await handleCommunityApi(
       new Request("http://local/api/community/posts", {
@@ -716,5 +742,452 @@ describe("community http", () => {
     const guest = await handleCommunityApi(new Request("http://local/api/community/feed"), deps);
     const guestBody = (await guest.json()) as { posts: unknown[] };
     assert.equal(guestBody.posts.length, 0);
+    const createdBody = (await created.json()) as { post: { id: string } };
+    const edited = await handleCommunityApi(
+      new Request(`http://local/api/community/posts/${createdBody.post.id}/edit`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-user": "maya" },
+        body: JSON.stringify({ body: "Hello families, revised", tagUserIds: [] }),
+      }),
+      deps,
+    );
+    assert.equal(edited.status, 200);
+    const editedBody = (await edited.json()) as {
+      post: { body: string; status: string; editedAt?: string };
+    };
+    assert.equal(editedBody.post.body, "Hello families, revised");
+    assert.equal(editedBody.post.status, "pending");
+    assert.equal(typeof editedBody.post.editedAt, "string");
+    const removed = await handleCommunityApi(
+      new Request(`http://local/api/community/posts/${createdBody.post.id}/delete`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-user": "maya" },
+        body: JSON.stringify({}),
+      }),
+      deps,
+    );
+    assert.equal(removed.status, 200);
+  });
+
+  it("uses the private store when Vercel has a blob store id and no read-write token", () => {
+    const deps = createCommunityDeps({
+      VERCEL: "1",
+      BLOB_STORE_ID: "store_test",
+      SHARE_STORE: "memory",
+    });
+    assert.equal(deps.media, "blob");
+    assert.equal(deps.blobStoreId, "store_test");
+    assert.equal(deps.blobToken, null);
+    const local = createCommunityDeps({ SHARE_STORE: "memory" });
+    assert.equal(local.media, "local");
+  });
+});
+
+describe("private community media", () => {
+  const therapist: Actor = {
+    userId: "user_therapist",
+    email: "therapist@example.com",
+    name: "Therapist",
+    isPro: true,
+  };
+  const outsider: Actor = {
+    userId: "user_outsider",
+    email: "outsider@example.com",
+    name: "Outsider",
+    isPro: false,
+  };
+
+  async function localDeps() {
+    const { mkdtempSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const dir = mkdtempSync(join(tmpdir(), "community-media-"));
+    const store = createMemoryCommunityStore();
+    const people: Record<string, Actor> = { maya, sam, therapist, outsider };
+    const deps: CommunityDeps = {
+      configured: true,
+      storeName: "memory",
+      media: "local",
+      store,
+      service: createCommunityService(store),
+      authenticate: async (req) => people[req.headers.get("x-user") ?? ""] ?? null,
+      localMediaDir: dir,
+      blobToken: null,
+      blobStoreId: null,
+    };
+    return deps;
+  }
+
+  function authed(url: string, user: string | null, init: RequestInit = {}) {
+    const headers = new Headers(init.headers);
+    if (user) headers.set("x-user", user);
+    return new Request(url, { ...init, headers });
+  }
+
+  it("serves a pending private-group photo only to the uploader, founder, and group staff", async () => {
+    const deps = await localDeps();
+    const file = new File([Uint8Array.from([1, 2, 3, 4])], "pic.jpg", { type: "image/jpeg" });
+    const form = new FormData();
+    form.set("file", file);
+    form.set("kind", "image");
+    form.set("width", "8");
+    form.set("height", "8");
+    const uploaded = await handleCommunityApi(
+      authed("http://local/api/community/media", "maya", { method: "POST", body: form }),
+      deps,
+    );
+    assert.equal(uploaded.status, 200);
+    const { uploadId } = (await uploaded.json()) as { uploadId: string };
+    const group = await handleCommunityApi(
+      authed("http://local/api/community/groups", "therapist", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Quiet room",
+          description: "Private",
+          rules: "Be kind",
+          visibility: "private",
+          joinQuestion: "",
+        }),
+      }),
+      deps,
+    );
+    const { id: groupId } = (await group.json()) as { id: string };
+    const joined = await handleCommunityApi(
+      authed(`http://local/api/community/groups/${groupId}/join`, "maya", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+      deps,
+    );
+    assert.equal(joined.status, 200);
+    const admitted = await handleCommunityApi(
+      authed(`http://local/api/community/groups/${groupId}/members`, "therapist", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ userId: maya.userId, action: "approve" }),
+      }),
+      deps,
+    );
+    assert.equal(admitted.status, 200);
+    const created = await handleCommunityApi(
+      authed("http://local/api/community/posts", "maya", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          body: "A private picture",
+          privacyAck: true,
+          consent: true,
+          uploadId,
+          groupId,
+          authorRole: "Parent",
+        }),
+      }),
+      deps,
+    );
+    assert.equal(created.status, 201);
+    const post = (await created.json()) as { post: { id: string; media: { url: string } } };
+    assert.equal(post.post.media.url, `/api/community/media/${post.post.id}`);
+    assert.equal(JSON.stringify(post).includes("blob.vercel-storage.com"), false);
+    const mediaUrl = `http://local${post.post.media.url}`;
+    const guest = await handleCommunityApi(authed(mediaUrl, null), deps);
+    assert.equal(guest.status, 401);
+    const stranger = await handleCommunityApi(authed(mediaUrl, "outsider"), deps);
+    assert.equal(stranger.status, 403);
+    const author = await handleCommunityApi(authed(mediaUrl, "maya"), deps);
+    assert.equal(author.status, 200);
+    assert.equal(author.headers.get("cache-control"), "private, no-store");
+    assert.deepEqual(new Uint8Array(await author.arrayBuffer()), Uint8Array.from([1, 2, 3, 4]));
+    const founder = await handleCommunityApi(authed(mediaUrl, "sam"), deps);
+    assert.equal(founder.status, 200);
+    const staff = await handleCommunityApi(authed(mediaUrl, "therapist"), deps);
+    assert.equal(staff.status, 200);
+    const approved = await handleCommunityApi(
+      authed(`http://local/api/community/moderation/posts/${post.post.id}`, "therapist", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      }),
+      deps,
+    );
+    assert.equal(approved.status, 200);
+    assert.equal((await handleCommunityApi(authed(mediaUrl, null), deps)).status, 401);
+    assert.equal((await handleCommunityApi(authed(mediaUrl, "outsider"), deps)).status, 403);
+    assert.equal((await handleCommunityApi(authed(mediaUrl, "maya"), deps)).status, 200);
+    assert.equal((await handleCommunityApi(authed(mediaUrl, "sam"), deps)).status, 403);
+  });
+
+  it("hides a hidden-group photo from someone who is not a member", async () => {
+    const deps = await localDeps();
+    const file = new File([Uint8Array.from([9, 9])], "pic.jpg", { type: "image/jpeg" });
+    const form = new FormData();
+    form.set("file", file);
+    form.set("kind", "image");
+    const uploaded = await handleCommunityApi(
+      authed("http://local/api/community/media", "therapist", { method: "POST", body: form }),
+      deps,
+    );
+    const { uploadId } = (await uploaded.json()) as { uploadId: string };
+    const group = await handleCommunityApi(
+      authed("http://local/api/community/groups", "therapist", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Hidden room",
+          visibility: "hidden",
+        }),
+      }),
+      deps,
+    );
+    const { id: groupId } = (await group.json()) as { id: string };
+    const created = await handleCommunityApi(
+      authed("http://local/api/community/posts", "therapist", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          body: "Hidden picture",
+          privacyAck: true,
+          consent: true,
+          uploadId,
+          groupId,
+          authorRole: "Therapist",
+        }),
+      }),
+      deps,
+    );
+    const post = (await created.json()) as { post: { id: string } };
+    await handleCommunityApi(
+      authed(`http://local/api/community/moderation/posts/${post.post.id}`, "therapist", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      }),
+      deps,
+    );
+    const mediaUrl = `http://local/api/community/media/${post.post.id}`;
+    assert.equal((await handleCommunityApi(authed(mediaUrl, "outsider"), deps)).status, 404);
+    assert.equal((await handleCommunityApi(authed(mediaUrl, "therapist"), deps)).status, 200);
+  });
+
+  it("rejects a public blob url and another member's pathname", async () => {
+    const store = createMemoryCommunityStore();
+    const deps: CommunityDeps = {
+      configured: true,
+      storeName: "memory",
+      media: "blob",
+      store,
+      service: createCommunityService(store),
+      authenticate: async (req) => (req.headers.get("x-user") === "maya" ? maya : null),
+      localMediaDir: "",
+      blobToken: null,
+      blobStoreId: "store_test",
+    };
+    const foreign = await handleCommunityApi(
+      authed("http://local/api/community/uploads", "maya", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          pathname: "community/user_sam/photo.jpg",
+          kind: "image",
+          contentType: "image/jpeg",
+          bytes: 100,
+          width: 8,
+          height: 8,
+        }),
+      }),
+      deps,
+    );
+    assert.equal(foreign.status, 400);
+    const host = await handleCommunityApi(
+      authed("http://local/api/community/uploads", "maya", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          url: "https://abc.public.blob.vercel-storage.com/community/user_maya/photo.jpg",
+          pathname: "https://abc.private.blob.vercel-storage.com/community/user_maya/photo.jpg",
+          kind: "image",
+          contentType: "image/jpeg",
+          bytes: 100,
+        }),
+      }),
+      deps,
+    );
+    assert.equal(host.status, 400);
+    const saved = await handleCommunityApi(
+      authed("http://local/api/community/uploads", "maya", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          pathname: "community/user_maya/photo.jpg",
+          kind: "image",
+          contentType: "image/jpeg",
+          bytes: 100,
+          width: 8,
+          height: 8,
+        }),
+      }),
+      deps,
+    );
+    assert.equal(saved.status, 200);
+    const body = (await saved.json()) as { uploadId: string; url?: string };
+    assert.equal(body.url, undefined);
+    assert.equal(JSON.stringify(body).includes("blob.vercel-storage.com"), false);
+  });
+});
+
+describe("edit, delete, tags, and profile posts", () => {
+  const outsider: Actor = {
+    userId: "user_outsider",
+    email: "out@example.com",
+    name: "Outsider",
+    isPro: false,
+  };
+  const forbidden = (err: unknown) => (err as { code?: string }).code === "forbidden";
+  const invalid = (err: unknown) => (err as { code?: string }).code === "invalid";
+
+  it("lets only the author edit, sends the post back for review, and shows edited", async () => {
+    const service = createCommunityService(createMemoryCommunityStore());
+    const post = await service.createPost(
+      maya,
+      { body: "First words", privacyAck: true, authorRole: "Parent" },
+      now,
+    );
+    await assert.rejects(() => service.editPost(sam, post.id, { body: "Changed" }, now), forbidden);
+    const edited = await service.editPost(maya, post.id, { body: "Clearer words" }, now);
+    assert.equal(edited.post.body, "Clearer words");
+    assert.equal(edited.post.status, "pending");
+    assert.equal(typeof edited.post.editedAt, "string");
+    assert.equal(
+      (await service.feed(sam)).some((item) => item.id === post.id),
+      false,
+    );
+    assert.equal(
+      (await service.queue(sam)).posts.some((item) => item.id === post.id),
+      true,
+    );
+    await assert.rejects(() => service.deletePost(sam, post.id), forbidden);
+    await service.deletePost(maya, post.id);
+    assert.equal(
+      (await service.queue(sam)).posts.some((item) => item.id === post.id),
+      false,
+    );
+  });
+
+  it("keeps group review for an edited group post and hides it from non-members", async () => {
+    const service = createCommunityService(createMemoryCommunityStore());
+    const groupId = await service.createGroup(
+      maya,
+      { name: "Quiet room", description: "Private.", rules: "No names.", visibility: "private" },
+      now,
+    );
+    await service.joinGroup(sam, groupId, now, "I am listening.");
+    await service.memberAction(maya, groupId, { userId: sam.userId, action: "approve" });
+    const post = await service.createPost(
+      maya,
+      { body: "A private note", privacyAck: true, groupId, authorRole: "Parent" },
+      now,
+    );
+    await service.review(sam, post.id, { action: "approve" }, now);
+    await assert.rejects(
+      () => service.editPost(sam, post.id, { body: "Staff rewrite" }, now),
+      forbidden,
+    );
+    const edited = await service.editPost(
+      maya,
+      post.id,
+      { body: "A private note, revised", tagUserIds: [sam.userId] },
+      now,
+    );
+    assert.equal(edited.post.status, "pending");
+    assert.equal(
+      edited.post.tags.some((tag) => tag.userId === sam.userId),
+      true,
+    );
+    assert.equal(
+      (await service.groupQueue(maya, groupId)).posts.some((item) => item.id === post.id),
+      true,
+    );
+    assert.equal(
+      (await service.profilePosts(outsider, maya.userId)).some((item) => item.id === post.id),
+      false,
+    );
+    assert.equal(
+      (await service.profilePosts(maya, maya.userId)).some((item) => item.id === post.id),
+      true,
+    );
+    await service.session(outsider);
+    await assert.rejects(
+      () => service.editPost(maya, post.id, { body: "Nope", tagUserIds: [outsider.userId] }, now),
+      forbidden,
+    );
+    await service.review(sam, post.id, { action: "approve" }, now);
+    assert.equal(
+      (await service.profilePosts(sam, maya.userId)).some((item) => item.id === post.id),
+      true,
+    );
+    assert.equal(
+      (await service.profilePosts(outsider, maya.userId)).some((item) => item.id === post.id),
+      false,
+    );
+    assert.equal(
+      (await service.profileTagged(sam, sam.userId)).some((item) => item.id === post.id),
+      true,
+    );
+    assert.equal(
+      (await service.profileTagged(outsider, sam.userId)).some((item) => item.id === post.id),
+      false,
+    );
+    await service.removeOwnTag(sam, post.id);
+    assert.equal((await service.profileTagged(sam, sam.userId)).length, 0);
+    const still = (await service.profilePosts(sam, maya.userId)).find(
+      (item) => item.id === post.id,
+    );
+    assert.equal(still?.status, "approved");
+  });
+
+  it("shares only with people who can see the post, and only after approval", async () => {
+    const service = createCommunityService(createMemoryCommunityStore());
+    await service.session(sam);
+    const post = await service.createPost(
+      maya,
+      {
+        body: "For Sam",
+        privacyAck: true,
+        authorRole: "Parent",
+        shareUserIds: [sam.userId],
+      },
+      now,
+    );
+    assert.equal((await service.sharedWith(sam)).length, 0);
+    await service.review(sam, post.id, { action: "approve" }, now);
+    assert.equal(
+      (await service.sharedWith(sam)).some((item) => item.id === post.id),
+      true,
+    );
+    assert.equal((await service.sharedWith(outsider)).length, 0);
+    await assert.rejects(
+      () =>
+        service.createPost(
+          maya,
+          { body: "Child", privacyAck: true, tagUserIds: ["child_noa"] },
+          now,
+        ),
+      invalid,
+    );
+  });
+
+  it("shows the author their pending post and hides it from everyone else", async () => {
+    const service = createCommunityService(createMemoryCommunityStore());
+    const post = await service.createPost(
+      maya,
+      { body: "Waiting", privacyAck: true, authorRole: "Parent" },
+      now,
+    );
+    const mine = await service.profilePosts(maya, maya.userId);
+    assert.equal(mine[0]?.status, "pending");
+    assert.equal((await service.profilePosts(sam, maya.userId)).length, 0);
+    assert.equal((await service.profileTagged(sam, sam.userId)).length, 0);
+    void post;
   });
 });

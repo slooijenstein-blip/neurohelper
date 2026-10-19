@@ -13,9 +13,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n/I18nProvider";
 import { prepareCommunityFile } from "@/lib/community-social/prepare-media";
-import type { ClientPost, GroupVisibility } from "@/lib/community-social/types";
+import type { ClientPerson, ClientPost, GroupVisibility } from "@/lib/community-social/types";
+import { AuthedMedia } from "./AuthedMedia";
 import { LivePostCard } from "./LivePostCard";
+import { TranslatableText } from "./TranslatableText";
 import { MediaShareButtons } from "./MediaShareButtons";
+import { PersonPicker } from "./PersonPicker";
 import { communityErrorText, useCommunitySocial } from "./social-context";
 
 function roleLabel(t: (key: string) => string, role: string) {
@@ -34,9 +37,11 @@ function visibilityLabel(t: (key: string) => string, visibility: string) {
 export function GroupsPane({
   onReport,
   onReportComment,
+  onOpenProfile,
 }: {
   onReport: (postId: string) => void;
   onReportComment: (postId: string, commentId: string) => void;
+  onOpenProfile?: (userId: string) => void;
 }) {
   const { t } = useI18n();
   const social = useCommunitySocial();
@@ -51,6 +56,8 @@ export function GroupsPane({
   const [inviteCode, setInviteCode] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [draft, setDraft] = useState("");
+  const [tags, setTags] = useState<ClientPerson[]>([]);
+  const [shares, setShares] = useState<ClientPerson[]>([]);
   const [reason, setReason] = useState("");
   const [groupReasons, setGroupReasons] = useState<Record<string, string>>({});
   const detail = social.group;
@@ -113,7 +120,12 @@ export function GroupsPane({
           {t("community.social.back")}
         </Button>
         {group.coverUrl ? (
-          <img src={group.coverUrl} alt="" className="h-36 w-full rounded-xl object-cover" />
+          <AuthedMedia
+            url={group.coverUrl}
+            kind="image"
+            alt=""
+            className="h-36 w-full rounded-xl object-cover"
+          />
         ) : null}
         <div>
           <h2 className="text-lg font-semibold">{group.name}</h2>
@@ -151,7 +163,19 @@ export function GroupsPane({
             {social.groupQueue.map((post) => (
               <article key={post.id} className="space-y-2" data-testid={`group-review-${post.id}`}>
                 <p className="text-sm font-semibold">{post.authorName}</p>
-                {post.body ? <p className="whitespace-pre-wrap text-sm">{post.body}</p> : null}
+                {post.body ? (
+                  <TranslatableText text={post.body} testId={`group-queue-${post.id}`} />
+                ) : null}
+                {post.media ? (
+                  <AuthedMedia
+                    url={post.media.url}
+                    kind={post.media.kind}
+                    alt={post.body || t("community.social.photoAlt")}
+                    controls={post.media.kind === "video"}
+                    playsInline
+                    className="max-h-48 w-full rounded-lg bg-black object-cover"
+                  />
+                ) : null}
                 <Input
                   value={groupReasons[post.id] ?? ""}
                   onChange={(event) =>
@@ -569,9 +593,16 @@ export function GroupsPane({
                 event.preventDefault();
                 if (!draft.trim() || social.suspended) return;
                 void social
-                  .publishText(draft.trim(), group.id)
+                  .publishText(draft.trim(), group.id, {
+                    ...(tags.length ? { tagUserIds: tags.map((person) => person.userId) } : {}),
+                    ...(shares.length
+                      ? { shareUserIds: shares.map((person) => person.userId) }
+                      : {}),
+                  })
                   .then(() => {
                     setDraft("");
+                    setTags([]);
+                    setShares([]);
                     toast.success(t("community.social.postedPendingGroup"));
                   })
                   .catch((err) => toast.error(communityErrorText(t, err)));
@@ -588,8 +619,21 @@ export function GroupsPane({
                 {t("community.post")}
               </Button>
             </form>
-            <div className="mt-2 flex flex-wrap gap-1">
-              <MediaShareButtons groupId={group.id} />
+            <div className="mt-2 space-y-2">
+              <PersonPicker
+                groupId={group.id}
+                tags={tags}
+                shares={shares}
+                onTags={setTags}
+                onShares={setShares}
+              />
+              <div className="flex flex-wrap gap-1">
+                <MediaShareButtons
+                  groupId={group.id}
+                  tagUserIds={tags.map((person) => person.userId)}
+                  shareUserIds={shares.map((person) => person.userId)}
+                />
+              </div>
             </div>
           </div>
         ) : null}
@@ -599,6 +643,7 @@ export function GroupsPane({
               key={post.id}
               post={post}
               moderator={social.moderator}
+              {...(onOpenProfile ? { onOpenProfile } : {})}
               onLike={(id) => void social.toggleLike(id)}
               onComment={(id, text) => void social.comment(id, text)}
               onReport={onReport}
@@ -664,7 +709,12 @@ export function GroupsPane({
               className="soft-card flex w-full items-center gap-3 p-3 text-left"
             >
               {group.coverUrl ? (
-                <img src={group.coverUrl} alt="" className="size-14 rounded-lg object-cover" />
+                <AuthedMedia
+                  url={group.coverUrl}
+                  kind="image"
+                  alt=""
+                  className="size-14 rounded-lg object-cover"
+                />
               ) : (
                 <span className="grid size-14 place-content-center rounded-lg bg-accent text-xs font-semibold">
                   {group.name.slice(0, 1)}

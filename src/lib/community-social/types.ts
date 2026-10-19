@@ -17,12 +17,15 @@ export type MemberStatus = (typeof MEMBER_STATUSES)[number];
 
 export type SocialMedia = {
   kind: MediaKind;
+  /** App path or local file path. Never a blob host. */
   url: string;
   contentType: string;
   bytes: number;
   width?: number;
   height?: number;
   durationSec?: number;
+  /** Private blob pathname. Server only — never sent to the browser. */
+  blobPath?: string;
 };
 
 export type SocialComment = {
@@ -33,6 +36,24 @@ export type SocialComment = {
   text: string;
   createdAt: string;
   status: "visible" | "removed";
+};
+
+export type SocialPerson = {
+  userId: string;
+  name: string;
+  role: string;
+};
+
+export type SocialTag = {
+  userId: string;
+  name: string;
+};
+
+export type SocialShare = {
+  userId: string;
+  name: string;
+  byUserId: string;
+  createdAt: string;
 };
 
 export type SocialPost = {
@@ -46,12 +67,15 @@ export type SocialPost = {
   statusReason?: string;
   reviewedAt?: string;
   reviewedBy?: string;
+  editedAt?: string;
   groupId: string | null;
   media: SocialMedia | null;
   privacyAck: boolean;
   consent: boolean;
   likeUserIds: string[];
   comments: SocialComment[];
+  tags?: SocialTag[];
+  shares?: SocialShare[];
 };
 
 export type SocialGroup = {
@@ -61,6 +85,8 @@ export type SocialGroup = {
   rules: string;
   visibility: GroupVisibility;
   coverUrl: string | null;
+  /** Private blob pathname for the cover. Server only. */
+  coverBlobPath?: string;
   joinQuestion: string;
   createdBy: string;
   createdAt: string;
@@ -113,6 +139,7 @@ export type CommunityDb = {
   suspensions: SocialSuspension[];
   moderators: string[];
   uploads: SocialUpload[];
+  people?: SocialPerson[];
 };
 
 export type ClientMedia = {
@@ -132,6 +159,11 @@ export type ClientComment = {
   createdAt: string;
 };
 
+export type ClientTag = {
+  userId: string;
+  name: string;
+};
+
 export type ClientPost = {
   id: string;
   authorId: string;
@@ -141,12 +173,20 @@ export type ClientPost = {
   createdAt: string;
   status: PostStatus;
   statusReason?: string;
+  editedAt?: string;
   groupId: string | null;
   groupName?: string;
   media: ClientMedia | null;
   likeCount: number;
   liked: boolean;
   comments: ClientComment[];
+  tags: ClientTag[];
+};
+
+export type ClientPerson = {
+  userId: string;
+  name: string;
+  role: string;
 };
 
 export type ClientGroup = {

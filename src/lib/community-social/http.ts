@@ -1,15 +1,21 @@
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-import { del } from "@vercel/blob";
+import { del, get, issueSignedToken } from "@vercel/blob";
+import { handleUploadPresigned, type HandleUploadPresignedBody } from "@vercel/blob/client";
 
 import type { Actor } from "../share/actions.ts";
 import { shareDeps } from "../share/http.ts";
 import { redisEnv } from "../share/store.ts";
 import { demoCommunityActor } from "./demo-actors.ts";
-import { LIMITS, CommunityError, isCommunityId } from "./limits.ts";
-import { isPublicBlobUrl, localMediaPath, mediaFromUpload } from "./media-url.ts";
+import { CommunityError, isCommunityId } from "./limits.ts";
+import {
+  blobUploadLimits,
+  isOwnedBlobPath,
+  isSafeBlobPath,
+  localMediaPath,
+  mediaFromUpload,
+} from "./media-url.ts";
 import { createRedisCommunityStore } from "./redis-store.ts";
 import { createCommunityService, type CommunityService } from "./service.ts";
 import {
@@ -28,6 +34,7 @@ export type CommunityDeps = {
   authenticate: (req: Request) => Promise<Actor | null>;
   localMediaDir: string;
   blobToken: string | null;
+  blobStoreId: string | null;
 };
 
 function readEnv(env: NodeJS.ProcessEnv, name: string): string | undefined {
@@ -52,11 +59,12 @@ export function createCommunityDeps(env: NodeJS.ProcessEnv = process.env): Commu
     storeName = "file";
   }
   const blobToken = readEnv(env, "BLOB_READ_WRITE_TOKEN") || null;
-  const media: CommunityDeps["media"] = blobToken
-    ? "blob"
-    : !readEnv(env, "VERCEL") && store
-      ? "local"
-      : "none";
+  const blobStoreId = readEnv(env, "BLOB_STORE_ID") || null;
+  const oidc = Boolean(
+    blobStoreId && (readEnv(env, "VERCEL") || readEnv(env, "VERCEL_OIDC_TOKEN")),
+  );
+  const media: CommunityDeps["media"] =
+    oidc || blobToken ? "blob" : !readEnv(env, "VERCEL") && store ? "local" : "none";
   const share = shareDeps(env);
   return {
     configured: Boolean(store),
@@ -68,6 +76,7 @@ export function createCommunityDeps(env: NodeJS.ProcessEnv = process.env): Commu
     localMediaDir:
       readEnv(env, "COMMUNITY_MEDIA_DIR") || path.join(process.cwd(), ".data", "community-media"),
     blobToken,
+    blobStoreId,
   };
 }
 
@@ -78,7 +87,9 @@ export function communityDeps(env: NodeJS.ProcessEnv = process.env): CommunityDe
     readEnv(env, "UPSTASH_REDIS_REST_URL") || readEnv(env, "KV_REST_API_URL") || "",
     readEnv(env, "SHARE_STORE") || "",
     readEnv(env, "VERCEL") ? "vercel" : "local",
+    readEnv(env, "BLOB_STORE_ID") || "",
     readEnv(env, "BLOB_READ_WRITE_TOKEN") ? "blob" : "noblob",
+    readEnv(env, "VERCEL_OIDC_TOKEN") ? "oidc" : "nooidc",
     readEnv(env, "CLERK_SECRET_KEY") ? "clerk" : "noclerk",
   ].join("|");
   if (runtime?.key === key) return runtime.deps;
@@ -117,6 +128,14 @@ type Route =
   | { name: "feed" }
   | { name: "shorts" }
   | { name: "create-post" }
+  | { name: "edit-post"; id: string }
+  | { name: "delete-post"; id: string }
+  | { name: "untag"; id: string }
+  | { name: "people-search" }
+  | { name: "person"; id: string }
+  | { name: "person-posts"; id: string }
+  | { name: "person-tagged"; id: string }
+  | { name: "inbox" }
   | { name: "like"; id: string }
   | { name: "comment"; id: string }
   | { name: "remove-comment"; id: string; commentId: string }
@@ -147,6 +166,20 @@ function match(pathname: string): Route | null {
   if (rest.length === 1 && rest[0] === "feed") return { name: "feed" };
   if (rest.length === 1 && rest[0] === "shorts") return { name: "shorts" };
   if (rest.length === 1 && rest[0] === "posts") return { name: "create-post" };
+  if (rest.length === 3 && rest[0] === "posts" && rest[2] === "edit")
+    return { name: "edit-post", id: rest[1]! };
+  if (rest.length === 3 && rest[0] === "posts" && rest[2] === "delete")
+    return { name: "delete-post", id: rest[1]! };
+  if (rest.length === 3 && rest[0] === "posts" && rest[2] === "untag")
+    return { name: "untag", id: rest[1]! };
+  if (rest.length === 2 && rest[0] === "people" && rest[1] === "search")
+    return { name: "people-search" };
+  if (rest.length === 3 && rest[0] === "people" && rest[2] === "posts")
+    return { name: "person-posts", id: rest[1]! };
+  if (rest.length === 3 && rest[0] === "people" && rest[2] === "tagged")
+    return { name: "person-tagged", id: rest[1]! };
+  if (rest.length === 2 && rest[0] === "people") return { name: "person", id: rest[1]! };
+  if (rest.length === 1 && rest[0] === "inbox") return { name: "inbox" };
   if (rest.length === 3 && rest[0] === "posts" && rest[2] === "like")
     return { name: "like", id: rest[1]! };
   if (rest.length === 3 && rest[0] === "posts" && rest[2] === "comments") {
@@ -217,6 +250,7 @@ function uploadFields(input: {
   width: number | undefined;
   height: number | undefined;
   durationSec: number | undefined;
+  blobPath?: string;
 }) {
   return mediaFromUpload({
     url: input.url,
@@ -226,27 +260,35 @@ function uploadFields(input: {
     ...(input.width !== undefined ? { width: input.width } : {}),
     ...(input.height !== undefined ? { height: input.height } : {}),
     ...(input.durationSec !== undefined ? { durationSec: input.durationSec } : {}),
+    ...(input.blobPath ? { blobPath: input.blobPath } : {}),
   });
 }
 
-async function forgetMedia(deps: CommunityDeps, url: string | null) {
-  if (!url) return;
-  if (url.startsWith("/api/community/media/")) {
-    const id = url.split("/").pop() || "";
-    if (!isCommunityId(id, "cupl")) return;
+function blobCommand(deps: CommunityDeps): { token?: string; storeId?: string } {
+  if (deps.blobStoreId) return { storeId: deps.blobStoreId };
+  if (deps.blobToken) return { token: deps.blobToken };
+  return {};
+}
+
+async function forgetMedia(
+  deps: CommunityDeps,
+  target: { url: string | null; blobPath: string | null } | null,
+) {
+  if (!target) return;
+  if (target.blobPath && isSafeBlobPath(target.blobPath)) {
     try {
-      unlinkSync(path.join(deps.localMediaDir, id));
-      unlinkSync(path.join(deps.localMediaDir, `${id}.json`));
-    } catch {
-      /* already gone */
+      await del(target.blobPath, blobCommand(deps));
+    } catch (err) {
+      console.error("blob delete", err);
     }
-    return;
   }
-  if (!deps.blobToken || !url.includes(".blob.vercel-storage.com")) return;
+  const id = target.url?.split("/").pop() || "";
+  if (!target.url?.startsWith("/api/community/media/") || !isCommunityId(id, "cupl")) return;
   try {
-    await del(url, { token: deps.blobToken });
-  } catch (err) {
-    console.error("blob delete", err);
+    unlinkSync(path.join(deps.localMediaDir, id));
+    unlinkSync(path.join(deps.localMediaDir, `${id}.json`));
+  } catch {
+    /* already gone */
   }
 }
 
@@ -265,24 +307,16 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
   }
 
   if (route.name === "media-get" && req.method === "GET") {
-    if (!isCommunityId(route.id, "cupl"))
-      return json({ error: "Not found.", code: "not_found" }, 404);
     try {
-      const meta = JSON.parse(
-        readFileSync(path.join(deps.localMediaDir, `${route.id}.json`), "utf8"),
-      ) as {
-        contentType?: string;
-      };
-      const bytes = readFileSync(path.join(deps.localMediaDir, route.id));
-      return new Response(bytes, {
-        headers: {
-          "content-type": meta.contentType || "application/octet-stream",
-          "cache-control": "private, max-age=3600",
-          "x-content-type-options": "nosniff",
-        },
-      });
-    } catch {
+      const service = requireService(deps);
+      const actor = await actorOf(deps, req);
+      const opened = await service.openMedia(actor, route.id);
+      if (opened.blobPath)
+        return await streamPrivateBlob(deps, opened.blobPath, opened.contentType);
+      if (opened.localId) return readLocalMedia(deps, opened.localId, opened.contentType);
       return json({ error: "Not found.", code: "not_found" }, 404);
+    } catch (err) {
+      return errorResponse(err);
     }
   }
 
@@ -291,7 +325,7 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
     const now = new Date().toISOString();
 
     if (route.name === "blob" && req.method === "POST") {
-      if (deps.media !== "blob" || !deps.blobToken) {
+      if (deps.media !== "blob") {
         throw new CommunityError(
           503,
           "media_not_configured",
@@ -300,34 +334,47 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
       }
       const actor = await actorOf(deps, req);
       if (!actor) return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
-      const body = (await req.json()) as HandleUploadBody;
-      const result = await handleUpload({
-        body,
-        request: req,
-        token: deps.blobToken,
-        onBeforeGenerateToken: async (pathname) => {
-          const expected = `community/${actor.userId}/`;
-          if (!pathname.startsWith(expected)) {
-            throw new CommunityError(400, "invalid", "That file path is not allowed.");
-          }
-          return {
-            allowedContentTypes: [
-              "image/jpeg",
-              "image/png",
-              "image/webp",
-              "video/mp4",
-              "video/quicktime",
-            ],
-            maximumSizeInBytes: LIMITS.maxVideoBytes,
-            addRandomSuffix: true,
-            tokenPayload: actor.userId,
-          };
-        },
-        onUploadCompleted: async () => {
-          /* The post is saved when the app calls /uploads with the blob URL. */
-        },
-      });
-      return json(result);
+      const body = (await req.json()) as HandleUploadPresignedBody;
+      try {
+        const result = await handleUploadPresigned({
+          body,
+          request: req,
+          getSignedToken: async (pathname) => {
+            const limits = blobUploadLimits(pathname);
+            if (!isOwnedBlobPath(pathname, actor.userId) || !limits) {
+              throw new CommunityError(400, "invalid", "That file path is not allowed.");
+            }
+            const validUntil = Date.now() + 10 * 60 * 1000;
+            const token = await issueSignedToken({
+              pathname,
+              operations: ["put"],
+              allowedContentTypes: limits.allowedContentTypes,
+              maximumSizeInBytes: limits.maximumSizeInBytes,
+              validUntil,
+              ...blobCommand(deps),
+            });
+            return {
+              token,
+              urlOptions: {
+                allowedContentTypes: limits.allowedContentTypes,
+                maximumSizeInBytes: limits.maximumSizeInBytes,
+                addRandomSuffix: false,
+                allowOverwrite: false,
+                validUntil,
+              },
+            };
+          },
+        });
+        return json(result);
+      } catch (err) {
+        if (err instanceof CommunityError) throw err;
+        console.error("blob upload", err);
+        throw new CommunityError(
+          503,
+          "media_not_configured",
+          "Photo and video storage is not connected yet.",
+        );
+      }
     }
 
     if (route.name === "media-post" && req.method === "POST") {
@@ -384,6 +431,27 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
     if (route.name === "group-queue" && req.method === "GET")
       return json(await service.groupQueue(actor, route.id));
     if (route.name === "queue" && req.method === "GET") return json(await service.queue(actor));
+    if (route.name === "people-search" && req.method === "GET") {
+      if (!actor) return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
+      const url = new URL(req.url);
+      const groupParam = url.searchParams.get("groupId");
+      const people = await service.findPeople(
+        actor,
+        url.searchParams.get("q") ?? "",
+        groupParam ? groupParam : null,
+      );
+      return json({ people });
+    }
+    if (route.name === "person" && req.method === "GET")
+      return json({ person: await service.person(actor, route.id) });
+    if (route.name === "person-posts" && req.method === "GET")
+      return json({ posts: await service.profilePosts(actor, route.id) });
+    if (route.name === "person-tagged" && req.method === "GET")
+      return json({ posts: await service.profileTagged(actor, route.id) });
+    if (route.name === "inbox" && req.method === "GET") {
+      if (!actor) return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
+      return json({ posts: await service.sharedWith(actor) });
+    }
 
     if (req.method !== "POST") return json({ error: "Not found.", code: "not_found" }, 404);
     const body = route.name === "media-post" ? {} : await readJson(req);
@@ -391,6 +459,20 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
     if (route.name === "create-post") {
       const post = await service.createPost(actor, body, now);
       return json({ post }, 201);
+    }
+    if (route.name === "edit-post") {
+      const result = await service.editPost(actor, route.id, body, now);
+      if (result.removed) await forgetMedia(deps, result.removed);
+      return json({ post: result.post });
+    }
+    if (route.name === "delete-post") {
+      const result = await service.deletePost(actor, route.id);
+      if (result.removed) await forgetMedia(deps, result.removed);
+      return json({ ok: true });
+    }
+    if (route.name === "untag") {
+      await service.removeOwnTag(actor, route.id);
+      return json({ ok: true });
     }
     if (route.name === "like") {
       await service.toggleLike(actor, route.id);
@@ -410,7 +492,7 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
     }
     if (route.name === "review") {
       const result = await service.review(actor, route.id, body, now);
-      await forgetMedia(deps, result.removedUrl);
+      if (result.removed) await forgetMedia(deps, result.removed);
       return json({ ok: true });
     }
     if (route.name === "suspend") {
@@ -426,7 +508,8 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
       return json({ id }, 201);
     }
     if (route.name === "group") {
-      await service.updateGroup(actor, route.id, body);
+      const replaced = await service.updateGroup(actor, route.id, body);
+      if (replaced) await forgetMedia(deps, replaced);
       return json({ ok: true });
     }
     if (route.name === "join") {
@@ -438,7 +521,8 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
       return json({ ok: true });
     }
     if (route.name === "delete-group") {
-      await service.deleteGroup(actor, route.id);
+      const forgotten = await service.deleteGroup(actor, route.id);
+      for (const item of forgotten) await forgetMedia(deps, item);
       return json({ ok: true });
     }
     if (route.name === "transfer") {
@@ -459,8 +543,8 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
         );
       }
       if (!actor) return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
-      const url = typeof body["url"] === "string" ? body["url"] : "";
-      if (!isPublicBlobUrl(url, actor.userId)) {
+      const pathname = typeof body["pathname"] === "string" ? body["pathname"] : "";
+      if (!isOwnedBlobPath(pathname, actor.userId) || !blobUploadLimits(pathname)) {
         throw new CommunityError(400, "invalid", "That file is not in community storage.");
       }
       const kindValue = body["kind"];
@@ -468,17 +552,25 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
         kindValue === "video" || kindValue === "image" ? kindValue : null;
       if (!kind) throw new CommunityError(400, "invalid", "Choose a photo or video.");
       const contentType = body["contentType"];
-      const media = uploadFields({
-        url,
-        kind,
-        contentType: typeof contentType === "string" ? contentType : "",
-        bytes: numberField(body["bytes"]) ?? 0,
-        width: numberField(body["width"]),
-        height: numberField(body["height"]),
-        durationSec: numberField(body["durationSec"]),
-      });
+      let media;
+      try {
+        media = uploadFields({
+          url: "pending",
+          kind,
+          contentType: typeof contentType === "string" ? contentType : "",
+          bytes: numberField(body["bytes"]) ?? 0,
+          width: numberField(body["width"]),
+          height: numberField(body["height"]),
+          durationSec: numberField(body["durationSec"]),
+          blobPath: pathname,
+        });
+      } catch (err) {
+        await forgetMedia(deps, { url: null, blobPath: pathname });
+        throw err;
+      }
       const uploadId = await service.saveUpload(actor, media, now);
-      return json({ uploadId, url });
+      await serviceReplaceUploadUrl(deps, uploadId, localMediaPath(uploadId));
+      return json({ uploadId });
     }
     return json({ error: "Not found.", code: "not_found" }, 404);
   } catch (err) {
@@ -486,6 +578,63 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
       return json({ error: "Request body must be JSON.", code: "invalid_json" }, 400);
     }
     return errorResponse(err);
+  }
+}
+
+function readLocalMedia(deps: CommunityDeps, id: string, fallbackType: string): Response {
+  try {
+    const meta = JSON.parse(readFileSync(path.join(deps.localMediaDir, `${id}.json`), "utf8")) as {
+      contentType?: string;
+    };
+    const bytes = readFileSync(path.join(deps.localMediaDir, id));
+    return new Response(bytes, {
+      headers: {
+        "content-type": meta.contentType || fallbackType || "application/octet-stream",
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+      },
+    });
+  } catch {
+    return json({ error: "Not found.", code: "not_found" }, 404);
+  }
+}
+
+async function streamPrivateBlob(
+  deps: CommunityDeps,
+  blobPath: string,
+  fallbackType: string,
+): Promise<Response> {
+  if (deps.media !== "blob") {
+    throw new CommunityError(
+      503,
+      "media_not_configured",
+      "Photo and video storage is not connected yet.",
+    );
+  }
+  try {
+    const result = await get(blobPath, {
+      access: "private",
+      useCache: false,
+      ...blobCommand(deps),
+    });
+    if (!result || result.statusCode !== 200 || !result.stream) {
+      return json({ error: "Not found.", code: "not_found" }, 404);
+    }
+    return new Response(result.stream, {
+      headers: {
+        "content-type": result.blob.contentType || fallbackType || "application/octet-stream",
+        "content-length": String(result.blob.size),
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+      },
+    });
+  } catch (err) {
+    console.error("blob read", err);
+    throw new CommunityError(
+      503,
+      "media_not_configured",
+      "Photo and video storage is not connected yet.",
+    );
   }
 }
 

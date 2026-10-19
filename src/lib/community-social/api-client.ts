@@ -4,6 +4,7 @@ export type CommunityAuth = ShareAuth & { demoPersona?: string | null };
 import type {
   ClientGroup,
   ClientMember,
+  ClientPerson,
   ClientPost,
   ClientReport,
   GroupVisibility,
@@ -130,10 +131,86 @@ export async function createCommunityPost(
     uploadId?: string;
     groupId?: string | null;
     authorRole?: string;
+    tagUserIds?: string[];
+    shareUserIds?: string[];
   },
 ): Promise<ClientPost> {
   const result = (await postJson(auth, "/api/community/posts", body)) as { post: ClientPost };
   return result.post;
+}
+
+export async function editCommunityPost(
+  auth: ShareAuth,
+  id: string,
+  body: {
+    body: string;
+    uploadId?: string;
+    removeMedia?: boolean;
+    consent?: boolean;
+    tagUserIds: string[];
+    shareUserIds?: string[];
+  },
+): Promise<ClientPost> {
+  const result = (await postJson(
+    auth,
+    `/api/community/posts/${encodeURIComponent(id)}/edit`,
+    body,
+  )) as {
+    post: ClientPost;
+  };
+  return result.post;
+}
+
+export async function deleteCommunityPost(auth: ShareAuth, id: string): Promise<void> {
+  await postJson(auth, `/api/community/posts/${encodeURIComponent(id)}/delete`, {});
+}
+
+export async function untagCommunityPost(auth: ShareAuth, id: string): Promise<void> {
+  await postJson(auth, `/api/community/posts/${encodeURIComponent(id)}/untag`, {});
+}
+
+export async function searchCommunityPeople(
+  auth: ShareAuth,
+  query: string,
+  groupId?: string | null,
+): Promise<ClientPerson[]> {
+  const params = new URLSearchParams({ q: query });
+  if (groupId) params.set("groupId", groupId);
+  const response = await fetch(`/api/community/people/search?${params.toString()}`, {
+    headers: authHeaders(auth),
+  });
+  const body = await parse<{ people: ClientPerson[] }>(response);
+  return body.people;
+}
+
+export async function fetchCommunityPerson(auth: ShareAuth, id: string): Promise<ClientPerson> {
+  const response = await fetch(`/api/community/people/${encodeURIComponent(id)}`, {
+    headers: authHeaders(auth),
+  });
+  const body = await parse<{ person: ClientPerson }>(response);
+  return body.person;
+}
+
+export async function fetchProfilePosts(auth: ShareAuth, id: string): Promise<ClientPost[]> {
+  const response = await fetch(`/api/community/people/${encodeURIComponent(id)}/posts`, {
+    headers: authHeaders(auth),
+  });
+  const body = await parse<{ posts: ClientPost[] }>(response);
+  return body.posts;
+}
+
+export async function fetchTaggedPosts(auth: ShareAuth, id: string): Promise<ClientPost[]> {
+  const response = await fetch(`/api/community/people/${encodeURIComponent(id)}/tagged`, {
+    headers: authHeaders(auth),
+  });
+  const body = await parse<{ posts: ClientPost[] }>(response);
+  return body.posts;
+}
+
+export async function fetchSharedPosts(auth: ShareAuth): Promise<ClientPost[]> {
+  const response = await fetch("/api/community/inbox", { headers: authHeaders(auth) });
+  const body = await parse<{ posts: ClientPost[] }>(response);
+  return body.posts;
 }
 
 export async function likeCommunityPost(auth: ShareAuth, id: string): Promise<void> {
@@ -265,6 +342,21 @@ export async function communityMemberAction(
   await postJson(auth, `/api/community/groups/${encodeURIComponent(groupId)}/members`, body);
 }
 
+function extensionFor(prepared: PreparedMedia): string {
+  const type = prepared.file.type;
+  if (type === "image/png") return "png";
+  if (type === "image/webp") return "webp";
+  if (type === "video/mp4") return "mp4";
+  if (type === "video/quicktime") return "mov";
+  return prepared.kind === "video" ? "mp4" : "jpg";
+}
+
+export async function fetchCommunityMedia(auth: CommunityAuth, url: string): Promise<Blob | null> {
+  const response = await fetch(url, { headers: authHeaders(auth) });
+  if (!response.ok) return null;
+  return response.blob();
+}
+
 export async function uploadPreparedMedia(
   auth: CommunityAuth,
   userId: string,
@@ -286,23 +378,31 @@ export async function uploadPreparedMedia(
     const body = await parse<{ uploadId: string }>(response);
     return body.uploadId;
   }
-  const { upload } = await import("@vercel/blob/client");
+  const { uploadPresigned } = await import("@vercel/blob/client");
   const headers: Record<string, string> = {};
   if (auth.token) headers["authorization"] = `Bearer ${auth.token}`;
   if (auth.devUser && import.meta.env.DEV) headers["x-share-dev-user"] = auth.devUser;
   if (auth.demoPersona) headers["x-synlumae-demo-persona"] = auth.demoPersona;
-  const blob = await upload(
-    `community/${userId}/${prepared.kind === "image" ? "photo.jpg" : "video.mp4"}`,
-    prepared.file,
-    {
-      access: "public",
-      handleUploadUrl: "/api/community/blob",
-      contentType: prepared.file.type,
-      headers,
-    },
-  );
+  let uploaded: { pathname: string };
+  try {
+    uploaded = await uploadPresigned(
+      `community/${userId}/${crypto.randomUUID()}.${extensionFor(prepared)}`,
+      prepared.file,
+      {
+        access: "private",
+        handleUploadUrl: "/api/community/blob",
+        contentType: prepared.file.type,
+        headers,
+      },
+    );
+  } catch {
+    throw new CommunityClientError(
+      "media_not_configured",
+      "Photo and video storage is not connected yet.",
+    );
+  }
   const saved = (await postJson(auth, "/api/community/uploads", {
-    url: blob.url,
+    pathname: uploaded.pathname,
     kind: prepared.kind,
     contentType: prepared.file.type,
     bytes: prepared.file.size,

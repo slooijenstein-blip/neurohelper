@@ -7,7 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { ClientPost } from "@/lib/community-social/types";
+import { AuthedMedia } from "./AuthedMedia";
+import { ShortComposer } from "./ShortComposer";
 import { communityErrorText, useCommunitySocial } from "./social-context";
+import { TranslatableText } from "./TranslatableText";
 
 export function ShortsPane({ onReport }: { onReport: (postId: string) => void }) {
   const { t } = useI18n();
@@ -21,22 +24,46 @@ export function ShortsPane({ onReport }: { onReport: (postId: string) => void })
     const root = scroller.current;
     if (!root) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const videos = [...root.querySelectorAll("video")];
+    const tryPlay = (video: HTMLVideoElement) => {
+      if (reduce || !video.src) return;
+      void video.play().catch(() => undefined);
+    };
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           const video = entry.target as HTMLVideoElement;
-          if (entry.isIntersecting && entry.intersectionRatio >= 0.7 && !reduce) {
-            void video.play().catch(() => undefined);
+          if (entry.isIntersecting && entry.intersectionRatio >= 0.7) {
+            video.dataset["inview"] = "1";
+            tryPlay(video);
           } else {
+            delete video.dataset["inview"];
             video.pause();
           }
         }
       },
       { root, threshold: [0.7] },
     );
-    for (const video of videos) observer.observe(video);
-    return () => observer.disconnect();
+    const watch = () => {
+      for (const node of root.querySelectorAll("video")) {
+        if (node.dataset["watched"] === "1") continue;
+        node.dataset["watched"] = "1";
+        observer.observe(node);
+      }
+    };
+    const onReady = (event: Event) => {
+      const video = event.target;
+      if (!(video instanceof HTMLVideoElement) || video.dataset["inview"] !== "1") return;
+      tryPlay(video);
+    };
+    watch();
+    const changes = new MutationObserver(watch);
+    changes.observe(root, { childList: true, subtree: true });
+    root.addEventListener("loadeddata", onReady, true);
+    return () => {
+      observer.disconnect();
+      changes.disconnect();
+      root.removeEventListener("loadeddata", onReady, true);
+    };
   }, [social.shorts]);
 
   const step = (direction: number) => {
@@ -70,20 +97,22 @@ export function ShortsPane({ onReport }: { onReport: (postId: string) => void })
 
   if (!social.shorts.length) {
     return (
-      <p
-        className="px-4 py-10 text-center text-sm text-muted-foreground"
+      <div
+        className="flex flex-col items-center gap-4 px-4 py-10 text-center"
         data-testid="shorts-empty"
       >
-        {t("community.social.shortsEmpty")}
-      </p>
+        <p className="text-sm text-muted-foreground">{t("community.social.shortsEmpty")}</p>
+        <ShortComposer prominent />
+      </div>
     );
   }
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-black text-white">
-      <div className="flex items-center justify-between px-3 py-2">
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
         <h2 className="text-sm font-semibold">{t("community.social.shortsLabel")}</h2>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          <ShortComposer />
           <Button type="button" size="sm" variant="secondary" onClick={() => step(-1)}>
             {t("community.social.prevShort")}
           </Button>
@@ -106,18 +135,27 @@ export function ShortsPane({ onReport }: { onReport: (postId: string) => void })
               className="relative flex h-full shrink-0 snap-start snap-always items-center justify-center"
               data-testid={`short-${post.id}`}
             >
-              <video
-                src={post.media?.url}
-                muted={!sound}
-                loop
-                playsInline
-                preload="metadata"
-                className="h-full w-full object-contain"
-                onClick={() => setSoundId(sound ? null : post.id)}
-              />
+              {post.media?.url ? (
+                <AuthedMedia
+                  url={post.media.url}
+                  kind="video"
+                  muted={!sound}
+                  loop
+                  playsInline
+                  preload="metadata"
+                  className="h-full w-full object-contain"
+                  onClick={() => setSoundId(sound ? null : post.id)}
+                />
+              ) : null}
               <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-4 pr-20">
                 <p className="text-sm font-semibold">{post.authorName}</p>
-                {post.body ? <p className="mt-1 text-sm">{post.body}</p> : null}
+                {post.body ? (
+                  <TranslatableText
+                    text={post.body}
+                    testId={`short-${post.id}`}
+                    className="pointer-events-auto mt-1 text-sm"
+                  />
+                ) : null}
               </div>
               <div className="absolute bottom-16 right-3 flex flex-col gap-2">
                 <Button
@@ -189,7 +227,8 @@ export function ShortsPane({ onReport }: { onReport: (postId: string) => void })
           <ul className="max-h-40 space-y-2 overflow-y-auto text-sm">
             {commentPost?.comments.map((comment) => (
               <li key={comment.id}>
-                <span className="font-semibold">{comment.authorName}</span> {comment.text}
+                <span className="font-semibold">{comment.authorName}</span>
+                <TranslatableText text={comment.text} testId={`short-comment-${comment.id}`} />
               </li>
             ))}
           </ul>

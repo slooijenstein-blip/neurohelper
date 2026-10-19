@@ -15,7 +15,15 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { prepareCommunityFile, type PreparedMedia } from "@/lib/community-social/prepare-media";
 import { communityErrorText, useCommunitySocial } from "./social-context";
 
-export function MediaShareButtons({ groupId }: { groupId?: string | null }) {
+export function MediaShareButtons({
+  groupId,
+  tagUserIds,
+  shareUserIds,
+}: {
+  groupId?: string | null;
+  tagUserIds?: string[];
+  shareUserIds?: string[];
+}) {
   const { t } = useI18n();
   const social = useCommunitySocial();
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -72,8 +80,12 @@ export function MediaShareButtons({ groupId }: { groupId?: string | null }) {
         prepared,
         caption: caption.trim(),
         ...(groupId ? { groupId } : {}),
+        ...(tagUserIds?.length ? { tagUserIds } : {}),
+        ...(shareUserIds?.length ? { shareUserIds } : {}),
       });
-      toast.success(t("community.social.postedPending"));
+      toast.success(
+        groupId ? t("community.social.postedPendingGroup") : t("community.social.postedPending"),
+      );
       reset();
     } catch (err) {
       toast.error(communityErrorText(t, err));
@@ -105,7 +117,11 @@ export function MediaShareButtons({ groupId }: { groupId?: string | null }) {
         <p className="w-full text-xs text-muted-foreground" data-testid="media-unavailable">
           {t("community.social.mediaOff")}
         </p>
-      ) : null}
+      ) : (
+        <p className="w-full text-xs text-muted-foreground" data-testid="media-photo-video-hint">
+          {t("community.social.mediaHint")}
+        </p>
+      )}
       <Button
         type="button"
         variant="ghost"
@@ -126,7 +142,7 @@ export function MediaShareButtons({ groupId }: { groupId?: string | null }) {
         onClick={() => galleryRef.current?.click()}
       >
         <ImagePlus />
-        {t("community.social.gallery")}
+        {t("community.social.photoOrVideo")}
       </Button>
       <Dialog
         open={open}
