@@ -14,6 +14,7 @@ import { useAppStore, type Comment, type Post } from "@/lib/app-store";
 import { cn } from "@/lib/utils";
 import { ProfileAvatar, RoleTag } from "../ui-bits";
 import { ColorCard } from "./ColorCard";
+import { TranslatableText } from "./TranslatableText";
 
 function PostTime({ iso }: { iso: string }) {
   const { t, locale } = useI18n();
@@ -47,46 +48,52 @@ function PostText({
   onHashtag: (tag: string) => void;
   onOpen: () => void;
 }) {
-  const parts = splitHashtags(body);
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      data-testid={`open-post-body-${postId}`}
-      onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onOpen();
-        }
-      }}
-      className="cursor-pointer whitespace-pre-wrap px-4 py-3 text-left text-sm leading-relaxed"
-    >
-      {parts.map((part, index) =>
-        part.type === "text" ? (
-          <span key={index}>{part.value}</span>
-        ) : (
-          <button
-            key={index}
-            type="button"
-            data-testid={`hashtag-${postId}-${part.value.toLocaleLowerCase()}`}
-            aria-pressed={activeTag === part.value.toLocaleLowerCase()}
-            onClick={(event) => {
-              event.stopPropagation();
-              onHashtag(part.value.toLocaleLowerCase());
-            }}
-            className={cn(
-              "mx-0.5 inline-flex rounded-full px-2 py-0.5 align-baseline text-xs font-semibold",
-              activeTag === part.value.toLocaleLowerCase()
-                ? "bg-primary text-primary-foreground"
-                : "bg-accent text-accent-foreground",
-            )}
-          >
-            #{part.value}
-          </button>
-        ),
+    <TranslatableText
+      text={body}
+      testId={`post-${postId}`}
+      className="px-4 py-3"
+      render={(shown) => (
+        <div
+          role="button"
+          tabIndex={0}
+          data-testid={`open-post-body-${postId}`}
+          onClick={onOpen}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onOpen();
+            }
+          }}
+          className="cursor-pointer whitespace-pre-wrap text-left text-sm leading-relaxed"
+        >
+          {splitHashtags(shown).map((part, index) =>
+            part.type === "text" ? (
+              <span key={index}>{part.value}</span>
+            ) : (
+              <button
+                key={index}
+                type="button"
+                data-testid={`hashtag-${postId}-${part.value.toLocaleLowerCase()}`}
+                aria-pressed={activeTag === part.value.toLocaleLowerCase()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onHashtag(part.value.toLocaleLowerCase());
+                }}
+                className={cn(
+                  "mx-0.5 inline-flex rounded-full px-2 py-0.5 align-baseline text-xs font-semibold",
+                  activeTag === part.value.toLocaleLowerCase()
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-accent text-accent-foreground",
+                )}
+              >
+                #{part.value}
+              </button>
+            ),
+          )}
+        </div>
       )}
-    </div>
+    />
   );
 }
 
@@ -285,9 +292,11 @@ export function FeedPost({
                   >
                     {comment.authorName}
                   </button>
-                  <p className="text-xs leading-relaxed text-foreground">
-                    {commentText(comment, t)}
-                  </p>
+                  <TranslatableText
+                    text={commentText(comment, t)}
+                    testId={`comment-${comment.id}`}
+                    className="text-xs leading-relaxed text-foreground"
+                  />
                 </div>
               </div>
             ))

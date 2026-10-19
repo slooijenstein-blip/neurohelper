@@ -28,6 +28,7 @@ import { RoleTag } from "../ui-bits";
 import { AuthedMedia } from "./AuthedMedia";
 import { PersonPicker } from "./PersonPicker";
 import { communityErrorText, useCommunitySocial } from "./social-context";
+import { TranslatableText } from "./TranslatableText";
 
 function asRole(value: string): Role | null {
   return (ROLES as readonly string[]).includes(value) ? (value as Role) : null;
@@ -201,17 +202,24 @@ export function LivePostCard({
         </p>
       ) : null}
       {post.body ? (
-        <p className="whitespace-pre-wrap px-4 py-3 text-sm leading-relaxed">
-          {splitHashtags(post.body).map((part, index) =>
-            part.type === "text" ? (
-              <span key={index}>{part.value}</span>
-            ) : (
-              <span key={index} className="mx-0.5 font-semibold text-primary">
-                #{part.value}
-              </span>
-            ),
+        <TranslatableText
+          text={post.body}
+          testId={`live-${post.id}`}
+          className="px-4 py-3 text-sm leading-relaxed"
+          render={(shown) => (
+            <p className="whitespace-pre-wrap">
+              {splitHashtags(shown).map((part, index) =>
+                part.type === "text" ? (
+                  <span key={index}>{part.value}</span>
+                ) : (
+                  <span key={index} className="mx-0.5 font-semibold text-primary">
+                    #{part.value}
+                  </span>
+                ),
+              )}
+            </p>
           )}
-        </p>
+        />
       ) : null}
       {post.tags.length ? (
         <p className="px-4 pb-2 text-[11px] text-muted-foreground" data-testid={`tags-${post.id}`}>
@@ -297,8 +305,9 @@ export function LivePostCard({
             post.comments.map((comment) => (
               <div key={comment.id} className="text-sm">
                 <p>
-                  <span className="font-semibold">{comment.authorName}</span> {comment.text}
+                  <span className="font-semibold">{comment.authorName}</span>
                 </p>
+                <TranslatableText text={comment.text} testId={`live-comment-${comment.id}`} />
                 <button
                   type="button"
                   className="text-[11px] font-semibold text-muted-foreground underline"

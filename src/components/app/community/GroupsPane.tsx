@@ -16,6 +16,7 @@ import { prepareCommunityFile } from "@/lib/community-social/prepare-media";
 import type { ClientPerson, ClientPost, GroupVisibility } from "@/lib/community-social/types";
 import { AuthedMedia } from "./AuthedMedia";
 import { LivePostCard } from "./LivePostCard";
+import { TranslatableText } from "./TranslatableText";
 import { MediaShareButtons } from "./MediaShareButtons";
 import { PersonPicker } from "./PersonPicker";
 import { communityErrorText, useCommunitySocial } from "./social-context";
@@ -162,7 +163,9 @@ export function GroupsPane({
             {social.groupQueue.map((post) => (
               <article key={post.id} className="space-y-2" data-testid={`group-review-${post.id}`}>
                 <p className="text-sm font-semibold">{post.authorName}</p>
-                {post.body ? <p className="whitespace-pre-wrap text-sm">{post.body}</p> : null}
+                {post.body ? (
+                  <TranslatableText text={post.body} testId={`group-queue-${post.id}`} />
+                ) : null}
                 {post.media ? (
                   <AuthedMedia
                     url={post.media.url}
