@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { ClientPost } from "@/lib/community-social/types";
 import { AuthedMedia } from "./AuthedMedia";
+import { ShortComposer } from "./ShortComposer";
 import { communityErrorText, useCommunitySocial } from "./social-context";
 import { TranslatableText } from "./TranslatableText";
 
@@ -96,20 +97,22 @@ export function ShortsPane({ onReport }: { onReport: (postId: string) => void })
 
   if (!social.shorts.length) {
     return (
-      <p
-        className="px-4 py-10 text-center text-sm text-muted-foreground"
+      <div
+        className="flex flex-col items-center gap-4 px-4 py-10 text-center"
         data-testid="shorts-empty"
       >
-        {t("community.social.shortsEmpty")}
-      </p>
+        <p className="text-sm text-muted-foreground">{t("community.social.shortsEmpty")}</p>
+        <ShortComposer prominent />
+      </div>
     );
   }
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col bg-black text-white">
-      <div className="flex items-center justify-between px-3 py-2">
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
         <h2 className="text-sm font-semibold">{t("community.social.shortsLabel")}</h2>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          <ShortComposer />
           <Button type="button" size="sm" variant="secondary" onClick={() => step(-1)}>
             {t("community.social.prevShort")}
           </Button>

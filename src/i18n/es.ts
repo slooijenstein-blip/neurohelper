@@ -363,6 +363,8 @@ export const es: DeepString<Messages> = {
         "No publiques la cara, el nombre completo, el colegio ni el lugar exacto de un niño o una niña si madre, padre o tutor no está de acuerdo.",
       camera: "Cámara",
       gallery: "Galería",
+      photoOrVideo: "Foto o vídeo",
+      mediaHint: "Añade una foto o un vídeo. Los vídeos pueden durar hasta 60 segundos.",
       preparing: "Preparando…",
       privacyTitle: "Antes de publicar",
       privacyBody:
@@ -391,6 +393,14 @@ export const es: DeepString<Messages> = {
       soundOff: "Silenciar",
       shortsEmpty:
         "Todavía no hay vídeos cortos. Aquí aparecen los vídeos aprobados de hasta 60 segundos.",
+      postShort: "Publicar un corto",
+      shortTitle: "Publicar un corto",
+      shortHint: "Sujeta el teléfono en vertical. Un corto es un vídeo vertical.",
+      shortLimit: "Hasta 60 segundos.",
+      shortPick: "Elegir un vídeo",
+      shortRecord: "Grabar un vídeo",
+      shortVideoOnly: "Un corto tiene que ser un vídeo.",
+      shortPosted: "Guardado. Tu corto aparece aquí cuando esté aprobado.",
       shortsLabel: "Vídeos cortos",
       nextShort: "Vídeo siguiente",
       prevShort: "Vídeo anterior",

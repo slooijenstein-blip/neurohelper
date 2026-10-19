@@ -115,7 +115,11 @@ export function MediaShareButtons({
         <p className="w-full text-xs text-muted-foreground" data-testid="media-unavailable">
           {t("community.social.mediaOff")}
         </p>
-      ) : null}
+      ) : (
+        <p className="w-full text-xs text-muted-foreground" data-testid="media-photo-video-hint">
+          {t("community.social.mediaHint")}
+        </p>
+      )}
       <Button
         type="button"
         variant="ghost"
@@ -136,7 +140,7 @@ export function MediaShareButtons({
         onClick={() => galleryRef.current?.click()}
       >
         <ImagePlus />
-        {t("community.social.gallery")}
+        {t("community.social.photoOrVideo")}
       </Button>
       <Dialog
         open={open}

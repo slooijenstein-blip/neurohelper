@@ -5,6 +5,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { ClientPerson, ClientPost } from "@/lib/community-social/types";
 import { cn } from "@/lib/utils";
+import { AuthedMedia } from "./AuthedMedia";
 import { LivePostCard } from "./LivePostCard";
 import { useCommunitySocial } from "./social-context";
 
@@ -20,7 +21,7 @@ function PostTile({ post, onOpen }: { post: ClientPost; onOpen: () => void }) {
       aria-label={t("community.social.openPost")}
     >
       {post.media?.kind === "image" ? (
-        <img src={post.media.url} alt="" className="size-full object-cover" />
+        <AuthedMedia url={post.media.url} kind="image" alt="" className="size-full object-cover" />
       ) : post.media?.kind === "video" ? (
         <span className="grid size-full place-items-center bg-foreground/80 text-background">
           <Play className="size-6" />
