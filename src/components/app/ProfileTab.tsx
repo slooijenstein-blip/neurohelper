@@ -30,6 +30,8 @@ import {
 } from "@/lib/clerk-profile";
 import { withBasePath } from "@/lib/paths";
 import { ProAccessCard } from "./ProAccessCard";
+import { CommunityBoards } from "./community/CommunityProfile";
+import { useCommunitySocial } from "./community/social-context";
 import { ScreenHeader, ProfileAvatar, RoleTag, SocialBar } from "./ui-bits";
 
 const STORAGE_KEY = "motor-skill-buddy-v1";
@@ -44,6 +46,7 @@ export function ProfileTab() {
   const { state, update } = useAppStore();
   const { t } = useI18n();
   const profile = state.profile;
+  const social = useCommunitySocial();
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -55,6 +58,10 @@ export function ProfileTab() {
         ) : (
           <CaregiverIdentityCard profile={profile} />
         )}
+
+        {social.signedIn && social.userId ? (
+          <CommunityBoards userId={social.userId} includeShared />
+        ) : null}
 
         <div className="soft-card flex items-center gap-3 p-4">
           <div className="grid size-12 place-items-center rounded-full bg-accent text-accent-foreground">

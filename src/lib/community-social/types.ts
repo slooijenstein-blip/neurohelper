@@ -35,6 +35,24 @@ export type SocialComment = {
   status: "visible" | "removed";
 };
 
+export type SocialPerson = {
+  userId: string;
+  name: string;
+  role: string;
+};
+
+export type SocialTag = {
+  userId: string;
+  name: string;
+};
+
+export type SocialShare = {
+  userId: string;
+  name: string;
+  byUserId: string;
+  createdAt: string;
+};
+
 export type SocialPost = {
   id: string;
   authorId: string;
@@ -46,12 +64,15 @@ export type SocialPost = {
   statusReason?: string;
   reviewedAt?: string;
   reviewedBy?: string;
+  editedAt?: string;
   groupId: string | null;
   media: SocialMedia | null;
   privacyAck: boolean;
   consent: boolean;
   likeUserIds: string[];
   comments: SocialComment[];
+  tags?: SocialTag[];
+  shares?: SocialShare[];
 };
 
 export type SocialGroup = {
@@ -113,6 +134,7 @@ export type CommunityDb = {
   suspensions: SocialSuspension[];
   moderators: string[];
   uploads: SocialUpload[];
+  people?: SocialPerson[];
 };
 
 export type ClientMedia = {
@@ -132,6 +154,11 @@ export type ClientComment = {
   createdAt: string;
 };
 
+export type ClientTag = {
+  userId: string;
+  name: string;
+};
+
 export type ClientPost = {
   id: string;
   authorId: string;
@@ -141,12 +168,20 @@ export type ClientPost = {
   createdAt: string;
   status: PostStatus;
   statusReason?: string;
+  editedAt?: string;
   groupId: string | null;
   groupName?: string;
   media: ClientMedia | null;
   likeCount: number;
   liked: boolean;
   comments: ClientComment[];
+  tags: ClientTag[];
+};
+
+export type ClientPerson = {
+  userId: string;
+  name: string;
+  role: string;
 };
 
 export type ClientGroup = {

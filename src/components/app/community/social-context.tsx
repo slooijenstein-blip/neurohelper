@@ -17,12 +17,18 @@ import {
   CommunityClientError,
   createCommunityGroup,
   createCommunityPost,
+  deleteCommunityPost,
   deleteCommunityGroup,
+  editCommunityPost,
   fetchCommunityFeed,
   fetchCommunityGroup,
   fetchCommunityGroups,
   fetchCommunityHealth,
+  fetchCommunityPerson,
   fetchCommunitySession,
+  fetchProfilePosts,
+  fetchSharedPosts,
+  fetchTaggedPosts,
   fetchGroupQueue,
   fetchCommunityShorts,
   fetchModerationQueue,
@@ -32,8 +38,10 @@ import {
   removeCommunityComment,
   reportCommunity,
   reviewCommunityPost,
+  searchCommunityPeople,
   suspendCommunityUser,
   transferCommunityGroup,
+  untagCommunityPost,
   updateCommunityGroup,
   uploadPreparedMedia,
   type CommunitySession,
@@ -42,6 +50,7 @@ import type { PreparedMedia } from "@/lib/community-social/prepare-media";
 import type {
   ClientGroup,
   ClientMember,
+  ClientPerson,
   ClientPost,
   ClientReport,
   GroupVisibility,
@@ -75,12 +84,38 @@ export type CommunitySocialValue = {
   moderators: string[];
   refresh: () => Promise<void>;
   openGroup: (id: string | null) => Promise<void>;
-  publishText: (body: string, groupId?: string | null) => Promise<void>;
+  publishText: (
+    body: string,
+    groupId?: string | null,
+    audience?: { tagUserIds?: string[]; shareUserIds?: string[] },
+  ) => Promise<void>;
   publishMedia: (input: {
     prepared: PreparedMedia;
     caption: string;
     groupId?: string | null;
+    tagUserIds?: string[];
+    shareUserIds?: string[];
   }) => Promise<void>;
+  editPost: (
+    id: string,
+    body: {
+      body: string;
+      uploadId?: string;
+      removeMedia?: boolean;
+      consent?: boolean;
+      tagUserIds: string[];
+      shareUserIds?: string[];
+    },
+  ) => Promise<void>;
+  deletePost: (id: string) => Promise<void>;
+  untag: (id: string) => Promise<void>;
+  searchPeople: (query: string, groupId?: string | null) => Promise<ClientPerson[]>;
+  profileOf: (userId: string) => Promise<{
+    person: ClientPerson | null;
+    posts: ClientPost[];
+    tagged: ClientPost[];
+  }>;
+  sharedPosts: () => Promise<ClientPost[]>;
   uploadImage: (prepared: PreparedMedia) => Promise<string>;
   toggleLike: (id: string) => Promise<void>;
   comment: (id: string, text: string) => Promise<void>;
@@ -250,13 +285,19 @@ function SocialProvider({
   );
 
   const publishText = useCallback(
-    async (body: string, groupIdForPost?: string | null) => {
+    async (
+      body: string,
+      groupIdForPost?: string | null,
+      audience?: { tagUserIds?: string[]; shareUserIds?: string[] },
+    ) => {
       const auth = await authFor();
       await createCommunityPost(auth, {
         body,
         privacyAck: true,
         authorRole: role,
         ...(groupIdForPost ? { groupId: groupIdForPost } : {}),
+        ...(audience?.tagUserIds ? { tagUserIds: audience.tagUserIds } : {}),
+        ...(audience?.shareUserIds ? { shareUserIds: audience.shareUserIds } : {}),
       });
       await refresh();
     },
@@ -264,7 +305,13 @@ function SocialProvider({
   );
 
   const publishMedia = useCallback(
-    async (input: { prepared: PreparedMedia; caption: string; groupId?: string | null }) => {
+    async (input: {
+      prepared: PreparedMedia;
+      caption: string;
+      groupId?: string | null;
+      tagUserIds?: string[];
+      shareUserIds?: string[];
+    }) => {
       if (!session?.userId || media === "none") {
         throw new CommunityClientError(
           "media_not_configured",
@@ -280,11 +327,68 @@ function SocialProvider({
         uploadId,
         authorRole: role,
         ...(input.groupId ? { groupId: input.groupId } : {}),
+        ...(input.tagUserIds ? { tagUserIds: input.tagUserIds } : {}),
+        ...(input.shareUserIds ? { shareUserIds: input.shareUserIds } : {}),
       });
       await refresh();
     },
     [authFor, media, refresh, role, session?.userId],
   );
+
+  const editPost = useCallback(
+    async (
+      id: string,
+      body: {
+        body: string;
+        uploadId?: string;
+        removeMedia?: boolean;
+        consent?: boolean;
+        tagUserIds: string[];
+        shareUserIds?: string[];
+      },
+    ) => {
+      await editCommunityPost(await authFor(), id, body);
+      await refresh();
+    },
+    [authFor, refresh],
+  );
+
+  const deletePost = useCallback(
+    async (id: string) => {
+      await deleteCommunityPost(await authFor(), id);
+      await refresh();
+    },
+    [authFor, refresh],
+  );
+
+  const untag = useCallback(
+    async (id: string) => {
+      await untagCommunityPost(await authFor(), id);
+      await refresh();
+    },
+    [authFor, refresh],
+  );
+
+  const searchPeople = useCallback(
+    async (query: string, groupIdForSearch?: string | null) =>
+      searchCommunityPeople(await authFor(), query, groupIdForSearch),
+    [authFor],
+  );
+
+  const profileOf = useCallback(
+    async (userId: string) => {
+      const auth = await authFor();
+      const [person, postsForPerson, tagged] = await Promise.all([
+        fetchCommunityPerson(auth, userId).catch(() => null),
+        fetchProfilePosts(auth, userId),
+        fetchTaggedPosts(auth, userId),
+      ]);
+      return { person, posts: postsForPerson, tagged };
+    },
+    [authFor],
+  );
+
+  const sharedPosts = useCallback(async () => fetchSharedPosts(await authFor()), [authFor]);
 
   const uploadImage = useCallback(
     async (prepared: PreparedMedia) => {
@@ -323,6 +427,12 @@ function SocialProvider({
       openGroup,
       publishText,
       publishMedia,
+      editPost,
+      deletePost,
+      untag,
+      searchPeople,
+      profileOf,
+      sharedPosts,
       uploadImage,
       toggleLike: async (id) => {
         await likeCommunityPost(await authFor(), id);
@@ -398,8 +508,14 @@ function SocialProvider({
       moderators,
       openGroup,
       posts,
+      deletePost,
+      editPost,
+      profileOf,
       publishMedia,
       publishText,
+      searchPeople,
+      sharedPosts,
+      untag,
       groupQueue,
       groupReports,
       queue,

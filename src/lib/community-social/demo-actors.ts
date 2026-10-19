@@ -1,6 +1,6 @@
 import type { Actor } from "../share/actions.ts";
 
-const DEMOS: Record<string, Actor> = {
+export const DEMO_ACTORS: Record<string, Actor> = {
   therapist: {
     userId: "demo_therapist",
     email: "demo.therapist@preview.synlumae.invalid",
@@ -26,5 +26,5 @@ export function demoCommunityActor(req: Request, env: NodeJS.ProcessEnv): Actor 
   if (env.VERCEL_ENV === "production") return null;
   const persona = req.headers.get("x-synlumae-demo-persona");
   if (!persona) return null;
-  return DEMOS[persona] ?? null;
+  return DEMO_ACTORS[persona] ?? null;
 }

@@ -117,6 +117,14 @@ type Route =
   | { name: "feed" }
   | { name: "shorts" }
   | { name: "create-post" }
+  | { name: "edit-post"; id: string }
+  | { name: "delete-post"; id: string }
+  | { name: "untag"; id: string }
+  | { name: "people-search" }
+  | { name: "person"; id: string }
+  | { name: "person-posts"; id: string }
+  | { name: "person-tagged"; id: string }
+  | { name: "inbox" }
   | { name: "like"; id: string }
   | { name: "comment"; id: string }
   | { name: "remove-comment"; id: string; commentId: string }
@@ -147,6 +155,20 @@ function match(pathname: string): Route | null {
   if (rest.length === 1 && rest[0] === "feed") return { name: "feed" };
   if (rest.length === 1 && rest[0] === "shorts") return { name: "shorts" };
   if (rest.length === 1 && rest[0] === "posts") return { name: "create-post" };
+  if (rest.length === 3 && rest[0] === "posts" && rest[2] === "edit")
+    return { name: "edit-post", id: rest[1]! };
+  if (rest.length === 3 && rest[0] === "posts" && rest[2] === "delete")
+    return { name: "delete-post", id: rest[1]! };
+  if (rest.length === 3 && rest[0] === "posts" && rest[2] === "untag")
+    return { name: "untag", id: rest[1]! };
+  if (rest.length === 2 && rest[0] === "people" && rest[1] === "search")
+    return { name: "people-search" };
+  if (rest.length === 3 && rest[0] === "people" && rest[2] === "posts")
+    return { name: "person-posts", id: rest[1]! };
+  if (rest.length === 3 && rest[0] === "people" && rest[2] === "tagged")
+    return { name: "person-tagged", id: rest[1]! };
+  if (rest.length === 2 && rest[0] === "people") return { name: "person", id: rest[1]! };
+  if (rest.length === 1 && rest[0] === "inbox") return { name: "inbox" };
   if (rest.length === 3 && rest[0] === "posts" && rest[2] === "like")
     return { name: "like", id: rest[1]! };
   if (rest.length === 3 && rest[0] === "posts" && rest[2] === "comments") {
@@ -384,6 +406,27 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
     if (route.name === "group-queue" && req.method === "GET")
       return json(await service.groupQueue(actor, route.id));
     if (route.name === "queue" && req.method === "GET") return json(await service.queue(actor));
+    if (route.name === "people-search" && req.method === "GET") {
+      if (!actor) return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
+      const url = new URL(req.url);
+      const groupParam = url.searchParams.get("groupId");
+      const people = await service.findPeople(
+        actor,
+        url.searchParams.get("q") ?? "",
+        groupParam ? groupParam : null,
+      );
+      return json({ people });
+    }
+    if (route.name === "person" && req.method === "GET")
+      return json({ person: await service.person(actor, route.id) });
+    if (route.name === "person-posts" && req.method === "GET")
+      return json({ posts: await service.profilePosts(actor, route.id) });
+    if (route.name === "person-tagged" && req.method === "GET")
+      return json({ posts: await service.profileTagged(actor, route.id) });
+    if (route.name === "inbox" && req.method === "GET") {
+      if (!actor) return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
+      return json({ posts: await service.sharedWith(actor) });
+    }
 
     if (req.method !== "POST") return json({ error: "Not found.", code: "not_found" }, 404);
     const body = route.name === "media-post" ? {} : await readJson(req);
@@ -391,6 +434,20 @@ export async function handleCommunityApi(req: Request, deps: CommunityDeps): Pro
     if (route.name === "create-post") {
       const post = await service.createPost(actor, body, now);
       return json({ post }, 201);
+    }
+    if (route.name === "edit-post") {
+      const result = await service.editPost(actor, route.id, body, now);
+      await forgetMedia(deps, result.removedUrl);
+      return json({ post: result.post });
+    }
+    if (route.name === "delete-post") {
+      const result = await service.deletePost(actor, route.id);
+      await forgetMedia(deps, result.removedUrl);
+      return json({ ok: true });
+    }
+    if (route.name === "untag") {
+      await service.removeOwnTag(actor, route.id);
+      return json({ ok: true });
     }
     if (route.name === "like") {
       await service.toggleLike(actor, route.id);
