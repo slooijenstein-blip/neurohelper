@@ -9,3 +9,13 @@ export function CreatorCredit({ name }: { name?: string | null }) {
     </p>
   );
 }
+
+export function CreatorTranslationNote({ translated }: { translated: boolean }) {
+  const { t } = useI18n();
+  if (!translated) return null;
+  return (
+    <p className="text-[11px] text-muted-foreground" data-testid="creator-translated">
+      {t("activities.shownTranslated")}
+    </p>
+  );
+}

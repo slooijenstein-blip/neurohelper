@@ -9,10 +9,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useI18n } from "@/i18n/I18nProvider";
-import { localizedActivity } from "@/lib/activity-locale";
 import { resolveActivity } from "@/lib/calendar/activity-steps";
 import { creatorCreditName } from "@/lib/creator/catalog";
-import { CreatorCredit } from "../CreatorCredit";
+import { CreatorCredit, CreatorTranslationNote } from "../CreatorCredit";
+import { useLocalizedCatalog } from "../useLocalizedCatalog";
 import { useMergedActivities } from "../usePublishedActivities";
 import type { DayStep, PlanStep } from "@/lib/calendar/types";
 import { AgeTag, DurationTag, SkillTag } from "../ui-bits";
@@ -34,10 +34,13 @@ export function StepDetailDialog({
   onChangeActivity?: () => void;
   onRemove?: () => void;
 }) {
-  const { t, locale } = useI18n();
-  useMergedActivities();
-  const raw = step ? resolveActivity(step.activityId) : null;
-  const activity = raw ? localizedActivity(raw, locale) : null;
+  const { t } = useI18n();
+  const { activities } = useLocalizedCatalog(useMergedActivities());
+  const raw = step
+    ? (activities.find((activity) => activity.id === step.activityId) ??
+      resolveActivity(step.activityId))
+    : null;
+  const activity = raw;
   const shown = step
     ? activity
       ? { title: activity.title, description: activity.description }
@@ -60,6 +63,7 @@ export function StepDetailDialog({
             {activity && "creatorName" in activity ? (
               <CreatorCredit name={creatorCreditName(activity)} />
             ) : null}
+            {activity ? <CreatorTranslationNote translated={"translatedInto" in activity} /> : null}
 
             <div className="flex flex-wrap gap-1.5">
               {activity ? (

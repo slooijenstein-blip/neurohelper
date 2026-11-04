@@ -211,6 +211,8 @@ export const en = {
     addToSchedule: "Add to schedule",
     createdByPro: "Created by a professional",
     createdByName: "Created by a professional · {{name}}",
+    shownTranslated: "Translated to match your language",
+    translatingActivity: "Translating…",
     durationExact: "{{count}} mins",
     durationRange: "{{min}}–{{max}} mins",
     skills: {

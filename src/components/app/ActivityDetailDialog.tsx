@@ -1,9 +1,9 @@
 import { toast } from "sonner";
 
 import { useI18n } from "@/i18n/I18nProvider";
-import { localizedActivity } from "@/lib/activity-locale";
-import { creatorCreditName, findAnyActivity } from "@/lib/creator/catalog";
-import { CreatorCredit } from "./CreatorCredit";
+import { creatorCreditName } from "@/lib/creator/catalog";
+import { CreatorCredit, CreatorTranslationNote } from "./CreatorCredit";
+import { useLocalizedCatalog } from "./useLocalizedCatalog";
 import { useMergedActivities } from "./usePublishedActivities";
 import { useAppStore, uid } from "@/lib/app-store";
 import { AgeTag, DurationTag, SkillTag } from "./ui-bits";
@@ -24,10 +24,11 @@ export function ActivityDetailDialog({
   onClose: () => void;
 }) {
   const { update } = useAppStore();
-  const { t, locale } = useI18n();
-  useMergedActivities();
-  const raw = activityId ? findAnyActivity(activityId) : null;
-  const detail = raw ? localizedActivity(raw, locale) : null;
+  const { t } = useI18n();
+  const { activities } = useLocalizedCatalog(useMergedActivities());
+  const detail = activityId
+    ? (activities.find((activity) => activity.id === activityId) ?? null)
+    : null;
 
   const addToSchedule = () => {
     if (!detail) return;
@@ -62,6 +63,7 @@ export function ActivityDetailDialog({
             {"creatorName" in (detail ?? {}) ? (
               <CreatorCredit name={creatorCreditName(detail)} />
             ) : null}
+            <CreatorTranslationNote translated={"translatedInto" in (detail ?? {})} />
             <div className="flex flex-wrap gap-1.5">
               <AgeTag>
                 Age: {detail.minAge}-{detail.maxAge}

@@ -128,3 +128,25 @@ export async function translateCommunityText(
   }
   return { kind: "link", url: googleTranslateUrl(trimmed, target) };
 }
+
+/**
+ * Translate text whose language we already know.
+ * Uses the on-device browser translator. Returns null when this browser cannot.
+ */
+export async function translateKnownText(
+  text: string,
+  source: TranslatorLanguage,
+  target: TranslatorLanguage,
+  deps: TranslationDeps = browserTranslationDeps(),
+): Promise<string | null> {
+  const trimmed = text.trim();
+  if (!trimmed || source === target) return trimmed;
+  if (!deps.translate) return null;
+  try {
+    if (deps.canTranslate && !(await deps.canTranslate(source, target))) return null;
+    const translated = (await deps.translate(trimmed.slice(0, TEXT_LIMIT), source, target)).trim();
+    return translated || null;
+  } catch {
+    return null;
+  }
+}

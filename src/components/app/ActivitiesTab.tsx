@@ -4,9 +4,10 @@ import { toast } from "sonner";
 
 import { useI18n } from "@/i18n/I18nProvider";
 import { SKILLS, type Activity, type Skill } from "@/lib/activities-data";
-import { localizedActivity, skillMessageKey } from "@/lib/activity-locale";
+import { skillMessageKey } from "@/lib/activity-locale";
 import { creatorCreditName } from "@/lib/creator/catalog";
-import { CreatorCredit } from "./CreatorCredit";
+import { CreatorCredit, CreatorTranslationNote } from "./CreatorCredit";
+import { useLocalizedCatalog } from "./useLocalizedCatalog";
 import { useMergedActivities } from "./usePublishedActivities";
 import { useAppStore, uid } from "@/lib/app-store";
 import { HelperLaunch } from "./HelperChat";
@@ -25,8 +26,9 @@ import { cn } from "@/lib/utils";
 
 export function ActivitiesTab() {
   const { update } = useAppStore();
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const catalog = useMergedActivities();
+  const { activities: localized, translating } = useLocalizedCatalog(catalog);
   const [range, setRange] = useState<number[]>([1, 10]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [query, setQuery] = useState("");
@@ -35,8 +37,7 @@ export function ActivitiesTab() {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return catalog
-      .map((activity) => localizedActivity(activity, locale))
+    return localized
       .filter((a) => a.maxAge >= (range[0] ?? 1) && a.minAge <= (range[1] ?? 10))
       .filter((a) => (skills.length ? skills.includes(a.skill) : true))
       .filter((a) => {
@@ -45,13 +46,12 @@ export function ActivitiesTab() {
         const haystack = `${a.title} ${a.description} ${raw?.title ?? ""} ${raw?.description ?? ""} ${creatorCreditName(raw) ?? ""} ${t(skillMessageKey(a.skill))}`;
         return haystack.toLowerCase().includes(q);
       });
-  }, [catalog, range, skills, query, locale, t]);
+  }, [catalog, localized, range, skills, query, t]);
 
   const detail = useMemo(() => {
     if (!detailId) return null;
-    const raw = catalog.find((activity) => activity.id === detailId);
-    return raw ? localizedActivity(raw, locale) : null;
-  }, [catalog, detailId, locale]);
+    return localized.find((activity) => activity.id === detailId) ?? null;
+  }, [detailId, localized]);
 
   const toggleSkill = (s: Skill) =>
     setSkills((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
@@ -82,6 +82,14 @@ export function ActivitiesTab() {
         subtitle={t("activities.count", { count: results.length })}
         right={<HelperLaunch />}
       />
+      {translating ? (
+        <p
+          className="bg-surface px-5 pt-2 text-[11px] text-muted-foreground md:px-8"
+          data-testid="creator-translating"
+        >
+          {t("activities.translatingActivity")}
+        </p>
+      ) : null}
 
       <div className="space-y-3 border-b border-border bg-surface px-5 py-3 md:px-8">
         <div className="relative">
@@ -173,6 +181,9 @@ export function ActivitiesTab() {
               {a.description}
             </p>
             {"creatorName" in a ? <CreatorCredit name={creatorCreditName(a)} /> : null}
+            <CreatorTranslationNote
+              translated={a.translatedInto === "en" || a.translatedInto === "es"}
+            />
             <div className="mt-3 flex items-center justify-between gap-2">
               <div className="flex gap-1.5">
                 <AgeTag>
@@ -202,6 +213,9 @@ export function ActivitiesTab() {
           {detail ? (
             <div className="space-y-4 text-sm">
               {"creatorName" in detail ? <CreatorCredit name={creatorCreditName(detail)} /> : null}
+              <CreatorTranslationNote
+                translated={detail.translatedInto === "en" || detail.translatedInto === "es"}
+              />
               <div className="flex flex-wrap gap-1.5">
                 <AgeTag>
                   Age: {detail.minAge}-{detail.maxAge}
