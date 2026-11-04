@@ -1,6 +1,7 @@
 import type { AppLocale } from "../i18n/locales.ts";
 import { ACTIVITIES, type Activity, type Skill } from "./activities-data.ts";
 import { esActivityCopy, type ActivityCopy } from "./activities-es.ts";
+import { findAnyActivity } from "./creator/catalog.ts";
 
 const SKILL_MESSAGE_KEY: Record<Skill, string> = {
   "Sensory Play": "activities.skills.sensory",
@@ -53,7 +54,7 @@ export function presentPlanStep(
       activity: null,
     };
   }
-  const raw = ACTIVITIES.find((activity) => activity.id === step.activityId) ?? null;
+  const raw = findAnyActivity(step.activityId);
   if (!raw) {
     return {
       title: step.title,

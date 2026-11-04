@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAppStore } from "@/lib/app-store";
 import { isClerkConfigured } from "@/lib/clerk";
+import { CreatorGrantCard } from "./CreatorGrantCard";
 import { isClerkPro, type ClerkNameSource } from "@/lib/clerk-profile";
+import { canUseFounderRole } from "@/lib/founder-role";
 import { countryName, sortedCountries } from "@/lib/help/countries";
 import {
   fetchOwnProRequest,
@@ -105,6 +107,7 @@ function ProAccessPanel({
     { email, emails },
     import.meta.env.VITE_PRO_REQUEST_ADMIN_EMAILS,
   );
+  const founder = canUseFounderRole(emails);
   const authRef = useRef(authFor);
   authRef.current = authFor;
   const [phase, setPhase] = useState<"loading" | "ready" | "unavailable" | "error">("loading");
@@ -191,6 +194,7 @@ function ProAccessPanel({
       {phase === "ready" && isAdmin && queue ? (
         <AdminQueue requests={queue} locale={locale} />
       ) : null}
+      {founder ? <CreatorGrantCard authFor={() => authRef.current()} /> : null}
     </section>
   );
 }

@@ -127,6 +127,8 @@ export type Actor = {
   emails?: string[];
   name: string;
   isPro: boolean;
+  /** Clerk publicMetadata.isCreatorPro. Implies Pro. */
+  isCreatorPro?: boolean;
 };
 
 export type EmailCode =

@@ -1,4 +1,5 @@
 import { ACTIVITIES, type Activity } from "../activities-data.ts";
+import { findAnyActivity } from "../creator/catalog.ts";
 import { nid, type PlanStep } from "./types.ts";
 
 /** Build a plan step from a catalog activity (details preserved via activityId). */
@@ -25,9 +26,8 @@ export function customPlanStep(title: string, minutes = 10, notes = ""): PlanSte
   };
 }
 
-export function resolveActivity(activityId: string | null | undefined): Activity | null {
-  if (!activityId) return null;
-  return ACTIVITIES.find((a) => a.id === activityId) ?? null;
+export function resolveActivity(activityId: string | null | undefined) {
+  return findAnyActivity(activityId);
 }
 
 export function normalizePlanStep(raw: Partial<PlanStep> & { title?: string }): PlanStep {

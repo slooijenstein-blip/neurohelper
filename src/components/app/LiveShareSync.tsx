@@ -11,9 +11,17 @@ import { useDevShareUser } from "@/lib/share/dev-session";
 import { readPendingInvite } from "@/lib/share/pending-invite";
 import { blankAccountState } from "@/lib/share/workspace";
 
-function profileWithPro(profile: Profile, isPro: boolean): Profile {
-  const { isPro: _drop, ...rest } = profile;
-  return isPro ? { ...rest, isPro: true } : rest;
+function profileWithPro(
+  profile: Profile,
+  isPro: boolean,
+  isCreatorPro = profile.isCreatorPro === true,
+): Profile {
+  const { isPro: _pro, isCreatorPro: _creator, ...rest } = profile;
+  return {
+    ...rest,
+    ...(isPro ? { isPro: true as const } : {}),
+    ...(isCreatorPro ? { isCreatorPro: true as const } : {}),
+  };
 }
 
 function liveStateFrom(actor: Actor, result: SnapshotResult) {
@@ -42,8 +50,9 @@ function DevLiveShareSync() {
       detachRef.current();
       return;
     }
-    const [userId, email, name, proFlag] = devUser.split("|");
-    const isPro = proFlag === "1";
+    const [userId, email, name, proFlag, creatorFlag] = devUser.split("|");
+    const isCreatorPro = creatorFlag === "1";
+    const isPro = proFlag === "1" || isCreatorPro;
     const actor: Actor = {
       userId: userId || "user_dev",
       email: email || "member@example.com",
@@ -67,6 +76,7 @@ function DevLiveShareSync() {
           ...(prev.profile?.helpCountry ? { helpCountry: prev.profile.helpCountry } : {}),
         },
         isPro,
+        isCreatorPro,
       ),
     }));
 

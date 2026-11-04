@@ -7,6 +7,8 @@ import {
   applyClerkProFlag,
   clerkNameUpdateFromDisplayName,
   displayNameFromClerk,
+  isClerkCreatorPro,
+  isClerkPro,
   isLegacyDemoProfile,
   planClerkProfileSync,
   profileFromClerkUser,
@@ -110,6 +112,22 @@ describe("profileFromClerkUser", () => {
     assert.equal(next.location, "");
     assert.equal(next.bio, "");
     assert.deepEqual(next.socials, {});
+  });
+
+  it("treats Creator Pro as Pro and keeps it off unless the metadata flag is true", () => {
+    const creator = clerkUser({ publicMetadata: { isCreatorPro: true } });
+    assert.equal(isClerkCreatorPro(creator), true);
+    assert.equal(isClerkPro(creator), true);
+    const next = profileFromClerkUser(creator, localProfile());
+    assert.equal(next.isPro, true);
+    assert.equal(next.isCreatorPro, true);
+
+    const stringFlag = applyClerkProFlag(
+      localProfile({ isPro: true, isCreatorPro: true }),
+      clerkUser({ publicMetadata: { isCreatorPro: "true", isPro: true } }),
+    );
+    assert.equal(stringFlag.isPro, true);
+    assert.equal(stringFlag.isCreatorPro, undefined);
   });
 
   it("grants Pro only from Clerk public metadata", () => {

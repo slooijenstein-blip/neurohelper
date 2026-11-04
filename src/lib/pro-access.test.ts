@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { isProAccount, showProChrome, tabsForAccount } from "./pro-access.ts";
+import { accountChrome, isProAccount, showProChrome, tabsForAccount } from "./pro-access.ts";
 
 describe("pro access", () => {
   it("keeps the caregiver tabs and withholds Pro unless the flag is on", () => {
@@ -43,6 +43,40 @@ describe("pro access", () => {
     assert.equal(pro[0], "activities");
     assert.equal(pro[1], "pro");
     assert.ok(pro.includes("schedule"));
+  });
+
+  it("shows Created activities to Creator Pro and the founder, and leaves regular Pro unchanged", () => {
+    const base = {
+      demoOverlay: false,
+      profile: null,
+      clerkIsPro: false,
+      clerkIsCreatorPro: false,
+      founder: false,
+      devPro: false,
+      devCreator: false,
+      devFounder: false,
+    };
+    assert.deepEqual(accountChrome({ ...base, clerkIsPro: true }), {
+      isPro: true,
+      showCreated: false,
+    });
+    assert.deepEqual(accountChrome({ ...base, clerkIsPro: true, clerkIsCreatorPro: true }), {
+      isPro: true,
+      showCreated: true,
+    });
+    assert.deepEqual(accountChrome({ ...base, founder: true }), {
+      isPro: true,
+      showCreated: true,
+    });
+    assert.deepEqual(
+      accountChrome({
+        ...base,
+        demoOverlay: true,
+        profile: { isPro: true, role: "Therapist" },
+      }),
+      { isPro: true, showCreated: false },
+    );
+    assert.deepEqual(accountChrome(base), { isPro: false, showCreated: false });
   });
 
   it("shows Pro chrome from Clerk metadata, and from the device demo only when that flag is passed", () => {

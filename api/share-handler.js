@@ -12,49 +12,6 @@ var ShareError = class extends Error {
   }
 };
 
-// src/lib/share/mail.ts
-function clip(message) {
-  return message.replace(/\s+/g, " ").trim().slice(0, 240);
-}
-function classify(err) {
-  const row = err;
-  const detail = row?.errors?.[0]?.longMessage || row?.errors?.[0]?.message || (err instanceof Error ? err.message : "") || "Clerk could not send the email.";
-  const message = clip(detail);
-  const lower = message.toLowerCase();
-  if (lower.includes("redirect") || lower.includes("not allowed")) {
-    return { sent: false, code: "redirect_blocked", message };
-  }
-  if (lower.includes("exist") || lower.includes("taken") || lower.includes("already") || row?.errors?.[0]?.code === "form_identifier_exists") {
-    return { sent: false, code: "already_user", message };
-  }
-  return { sent: false, code: "clerk_error", message };
-}
-async function sendClerkInvitation(input) {
-  if (!input.secretKey) {
-    return {
-      sent: false,
-      code: "not_configured",
-      message: "CLERK_SECRET_KEY is not set on this preview."
-    };
-  }
-  try {
-    const { createClerkClient } = await import("@clerk/backend");
-    const clerk = createClerkClient({ secretKey: input.secretKey });
-    await clerk.invitations.createInvitation({
-      emailAddress: input.email,
-      redirectUrl: input.redirectUrl,
-      notify: true,
-      ignoreExisting: true,
-      expiresInDays: 30,
-      publicMetadata: { synlumaeInvite: input.token }
-    });
-    return { sent: true, code: "sent", message: "Invitation email sent." };
-  } catch (err) {
-    console.error("clerk invitation", err);
-    return classify(err);
-  }
-}
-
 // src/lib/share/names.ts
 function normalizeEmail(email) {
   return email.trim().toLowerCase();
@@ -126,760 +83,15 @@ function emailLocalPart(email) {
   return email.split("@")[0]?.replace(/[._+-]+/g, " ").trim() || "Parent";
 }
 
-// src/lib/share/pro-request.ts
-var PRO_REQUEST_ADMIN_EMAILS = [
-  "samlooijenstein@gmail.com",
-  "s.looijenstein@synlumae.com"
-];
-var PRO_REQUEST_ROLES = ["therapist", "psychologist", "other"];
-function clipLine(raw, max) {
-  let cleaned = "";
-  for (const char of raw) {
-    cleaned += char.charCodeAt(0) < 32 ? " " : char;
-  }
-  return cleaned.replace(/\s+/g, " ").trim().slice(0, max);
-}
-function newProRequestId() {
-  return `proreq_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
-}
-function adminAllowlist(override) {
-  const configured = override?.trim() ?? "";
-  const listed = configured ? configured.split(",") : [...PRO_REQUEST_ADMIN_EMAILS];
-  const allow = /* @__PURE__ */ new Set();
-  for (const raw of listed) {
-    const trimmed = raw.trim();
-    if (!trimmed) continue;
-    try {
-      allow.add(canonicalEmail(assertEmail(trimmed)));
-    } catch {
-    }
-  }
-  return allow;
-}
-function isProRequestAdmin(actor, override) {
-  const allow = adminAllowlist(override);
-  if (allow.size === 0) return false;
-  return actorEmailKeys(actor).some((key) => allow.has(canonicalEmail(key)));
-}
-function parseProRequestInput(body) {
-  const fullName = clipLine(typeof body["fullName"] === "string" ? body["fullName"] : "", 80);
-  if (!fullName || fullName.includes("@")) {
-    throw new ShareError(400, "invalid_name", "Enter your full name.");
-  }
-  const email = assertEmail(typeof body["email"] === "string" ? body["email"] : "");
-  const roleRaw = typeof body["role"] === "string" ? body["role"] : "";
-  if (!PRO_REQUEST_ROLES.includes(roleRaw)) {
-    throw new ShareError(400, "invalid_role", "Choose therapist, psychologist, or other.");
-  }
-  const countryRaw = typeof body["country"] === "string" ? body["country"].trim().toUpperCase() : "";
-  if (!/^[A-Z]{2}$/.test(countryRaw)) {
-    throw new ShareError(400, "invalid_country", "Choose a country.");
-  }
-  if (body["worksWithFamilies"] !== true) {
-    throw new ShareError(
-      400,
-      "confirm_required",
-      "Confirm that you work with families in a professional role."
-    );
-  }
-  return {
-    fullName,
-    email,
-    role: roleRaw,
-    country: countryRaw,
-    organisation: clipLine(
-      typeof body["organisation"] === "string" ? body["organisation"] : "",
-      80
-    ),
-    why: clipLine(typeof body["why"] === "string" ? body["why"] : "", 160),
-    worksWithFamilies: true
-  };
-}
-async function submitProRequest(store, actor, input, now) {
-  if (actor.isPro) {
-    throw new ShareError(409, "already_pro", "This account already has Pro.");
-  }
-  const existing = await store.getProRequest(actor.userId);
-  const request = {
-    id: existing?.id ?? newProRequestId(),
-    userId: actor.userId,
-    email: normalizeEmail(input.email),
-    fullName: input.fullName,
-    role: input.role,
-    country: input.country,
-    organisation: input.organisation,
-    why: input.why,
-    worksWithFamilies: true,
-    status: "pending",
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now
-  };
-  await store.saveProRequest(request);
-  return request;
-}
-async function pendingForReview(requests, userIsPro) {
-  const waiting = [];
-  for (const request of requests) {
-    if (await userIsPro(request.userId)) continue;
-    waiting.push(request);
-  }
-  return waiting;
-}
-function proRequestNotifyResult(notifyEmail) {
-  const to = notifyEmail?.trim();
-  if (!to) return { notified: false, code: "not_configured" };
-  return { notified: false, code: "no_mailer" };
-}
-
-// src/lib/calendar/permissions.ts
-function canEditPlan(role) {
-  return role === "therapist" || role === "caregiver";
-}
-function canInvite(role) {
-  return role === "therapist" || role === "caregiver";
-}
-function inviteRolesFor(actor) {
-  if (actor === "therapist") return ["caregiver"];
-  if (actor === "caregiver") return ["helper"];
-  return [];
-}
-function membershipOnChild(memberships, childId, personId) {
-  return memberships.find(
-    (m) => m.childId === childId && m.personId === personId && m.status === "active"
-  ) ?? null;
-}
-
-// src/lib/calendar/types.ts
-var AGE_BANDS = [
-  { id: "1-2", labelKey: "calendar.ageBands.1_2" },
-  { id: "3-5", labelKey: "calendar.ageBands.3_5" },
-  { id: "6-8", labelKey: "calendar.ageBands.6_8" },
-  { id: "9-12", labelKey: "calendar.ageBands.9_12" }
-];
-function isAgeBand(value) {
-  return AGE_BANDS.some((band) => band.id === value);
-}
-function nid(prefix) {
-  const raw = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-  return `${prefix}_${raw.slice(0, 12)}`;
-}
-
-// src/lib/share/mutate.ts
-function nowOr(value) {
-  return /^\d{4}-\d{2}-\d{2}T/.test(value) ? value : (/* @__PURE__ */ new Date()).toISOString();
-}
-function sanitizeStep(step, id) {
-  const title = step.title.replace(/\s+/g, " ").trim().slice(0, 80);
-  if (!title) throw new ShareError(400, "invalid_step", "Each step needs a title.");
-  const notes = (step.notes || step.description || "").trim().slice(0, 400);
-  const minutes = Math.round(Number(step.minutes));
-  if (!Number.isFinite(minutes) || minutes < 1 || minutes > 180) {
-    throw new ShareError(400, "invalid_step", "Keep each step between 1 and 180 minutes.");
-  }
-  const activityId = step.activityId && /^[a-z0-9-]{1,80}$/.test(step.activityId) ? step.activityId : null;
-  if (!/^(st|ds)_[a-z0-9_]{8,64}$/.test(id)) {
-    throw new ShareError(400, "invalid_id", "Invalid id.");
-  }
-  return { id, title, notes, description: notes, minutes, activityId };
-}
-function roleOn(state, childId, actorId) {
-  return membershipOnChild(state.memberships, childId, actorId)?.role ?? null;
-}
-function requireEditor(state, childId, actorId) {
-  const role = roleOn(state, childId, actorId);
-  if (!canEditPlan(role)) {
-    throw new ShareError(403, "forbidden", "You cannot edit this plan.");
-  }
-  return role;
-}
-function personOf(state, actorId) {
-  return state.people.find((person) => person.id === actorId) ?? null;
-}
-function applyShareAction(state, actor, action) {
-  const now = "now" in action ? nowOr(action.now) : (/* @__PURE__ */ new Date()).toISOString();
-  switch (action.type) {
-    case "addChild": {
-      const person = personOf(state, actor.userId);
-      if (!actor.isPro || person?.appRole !== "therapist") {
-        throw new ShareError(403, "pro_required", "Only a Pro account can add a patient.");
-      }
-      if (state.children.length >= 40) {
-        throw new ShareError(400, "limit", "This caseload is full.");
-      }
-      if (!isAgeBand(action.ageBand)) {
-        throw new ShareError(400, "invalid_age", "Choose an age band.");
-      }
-      const childId = assertId(action.childId, "child");
-      const child = {
-        id: childId,
-        displayName: clipDisplayName(action.displayName, "Child"),
-        ageBand: action.ageBand,
-        createdAt: now,
-        createdById: actor.userId
-      };
-      const allowedTags = new Set(
-        state.therapistTags.filter((tag) => tag.therapistId === actor.userId).map((tag) => tag.id)
-      );
-      return {
-        state: {
-          ...state,
-          children: [...state.children, child],
-          memberships: [
-            ...state.memberships,
-            {
-              id: assertId(action.membershipId, "mem"),
-              childId,
-              personId: actor.userId,
-              role: "therapist",
-              status: "active"
-            }
-          ],
-          childTags: [
-            ...state.childTags,
-            ...action.tagIds.filter((tagId) => allowedTags.has(tagId)).map((tagId) => ({ childId, tagId }))
-          ],
-          selectedChildId: childId
-        }
-      };
-    }
-    case "addTherapistTag": {
-      const person = personOf(state, actor.userId);
-      if (!actor.isPro || person?.appRole !== "therapist") {
-        throw new ShareError(403, "pro_required", "Only a Pro account can add tags.");
-      }
-      const name = clipDisplayName(action.name, "");
-      if (!name) return { state };
-      return {
-        state: {
-          ...state,
-          therapistTags: [
-            ...state.therapistTags,
-            { id: assertId(action.tagId, "tag"), therapistId: actor.userId, name }
-          ]
-        }
-      };
-    }
-    case "setChildTags": {
-      const role = roleOn(state, action.childId, actor.userId);
-      if (role !== "therapist") {
-        throw new ShareError(403, "forbidden", "Only the therapist can tag a patient.");
-      }
-      const allowed = new Set(
-        state.therapistTags.filter((tag) => tag.therapistId === actor.userId).map((tag) => tag.id)
-      );
-      return {
-        state: {
-          ...state,
-          childTags: [
-            ...state.childTags.filter((tag) => tag.childId !== action.childId),
-            ...action.tagIds.filter((tagId) => allowed.has(tagId)).map((tagId) => ({ childId: action.childId, tagId }))
-          ]
-        }
-      };
-    }
-    case "toggleStepDone": {
-      if (!roleOn(state, action.childId, actor.userId)) {
-        throw new ShareError(403, "forbidden", "You cannot update this plan.");
-      }
-      assertDateKey(action.date);
-      return {
-        state: {
-          ...state,
-          dayPlans: state.dayPlans.map((plan) => {
-            if (plan.childId !== action.childId || plan.date !== action.date) return plan;
-            return {
-              ...plan,
-              updatedAt: now,
-              steps: plan.steps.map(
-                (step) => step.id === action.stepId ? { ...step, done: !step.done } : step
-              )
-            };
-          })
-        }
-      };
-    }
-    case "applyLibraryPlan": {
-      requireEditor(state, action.childId, actor.userId);
-      const plan = state.libraryPlans.find((item) => item.id === action.libraryPlanId);
-      if (!plan) throw new ShareError(404, "not_found", "Plan not found.");
-      let dayPlans = [...state.dayPlans];
-      for (const day of action.days) {
-        assertDateKey(day.date);
-        if (day.stepIds.length !== plan.steps.length) {
-          throw new ShareError(400, "invalid_step", "Step ids do not match the plan.");
-        }
-        const next = {
-          id: assertId(day.dayId, "day"),
-          childId: action.childId,
-          date: day.date,
-          name: plan.name,
-          nameKey: plan.nameKey ?? null,
-          libraryPlanId: plan.id,
-          steps: plan.steps.map((step, index) => ({
-            ...sanitizeStep(step, day.stepIds[index]),
-            done: false
-          })),
-          tweaked: false,
-          updatedAt: now
-        };
-        dayPlans = dayPlans.filter(
-          (item) => !(item.childId === action.childId && item.date === day.date)
-        );
-        dayPlans.push(next);
-      }
-      return { state: { ...state, dayPlans } };
-    }
-    case "createLibraryPlan": {
-      const childId = action.plan.childId;
-      if (childId) requireEditor(state, childId, actor.userId);
-      else if (!actor.isPro || personOf(state, actor.userId)?.appRole !== "therapist") {
-        throw new ShareError(403, "pro_required", "Only a Pro account can add a template.");
-      }
-      if (state.libraryPlans.length >= 40) {
-        throw new ShareError(400, "limit", "Too many plans.");
-      }
-      const steps = action.plan.steps.slice(0, 30).map((step) => sanitizeStep(step, step.id));
-      const plan = {
-        id: assertId(action.plan.id, "lib"),
-        ownerId: actor.userId,
-        name: clipDisplayName(action.plan.name, "Untitled plan"),
-        nameKey: action.plan.nameKey ?? null,
-        steps,
-        childId,
-        sourceTemplateId: null,
-        updatedAt: now
-      };
-      return { state: { ...state, libraryPlans: [...state.libraryPlans, plan] } };
-    }
-    case "updateLibraryPlan": {
-      const current = state.libraryPlans.find((plan) => plan.id === action.id);
-      if (!current) return { state };
-      if (current.childId) requireEditor(state, current.childId, actor.userId);
-      else if (current.ownerId !== actor.userId) {
-        throw new ShareError(403, "forbidden", "You cannot edit this template.");
-      }
-      const name = action.name !== void 0 ? clipDisplayName(action.name, current.name) : current.name;
-      return {
-        state: {
-          ...state,
-          libraryPlans: state.libraryPlans.map(
-            (plan) => plan.id === action.id ? {
-              ...plan,
-              name,
-              nameKey: action.name && action.name !== plan.name ? null : plan.nameKey ?? null,
-              steps: action.steps ? action.steps.slice(0, 30).map((step) => sanitizeStep(step, step.id)) : plan.steps,
-              updatedAt: now
-            } : plan
-          )
-        }
-      };
-    }
-    case "duplicateLibraryPlan": {
-      const source = state.libraryPlans.find((plan) => plan.id === action.sourceId);
-      if (!source) return { state };
-      if (source.childId) requireEditor(state, source.childId, actor.userId);
-      else if (source.ownerId !== actor.userId) {
-        throw new ShareError(403, "forbidden", "You cannot copy this template.");
-      }
-      if (action.stepIds.length !== source.steps.length) {
-        throw new ShareError(400, "invalid_step", "Step ids do not match the plan.");
-      }
-      const copy = {
-        ...source,
-        id: assertId(action.copyId, "lib"),
-        name: clipDisplayName(`${source.name} (copy)`, "Copy"),
-        nameKey: null,
-        steps: source.steps.map((step, index) => sanitizeStep(step, action.stepIds[index])),
-        updatedAt: now
-      };
-      return { state: { ...state, libraryPlans: [...state.libraryPlans, copy] } };
-    }
-    case "deleteLibraryPlan": {
-      const current = state.libraryPlans.find((plan) => plan.id === action.id);
-      if (!current) return { state };
-      if (current.childId) requireEditor(state, current.childId, actor.userId);
-      else if (current.ownerId !== actor.userId) {
-        throw new ShareError(403, "forbidden", "You cannot delete this template.");
-      }
-      return {
-        state: {
-          ...state,
-          libraryPlans: state.libraryPlans.filter((plan) => plan.id !== action.id)
-        }
-      };
-    }
-    case "useTemplateForPatient": {
-      if (personOf(state, actor.userId)?.appRole !== "therapist") {
-        throw new ShareError(403, "pro_required", "Only a Pro account can copy a template.");
-      }
-      requireEditor(state, action.childId, actor.userId);
-      const master = state.libraryPlans.find(
-        (plan) => plan.id === action.masterId && plan.childId === null && plan.ownerId === actor.userId
-      );
-      if (!master) throw new ShareError(404, "not_found", "Template not found.");
-      if (action.stepIds.length !== master.steps.length) {
-        throw new ShareError(400, "invalid_step", "Step ids do not match the template.");
-      }
-      const copy = {
-        id: assertId(action.copyId, "lib"),
-        ownerId: actor.userId,
-        name: master.name,
-        nameKey: master.nameKey ?? null,
-        steps: master.steps.map((step, index) => sanitizeStep(step, action.stepIds[index])),
-        childId: action.childId,
-        sourceTemplateId: master.id,
-        updatedAt: now
-      };
-      return { state: { ...state, libraryPlans: [...state.libraryPlans, copy] } };
-    }
-    case "tweakDayStep": {
-      requireEditor(state, action.childId, actor.userId);
-      assertDateKey(action.date);
-      const title = clipDisplayName(action.title, "");
-      if (!title) throw new ShareError(400, "invalid_step", "Each step needs a title.");
-      return {
-        state: {
-          ...state,
-          dayPlans: state.dayPlans.map((plan) => {
-            if (plan.childId !== action.childId || plan.date !== action.date) return plan;
-            return {
-              ...plan,
-              tweaked: true,
-              updatedAt: now,
-              steps: plan.steps.map(
-                (step) => step.id === action.stepId ? { ...step, title } : step
-              )
-            };
-          })
-        }
-      };
-    }
-    case "addDayStep": {
-      requireEditor(state, action.childId, actor.userId);
-      assertDateKey(action.date);
-      const step = { ...sanitizeStep(action.step, action.stepId), done: false };
-      const existing = state.dayPlans.find(
-        (plan) => plan.childId === action.childId && plan.date === action.date
-      );
-      if (existing) {
-        return {
-          state: {
-            ...state,
-            dayPlans: state.dayPlans.map(
-              (plan) => plan.id === existing.id ? { ...plan, steps: [...plan.steps, step], tweaked: true, updatedAt: now } : plan
-            )
-          }
-        };
-      }
-      return {
-        state: {
-          ...state,
-          dayPlans: [
-            ...state.dayPlans,
-            {
-              id: assertId(action.dayId, "day"),
-              childId: action.childId,
-              date: action.date,
-              name: "Today's plan",
-              nameKey: "calendar.today.customPlan",
-              libraryPlanId: null,
-              steps: [step],
-              tweaked: true,
-              updatedAt: now
-            }
-          ]
-        }
-      };
-    }
-    case "replaceDayStep": {
-      requireEditor(state, action.childId, actor.userId);
-      assertDateKey(action.date);
-      return {
-        state: {
-          ...state,
-          dayPlans: state.dayPlans.map((plan) => {
-            if (plan.childId !== action.childId || plan.date !== action.date) return plan;
-            return {
-              ...plan,
-              tweaked: true,
-              updatedAt: now,
-              steps: plan.steps.map(
-                (step) => step.id === action.stepId ? {
-                  ...sanitizeStep({ ...action.step, id: action.stepId }, action.stepId),
-                  done: step.done
-                } : step
-              )
-            };
-          })
-        }
-      };
-    }
-    case "removeDayStep": {
-      requireEditor(state, action.childId, actor.userId);
-      assertDateKey(action.date);
-      return {
-        state: {
-          ...state,
-          dayPlans: state.dayPlans.map((plan) => {
-            if (plan.childId !== action.childId || plan.date !== action.date) return plan;
-            return {
-              ...plan,
-              tweaked: true,
-              updatedAt: now,
-              steps: plan.steps.filter((step) => step.id !== action.stepId)
-            };
-          })
-        }
-      };
-    }
-    case "appendLibraryStep": {
-      const plan = state.libraryPlans.find((item) => item.id === action.libraryPlanId);
-      if (!plan) return { state };
-      if (plan.childId) requireEditor(state, plan.childId, actor.userId);
-      else if (plan.ownerId !== actor.userId) {
-        throw new ShareError(403, "forbidden", "You cannot edit this template.");
-      }
-      const step = sanitizeStep(action.step, action.stepId);
-      return {
-        state: {
-          ...state,
-          libraryPlans: state.libraryPlans.map(
-            (item) => item.id === plan.id ? { ...item, steps: [...item.steps, step].slice(0, 30), updatedAt: now } : item
-          )
-        }
-      };
-    }
-    case "saveDayBackToLibrary": {
-      requireEditor(state, action.childId, actor.userId);
-      assertDateKey(action.date);
-      const day = state.dayPlans.find(
-        (plan) => plan.childId === action.childId && plan.date === action.date
-      );
-      if (!day) return { state };
-      if (action.stepIds.length !== day.steps.length) {
-        throw new ShareError(400, "invalid_step", "Step ids do not match the day.");
-      }
-      const steps = day.steps.map((step, index) => sanitizeStep(step, action.stepIds[index]));
-      if (day.libraryPlanId && state.libraryPlans.some((plan) => plan.id === day.libraryPlanId)) {
-        return {
-          state: {
-            ...state,
-            libraryPlans: state.libraryPlans.map(
-              (plan) => plan.id === day.libraryPlanId ? {
-                ...plan,
-                name: day.name,
-                nameKey: day.nameKey ?? plan.nameKey ?? null,
-                steps,
-                updatedAt: now
-              } : plan
-            ),
-            dayPlans: state.dayPlans.map(
-              (plan) => plan.id === day.id ? { ...plan, tweaked: false } : plan
-            )
-          }
-        };
-      }
-      const created = {
-        id: assertId(action.planId, "lib"),
-        ownerId: actor.userId,
-        name: day.name,
-        nameKey: day.nameKey ?? null,
-        steps,
-        childId: action.childId,
-        sourceTemplateId: null,
-        updatedAt: now
-      };
-      return {
-        state: {
-          ...state,
-          libraryPlans: [...state.libraryPlans, created],
-          dayPlans: state.dayPlans.map(
-            (plan) => plan.id === day.id ? { ...plan, libraryPlanId: created.id, tweaked: false } : plan
-          )
-        }
-      };
-    }
-    case "createInvite": {
-      const actorRole = roleOn(state, action.childId, actor.userId);
-      if (!canInvite(actorRole)) {
-        throw new ShareError(403, "forbidden", "You cannot invite someone to this plan.");
-      }
-      if (!inviteRolesFor(actorRole).includes(action.role)) {
-        throw new ShareError(403, "role_not_allowed", "That role is not allowed.");
-      }
-      const email = assertEmail(action.email);
-      const existing = state.invites.find(
-        (invite2) => invite2.childId === action.childId && invite2.email === email && invite2.status === "pending"
-      );
-      const token = assertId(action.token, "tok");
-      if (existing) {
-        const invite2 = { ...existing, createdAt: now, token, status: "pending" };
-        return {
-          invite: invite2,
-          state: {
-            ...state,
-            invites: state.invites.map((item) => item.id === existing.id ? invite2 : item)
-          }
-        };
-      }
-      if (state.invites.filter((invite2) => invite2.childId === action.childId).length >= 20) {
-        throw new ShareError(400, "limit", "Too many invites for this child.");
-      }
-      const invite = {
-        id: assertId(action.inviteId, "inv"),
-        childId: action.childId,
-        email,
-        role: action.role,
-        status: "pending",
-        invitedById: actor.userId,
-        token,
-        createdAt: now,
-        membershipId: assertId(action.membershipId, "mem"),
-        displayName: clipDisplayName(action.displayName, emailLocalPart(email))
-      };
-      return {
-        invite,
-        state: {
-          ...state,
-          memberships: [
-            ...state.memberships,
-            {
-              id: invite.membershipId,
-              childId: action.childId,
-              personId: assertId(action.pendingPersonId, "pending"),
-              role: action.role,
-              status: "pending"
-            }
-          ],
-          invites: [...state.invites, invite]
-        }
-      };
-    }
-    case "resendInvite": {
-      const current = state.invites.find((invite2) => invite2.id === action.inviteId);
-      if (!current) throw new ShareError(404, "not_found", "Invite not found.");
-      const actorRole = roleOn(state, current.childId, actor.userId);
-      if (!canInvite(actorRole)) {
-        throw new ShareError(403, "forbidden", "You cannot resend this invite.");
-      }
-      const invite = {
-        ...current,
-        createdAt: now,
-        token: assertId(action.token, "tok"),
-        status: "pending"
-      };
-      return {
-        invite,
-        state: {
-          ...state,
-          invites: state.invites.map((item) => item.id === invite.id ? invite : item)
-        }
-      };
-    }
-    case "changeMemberRole": {
-      const membership = state.memberships.find((item) => item.id === action.membershipId);
-      if (!membership || membership.role === "therapist") {
-        throw new ShareError(403, "forbidden", "That role cannot be changed.");
-      }
-      const actorRole = roleOn(state, membership.childId, actor.userId);
-      if (actorRole !== "therapist" && actorRole !== "caregiver") {
-        throw new ShareError(403, "forbidden", "You cannot change roles.");
-      }
-      if (action.role === "therapist") {
-        throw new ShareError(403, "forbidden", "You cannot assign the therapist role.");
-      }
-      return {
-        state: {
-          ...state,
-          memberships: state.memberships.map(
-            (item) => item.id === membership.id ? { ...item, role: action.role } : item
-          )
-        }
-      };
-    }
-    case "removeMember": {
-      const membership = state.memberships.find((item) => item.id === action.membershipId);
-      if (!membership || membership.role === "therapist") {
-        throw new ShareError(403, "forbidden", "The therapist stays on this plan.");
-      }
-      const actorRole = roleOn(state, membership.childId, actor.userId);
-      if (actorRole !== "therapist" && actorRole !== "caregiver") {
-        throw new ShareError(403, "forbidden", "You cannot remove this person.");
-      }
-      return {
-        state: {
-          ...state,
-          memberships: state.memberships.filter((item) => item.id !== membership.id)
-        }
-      };
-    }
-    case "removeInvite": {
-      const invite = state.invites.find((item) => item.id === action.inviteId);
-      if (!invite) return { state };
-      const actorRole = roleOn(state, invite.childId, actor.userId);
-      if (!canInvite(actorRole)) {
-        throw new ShareError(403, "forbidden", "You cannot remove this invite.");
-      }
-      return {
-        state: {
-          ...state,
-          invites: state.invites.filter((item) => item.id !== invite.id),
-          memberships: invite.membershipId ? state.memberships.filter((item) => item.id !== invite.membershipId) : state.memberships
-        }
-      };
-    }
-    case "acceptInvite": {
-      const invite = state.invites.find((item) => item.token === action.token);
-      if (!invite || !emailMatchesActor(invite.email, actor)) {
-        throw new ShareError(
-          invite ? 403 : 404,
-          invite ? "email_mismatch" : "invite_missing",
-          invite ? "Sign in with the invited email to accept." : "This invite is missing or already used."
-        );
-      }
-      if (invite.status === "active") return { state };
-      const appRole = invite.role === "helper" ? "helper" : "caregiver";
-      const person = {
-        id: actor.userId,
-        name: clipDisplayName(actor.name, invite.displayName),
-        email: assertEmail(actor.email),
-        appRole
-      };
-      const people = state.people.some((item) => item.id === person.id) ? state.people.map(
-        (item) => item.id === person.id ? {
-          ...item,
-          name: person.name,
-          email: person.email,
-          appRole: item.appRole === "therapist" ? "therapist" : appRole
-        } : item
-      ) : [...state.people, person];
-      return {
-        invite: { ...invite, status: "active" },
-        state: {
-          ...state,
-          people,
-          selectedChildId: invite.childId,
-          invites: state.invites.map(
-            (item) => item.id === invite.id ? { ...item, status: "active" } : item
-          ),
-          memberships: state.memberships.map(
-            (item) => item.id === invite.membershipId ? { ...item, personId: actor.userId, status: "active", role: invite.role } : item
-          )
-        }
-      };
-    }
-    default: {
-      const unknown = action;
-      throw new ShareError(
-        400,
-        "unknown_action",
-        `Unknown action ${unknown.type ?? ""}.`
-      );
-    }
-  }
-}
-
 // src/lib/activities-data.ts
+var SKILLS = [
+  "Sensory Play",
+  "Motor Skills",
+  "Communication",
+  "Social Skills",
+  "Cognitive",
+  "Self-Care"
+];
 var ACTIVITIES = [
   {
     id: "sensory-rice-bin",
@@ -1875,6 +1087,1870 @@ var ACTIVITIES = [
   }
 ];
 
+// src/lib/founder-role.ts
+var FOUNDER_EMAIL = "s.looijenstein@synlumae.com";
+function normalizeEmail2(email) {
+  return email?.trim().toLowerCase() ?? "";
+}
+function canUseFounderRole(emails) {
+  if (!emails) return false;
+  const allowed = normalizeEmail2(FOUNDER_EMAIL);
+  return emails.some((email) => normalizeEmail2(email) === allowed);
+}
+
+// src/lib/creator/rules.ts
+var EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i;
+var PHONE_RE = /\d[\d\s().-]{7,}\d/;
+function isFounderActor(actor) {
+  return canUseFounderRole([actor.email, ...actor.emails ?? []]);
+}
+function canAuthorActivities(actor) {
+  return actor.isCreatorPro === true || isFounderActor(actor);
+}
+function creatorKeyPrefix(env) {
+  const raw = env["VERCEL_ENV"] || (env["VERCEL"] ? "preview" : "local");
+  const safe = raw.replace(/[^a-z0-9_-]/gi, "").slice(0, 32) || "local";
+  return `synlumae:creator:${safe}:`;
+}
+function metadataWithCreatorPro(current, enabled) {
+  const next = { ...current ?? {}, isCreatorPro: enabled };
+  if (enabled) next["isPro"] = true;
+  return next;
+}
+function publicDisplayName(name) {
+  const clipped = clipLine(name, 80);
+  if (!clipped || clipped.includes("@") || /\d{6,}/.test(clipped)) return "";
+  return clipped;
+}
+function clipLine(raw, max) {
+  let cleaned = "";
+  for (const char of raw) {
+    cleaned += char.charCodeAt(0) < 32 ? " " : char;
+  }
+  return cleaned.replace(/\s+/g, " ").trim().slice(0, max);
+}
+function assertNoPrivateContact(text) {
+  if (EMAIL_RE.test(text) || PHONE_RE.test(text)) {
+    throw new ShareError(
+      400,
+      "no_contact",
+      "Leave out email addresses and phone numbers. Families will see this activity."
+    );
+  }
+}
+function textBlock(value, max) {
+  const text = clipLine(typeof value === "string" ? value : "", max);
+  assertNoPrivateContact(text);
+  return text;
+}
+function lineList(value, maxItems, maxLen) {
+  const raw = Array.isArray(value) ? value : typeof value === "string" ? value.split(/\n+/) : [];
+  const lines = [];
+  for (const item of raw) {
+    if (lines.length >= maxItems) break;
+    const line = textBlock(item, maxLen);
+    if (line) lines.push(line);
+  }
+  return lines;
+}
+function wholeYears(value) {
+  const number = typeof value === "number" ? value : typeof value === "string" && value.trim() ? Number(value) : Number.NaN;
+  if (!Number.isInteger(number) || number < 0 || number > 6) return null;
+  return number;
+}
+function languageOf(value) {
+  if (value === void 0 || value === null || value === "") return "";
+  if (value === "en" || value === "es") return value;
+  throw new ShareError(400, "invalid_activity", "Language must be English, Spanish, or blank.");
+}
+function parseCreatorInput(body) {
+  const title = textBlock(body["title"], 80);
+  const description = textBlock(body["description"], 800);
+  if (!title || !description) {
+    throw new ShareError(400, "invalid_activity", "Add a name and what the activity is about.");
+  }
+  const minAge = wholeYears(body["minAge"]);
+  const maxAge = wholeYears(body["maxAge"]);
+  if (minAge === null || maxAge === null || minAge > maxAge) {
+    throw new ShareError(400, "invalid_activity", "Age range must be whole years from 0 to 6.");
+  }
+  const skillRaw = typeof body["skill"] === "string" ? body["skill"] : "";
+  if (!SKILLS.includes(skillRaw)) {
+    throw new ShareError(400, "invalid_activity", "Choose a type of activity.");
+  }
+  const minutes = typeof body["minutes"] === "number" ? body["minutes"] : typeof body["minutes"] === "string" && body["minutes"].trim() ? Number(body["minutes"]) : Number.NaN;
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 180) {
+    throw new ShareError(400, "invalid_activity", "Length must be whole minutes from 1 to 180.");
+  }
+  const steps = lineList(body["steps"], 16, 300);
+  if (!steps.length) {
+    throw new ShareError(400, "invalid_activity", "Add at least one step for how to play.");
+  }
+  return {
+    title,
+    description,
+    minAge,
+    maxAge,
+    skill: skillRaw,
+    minutes,
+    materials: lineList(body["materials"], 16, 80),
+    steps,
+    language: languageOf(body["language"])
+  };
+}
+function parseReview(body) {
+  const decision = body["decision"];
+  if (decision !== "approve" && decision !== "reject") {
+    throw new ShareError(400, "invalid_review", "Choose approve or reject.");
+  }
+  return { decision, note: textBlock(body["note"], 280) };
+}
+function applyInput(existing, input, ownerName, now) {
+  return {
+    ...existing,
+    ...input,
+    ownerName,
+    status: "pending",
+    reviewNote: "",
+    updatedAt: now
+  };
+}
+
+// src/lib/creator/access.ts
+function displayName(user) {
+  const full = user.fullName?.trim() || [user.firstName, user.lastName].filter(Boolean).join(" ");
+  return full.trim();
+}
+function flagsOf(meta) {
+  return {
+    isPro: meta?.["isPro"] === true || meta?.["isCreatorPro"] === true,
+    isCreatorPro: meta?.["isCreatorPro"] === true
+  };
+}
+function toAccessUser(user) {
+  const email = user.emailAddresses.find((item) => item.emailAddress)?.emailAddress ?? user.emailAddresses[0]?.emailAddress ?? "";
+  const flags = flagsOf(user.publicMetadata);
+  return {
+    userId: user.id,
+    email,
+    name: displayName(user),
+    isPro: flags.isPro,
+    isCreatorPro: flags.isCreatorPro
+  };
+}
+async function clerkClient(secretKey) {
+  const { createClerkClient } = await import("@clerk/backend");
+  return createClerkClient({ secretKey });
+}
+function asUsers(result) {
+  if (Array.isArray(result)) return result;
+  if (result && typeof result === "object" && Array.isArray(result.data)) {
+    return result.data;
+  }
+  return [];
+}
+async function lookupCreatorAccess(secretKey, email) {
+  if (!secretKey) {
+    throw new ShareError(
+      503,
+      "not_configured",
+      "Creator Pro uses the existing Clerk account. This preview has no Clerk secret yet."
+    );
+  }
+  const clerk = await clerkClient(secretKey);
+  const result = await clerk.users.getUserList({ emailAddress: [email], limit: 5 });
+  const user = asUsers(result)[0];
+  return user ? toAccessUser(user) : null;
+}
+async function setCreatorAccess(secretKey, userId, enabled) {
+  if (!secretKey) {
+    throw new ShareError(
+      503,
+      "not_configured",
+      "Creator Pro uses the existing Clerk account. This preview has no Clerk secret yet."
+    );
+  }
+  if (!userId.trim()) throw new ShareError(400, "invalid_user", "Choose an account first.");
+  const clerk = await clerkClient(secretKey);
+  const current = await clerk.users.getUser(userId);
+  const meta = metadataWithCreatorPro(
+    current.publicMetadata ?? {},
+    enabled
+  );
+  const updated = await clerk.users.updateUser(userId, { publicMetadata: meta });
+  return toAccessUser(updated);
+}
+
+// src/lib/creator/service.ts
+function newId() {
+  return `cact_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
+}
+function toPublished(activity) {
+  return {
+    id: activity.id,
+    ownerName: activity.ownerName,
+    title: activity.title,
+    description: activity.description,
+    minAge: activity.minAge,
+    maxAge: activity.maxAge,
+    skill: activity.skill,
+    minutes: activity.minutes,
+    materials: activity.materials,
+    steps: activity.steps,
+    language: activity.language,
+    createdAt: activity.createdAt,
+    updatedAt: activity.updatedAt
+  };
+}
+function toOwned(activity) {
+  return {
+    ...toPublished(activity),
+    ownerId: activity.ownerId,
+    status: activity.status,
+    reviewNote: activity.reviewNote
+  };
+}
+function assertAuthor(actor) {
+  if (!canAuthorActivities(actor)) {
+    throw new ShareError(403, "not_creator", "Creator Pro is required to create activities.");
+  }
+}
+async function owned(store, actor, id) {
+  const existing = await store.get(id);
+  if (!existing || existing.ownerId !== actor.userId) {
+    throw new ShareError(403, "not_owner", "You can only change activities you created.");
+  }
+  return existing;
+}
+async function createCreatorActivity(store, actor, body, now) {
+  assertAuthor(actor);
+  const input = parseCreatorInput(body);
+  const activity = {
+    id: newId(),
+    ownerId: actor.userId,
+    ownerName: publicDisplayName(actor.name),
+    ...input,
+    status: "pending",
+    reviewNote: "",
+    createdAt: now,
+    updatedAt: now
+  };
+  await store.save(activity);
+  return activity;
+}
+async function updateCreatorActivity(store, actor, id, body, now) {
+  assertAuthor(actor);
+  const existing = await owned(store, actor, id);
+  const next = applyInput(existing, parseCreatorInput(body), publicDisplayName(actor.name), now);
+  await store.save(next);
+  return next;
+}
+async function deleteCreatorActivity(store, actor, id) {
+  assertAuthor(actor);
+  await owned(store, actor, id);
+  await store.delete(id);
+}
+async function reviewCreatorActivity(store, actor, id, body, now) {
+  if (!isFounderActor(actor)) {
+    throw new ShareError(403, "forbidden", "Only the founder can review activities.");
+  }
+  const existing = await store.get(id);
+  if (!existing) throw new ShareError(404, "not_found", "Activity not found.");
+  const review = parseReview(body);
+  const next = {
+    ...existing,
+    status: review.decision === "approve" ? "published" : "rejected",
+    reviewNote: review.note,
+    updatedAt: now
+  };
+  await store.save(next);
+  return next;
+}
+async function listOwnActivities(store, actor) {
+  assertAuthor(actor);
+  const rows = await store.list();
+  return rows.filter((row) => row.ownerId === actor.userId);
+}
+async function listReviewQueue(store, actor) {
+  if (!isFounderActor(actor)) {
+    throw new ShareError(403, "forbidden", "Only the founder can review activities.");
+  }
+  const rows = await store.list();
+  return rows.filter((row) => row.status === "pending" || row.status === "rejected");
+}
+async function listPublishedActivities(store) {
+  const rows = await store.list();
+  return rows.filter((row) => row.status === "published");
+}
+async function readVisibleActivity(store, actor, id) {
+  const activity = await store.get(id);
+  if (!activity) throw new ShareError(404, "not_found", "Activity not found.");
+  if (activity.status === "published") return { activity, full: false };
+  const allowed = actor !== null && (actor.userId === activity.ownerId || isFounderActor(actor));
+  if (!allowed) throw new ShareError(404, "not_found", "Activity not found.");
+  return { activity, full: true };
+}
+
+// src/lib/creator/http.ts
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "content-type": "application/json; charset=utf-8" }
+  });
+}
+function errorResponse(err) {
+  if (err instanceof ShareError) return json({ error: err.message, code: err.code }, err.status);
+  console.error("creator activities", err);
+  return json({ error: "Something went wrong. Try again.", code: "server_error" }, 500);
+}
+async function readJson(req) {
+  const text = await req.text();
+  if (!text.trim()) return {};
+  const parsed = JSON.parse(text);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new ShareError(400, "invalid_json", "Request body must be an object.");
+  }
+  return parsed;
+}
+function matchCreator(pathname) {
+  const parts = pathname.split("?")[0].replace(/\/+$/, "").split("/").filter(Boolean);
+  if (parts[0] !== "api" || parts[1] !== "share") return null;
+  const rest = parts.slice(2);
+  if (rest.length === 1 && rest[0] === "creator-access") return { name: "access" };
+  if (rest.length === 1 && rest[0] === "creator-activities") return { name: "collection" };
+  if (rest.length === 2 && rest[0] === "creator-activities") {
+    return { name: "one", id: decodeURIComponent(rest[1]) };
+  }
+  if (rest.length === 3 && rest[0] === "creator-activities" && rest[2] === "review") {
+    return { name: "review", id: decodeURIComponent(rest[1]) };
+  }
+  return null;
+}
+function assertId2(id) {
+  if (!/^cact_[a-z0-9]+$/i.test(id)) {
+    throw new ShareError(404, "not_found", "Activity not found.");
+  }
+}
+async function requireActor(deps, req) {
+  const actor = await deps.authenticate(req);
+  if (!actor) throw new ShareError(401, "unauthorized", "Sign in to continue.");
+  return actor;
+}
+function requireStore(deps) {
+  if (!deps.creatorStore) {
+    throw new ShareError(503, "not_configured", "Activities are not saved on this preview yet.");
+  }
+  return deps.creatorStore;
+}
+async function handleCreatorApi(req, deps) {
+  const url = new URL(req.url);
+  const route = matchCreator(url.pathname);
+  if (!route) return null;
+  try {
+    if (route.name === "collection" && req.method === "GET") {
+      const scope = url.searchParams.get("scope") || "published";
+      if (scope === "published") {
+        if (!deps.creatorStore) return json({ activities: [] });
+        const rows = await listPublishedActivities(deps.creatorStore);
+        return json({ activities: rows.map(toPublished) });
+      }
+      const actor = await requireActor(deps, req);
+      const store = requireStore(deps);
+      if (scope === "mine") {
+        const rows = await listOwnActivities(store, actor);
+        return json({ activities: rows.map(toOwned) });
+      }
+      if (scope === "review") {
+        const rows = await listReviewQueue(store, actor);
+        return json({ activities: rows.map(toOwned) });
+      }
+      throw new ShareError(400, "invalid_scope", "Scope must be published, mine, or review.");
+    }
+    if (route.name === "collection" && req.method === "POST") {
+      const actor = await requireActor(deps, req);
+      const store = requireStore(deps);
+      const activity = await createCreatorActivity(
+        store,
+        actor,
+        await readJson(req),
+        (/* @__PURE__ */ new Date()).toISOString()
+      );
+      return json({ activity: toOwned(activity) }, 201);
+    }
+    if (route.name === "one" && req.method === "GET") {
+      assertId2(route.id);
+      if (!deps.creatorStore) throw new ShareError(404, "not_found", "Activity not found.");
+      const actor = await deps.authenticate(req);
+      const visible = await readVisibleActivity(deps.creatorStore, actor, route.id);
+      return json({
+        activity: visible.full ? toOwned(visible.activity) : toPublished(visible.activity)
+      });
+    }
+    if (route.name === "one" && req.method === "PATCH") {
+      assertId2(route.id);
+      const actor = await requireActor(deps, req);
+      const activity = await updateCreatorActivity(
+        requireStore(deps),
+        actor,
+        route.id,
+        await readJson(req),
+        (/* @__PURE__ */ new Date()).toISOString()
+      );
+      return json({ activity: toOwned(activity) });
+    }
+    if (route.name === "one" && req.method === "DELETE") {
+      assertId2(route.id);
+      const actor = await requireActor(deps, req);
+      await deleteCreatorActivity(requireStore(deps), actor, route.id);
+      return json({ ok: true });
+    }
+    if (route.name === "review" && req.method === "POST") {
+      assertId2(route.id);
+      const actor = await requireActor(deps, req);
+      const activity = await reviewCreatorActivity(
+        requireStore(deps),
+        actor,
+        route.id,
+        await readJson(req),
+        (/* @__PURE__ */ new Date()).toISOString()
+      );
+      return json({ activity: toOwned(activity) });
+    }
+    if (route.name === "access" && (req.method === "GET" || req.method === "POST")) {
+      const actor = await requireActor(deps, req);
+      if (!isFounderActor(actor)) {
+        throw new ShareError(403, "forbidden", "Only the founder can change Creator Pro.");
+      }
+      if (req.method === "GET") {
+        const email = assertEmail(url.searchParams.get("email") || "");
+        const user2 = await lookupCreatorAccess(deps.clerkSecret, normalizeEmail(email));
+        return json({ user: user2 });
+      }
+      const body = await readJson(req);
+      const userId = typeof body["userId"] === "string" ? body["userId"].trim() : "";
+      if (typeof body["isCreatorPro"] !== "boolean") {
+        throw new ShareError(400, "invalid_user", "Say whether Creator Pro should be on.");
+      }
+      const user = await setCreatorAccess(deps.clerkSecret, userId, body["isCreatorPro"]);
+      return json({ user });
+    }
+    return json({ error: "Not found.", code: "not_found" }, 404);
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      return json({ error: "Request body must be JSON.", code: "invalid_json" }, 400);
+    }
+    return errorResponse(err);
+  }
+}
+
+// src/lib/creator/store.ts
+import { mkdirSync as mkdirSync2, readFileSync as readFileSync2, writeFileSync as writeFileSync2 } from "node:fs";
+import path2 from "node:path";
+
+// src/lib/share/store.ts
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+function emptyBag() {
+  return {
+    workspaces: {},
+    child: {},
+    plan: {},
+    invite: {},
+    membership: {},
+    token: {},
+    user: {},
+    email: {},
+    proRequests: {}
+  };
+}
+function ensureBag(bag) {
+  if (!bag.proRequests || typeof bag.proRequests !== "object") bag.proRequests = {};
+}
+function listAdd(map, key, ownerId) {
+  const current = map[key] ?? [];
+  if (!current.includes(ownerId)) map[key] = [...current, ownerId];
+}
+function listRemove(map, key, ownerId) {
+  const next = (map[key] ?? []).filter((item) => item !== ownerId);
+  if (next.length) map[key] = next;
+  else delete map[key];
+}
+function reindex(bag, previous, next) {
+  const ownerId = next.ownerUserId;
+  if (previous) {
+    for (const child of previous.children) delete bag.child[child.id];
+    for (const plan of previous.libraryPlans) delete bag.plan[plan.id];
+    for (const invite of previous.invites) {
+      delete bag.invite[invite.id];
+      delete bag.token[invite.token];
+    }
+    for (const membership of previous.memberships) delete bag.membership[membership.id];
+    for (const membership of previous.memberships) {
+      if (membership.status === "active") listRemove(bag.user, membership.personId, ownerId);
+    }
+    for (const invite of previous.invites) {
+      if (invite.status !== "pending") continue;
+      for (const emailKey of emailIndexKeys(invite.email)) listRemove(bag.email, emailKey, ownerId);
+    }
+  }
+  bag.workspaces[ownerId] = next;
+  for (const child of next.children) bag.child[child.id] = ownerId;
+  for (const plan of next.libraryPlans) bag.plan[plan.id] = ownerId;
+  for (const invite of next.invites) {
+    bag.invite[invite.id] = ownerId;
+    if (invite.status === "pending") bag.token[invite.token] = ownerId;
+  }
+  for (const membership of next.memberships) bag.membership[membership.id] = ownerId;
+  const activeUsers = new Set(
+    next.memberships.filter((membership) => membership.status === "active").map((membership) => membership.personId)
+  );
+  activeUsers.add(ownerId);
+  for (const userId of activeUsers) listAdd(bag.user, userId, ownerId);
+  for (const invite of next.invites) {
+    if (invite.status !== "pending") continue;
+    for (const emailKey of emailIndexKeys(invite.email)) listAdd(bag.email, emailKey, ownerId);
+  }
+}
+function createMemoryShareStore() {
+  const bag = emptyBag();
+  return storeFromBag(bag);
+}
+function sortedProRequests(bag) {
+  return Object.values(bag.proRequests).sort((a, b) => a.createdAt < b.createdAt ? 1 : -1);
+}
+function storeFromBag(bag) {
+  ensureBag(bag);
+  return {
+    async get(ownerUserId) {
+      return bag.workspaces[ownerUserId] ?? null;
+    },
+    async save(previous, next) {
+      reindex(bag, previous, next);
+    },
+    async ownerForChild(childId) {
+      return bag.child[childId] ?? null;
+    },
+    async ownerForPlan(planId) {
+      return bag.plan[planId] ?? null;
+    },
+    async ownerForInvite(inviteId) {
+      return bag.invite[inviteId] ?? null;
+    },
+    async ownerForMembership(membershipId) {
+      return bag.membership[membershipId] ?? null;
+    },
+    async ownerForToken(token) {
+      return bag.token[token] ?? null;
+    },
+    async ownersForUser(userId) {
+      return [...bag.user[userId] ?? []];
+    },
+    async ownersForEmail(email) {
+      return [...bag.email[email] ?? []];
+    },
+    async getProRequest(userId) {
+      return bag.proRequests[userId] ?? null;
+    },
+    async saveProRequest(request) {
+      bag.proRequests[request.userId] = request;
+    },
+    async listProRequests() {
+      return sortedProRequests(bag);
+    }
+  };
+}
+function createFileShareStore(filePath) {
+  const bag = emptyBag();
+  try {
+    const parsed = JSON.parse(readFileSync(filePath, "utf8"));
+    Object.assign(bag, parsed);
+    ensureBag(bag);
+  } catch {
+  }
+  const persist = () => {
+    mkdirSync(path.dirname(filePath), { recursive: true });
+    writeFileSync(filePath, JSON.stringify(bag));
+  };
+  const inner = storeFromBag(bag);
+  return {
+    ...inner,
+    async save(previous, next) {
+      await inner.save(previous, next);
+      persist();
+    },
+    async saveProRequest(request) {
+      await inner.saveProRequest(request);
+      persist();
+    }
+  };
+}
+function readEnv(env, name) {
+  return env[name];
+}
+function redisEnv(env) {
+  const url = readEnv(env, "UPSTASH_REDIS_REST_URL") || readEnv(env, "KV_REST_API_URL");
+  const token = readEnv(env, "UPSTASH_REDIS_REST_TOKEN") || readEnv(env, "KV_REST_API_TOKEN");
+  if (!url || !token) return null;
+  return { url: url.replace(/\/$/, ""), token };
+}
+async function redis(conn, command) {
+  const response = await fetch(conn.url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${conn.token}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(command)
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.error) {
+    throw new Error(payload.error || `Redis request failed (${response.status}).`);
+  }
+  return payload.result;
+}
+var PREFIX = "synlumae:share:";
+function createRedisShareStore(conn) {
+  const key = (suffix) => `${PREFIX}${suffix}`;
+  const readJson3 = async (suffix) => {
+    const raw = await redis(conn, ["GET", key(suffix)]);
+    if (typeof raw !== "string" || !raw) return null;
+    return JSON.parse(raw);
+  };
+  const writeJson = async (suffix, value) => {
+    await redis(conn, ["SET", key(suffix), JSON.stringify(value)]);
+  };
+  const readList = async (suffix) => {
+    return await readJson3(suffix) ?? [];
+  };
+  const writeList = async (suffix, values) => {
+    if (values.length === 0) await redis(conn, ["DEL", key(suffix)]);
+    else await writeJson(suffix, values);
+  };
+  return {
+    async get(ownerUserId) {
+      return readJson3(`ws:${ownerUserId}`);
+    },
+    async save(_passed, next) {
+      const lock = key(`lock:${next.ownerUserId}`);
+      const locked2 = await redis(conn, ["SET", lock, "1", "NX", "EX", "8"]);
+      if (locked2 !== "OK") {
+        throw Object.assign(new Error("busy"), { code: "conflict" });
+      }
+      try {
+        const previous = await readJson3(`ws:${next.ownerUserId}`);
+        if ((previous?.rev ?? 0) !== next.rev - 1) {
+          throw Object.assign(new Error("conflict"), { code: "conflict" });
+        }
+        await writeJson(`ws:${next.ownerUserId}`, next);
+        const drop = (suffix) => redis(conn, ["DEL", key(suffix)]);
+        if (previous) {
+          await Promise.all([
+            ...previous.children.map((child) => drop(`child:${child.id}`)),
+            ...previous.libraryPlans.map((plan) => drop(`plan:${plan.id}`)),
+            ...previous.invites.flatMap((invite) => [
+              drop(`invite:${invite.id}`),
+              drop(`token:${invite.token}`)
+            ]),
+            ...previous.memberships.map((membership) => drop(`mem:${membership.id}`))
+          ]);
+          const prevUsers = new Set(
+            previous.memberships.filter((membership) => membership.status === "active").map((membership) => membership.personId)
+          );
+          for (const userId of prevUsers) {
+            const list = (await readList(`user:${userId}`)).filter((id) => id !== next.ownerUserId);
+            await writeList(`user:${userId}`, list);
+          }
+          for (const invite of previous.invites) {
+            if (invite.status !== "pending") continue;
+            for (const emailKey of emailIndexKeys(invite.email)) {
+              const list = (await readList(`email:${emailKey}`)).filter(
+                (id) => id !== next.ownerUserId
+              );
+              await writeList(`email:${emailKey}`, list);
+            }
+          }
+        }
+        await Promise.all([
+          ...next.children.map(
+            (child) => redis(conn, ["SET", key(`child:${child.id}`), next.ownerUserId])
+          ),
+          ...next.libraryPlans.map(
+            (plan) => redis(conn, ["SET", key(`plan:${plan.id}`), next.ownerUserId])
+          ),
+          ...next.invites.map(
+            (invite) => redis(conn, ["SET", key(`invite:${invite.id}`), next.ownerUserId])
+          ),
+          ...next.invites.filter((invite) => invite.status === "pending").map((invite) => redis(conn, ["SET", key(`token:${invite.token}`), next.ownerUserId])),
+          ...next.memberships.map(
+            (membership) => redis(conn, ["SET", key(`mem:${membership.id}`), next.ownerUserId])
+          )
+        ]);
+        const users = new Set(
+          next.memberships.filter((membership) => membership.status === "active").map((membership) => membership.personId)
+        );
+        users.add(next.ownerUserId);
+        for (const userId of users) {
+          const list = await readList(`user:${userId}`);
+          if (!list.includes(next.ownerUserId)) {
+            await writeList(`user:${userId}`, [...list, next.ownerUserId]);
+          }
+        }
+        for (const invite of next.invites) {
+          if (invite.status !== "pending") continue;
+          for (const emailKey of emailIndexKeys(invite.email)) {
+            const list = await readList(`email:${emailKey}`);
+            if (!list.includes(next.ownerUserId)) {
+              await writeList(`email:${emailKey}`, [...list, next.ownerUserId]);
+            }
+          }
+        }
+      } finally {
+        await redis(conn, ["DEL", lock]);
+      }
+    },
+    async ownerForChild(childId) {
+      const value = await redis(conn, ["GET", key(`child:${childId}`)]);
+      return typeof value === "string" ? value : null;
+    },
+    async ownerForPlan(planId) {
+      const value = await redis(conn, ["GET", key(`plan:${planId}`)]);
+      return typeof value === "string" ? value : null;
+    },
+    async ownerForInvite(inviteId) {
+      const value = await redis(conn, ["GET", key(`invite:${inviteId}`)]);
+      return typeof value === "string" ? value : null;
+    },
+    async ownerForMembership(membershipId) {
+      const value = await redis(conn, ["GET", key(`mem:${membershipId}`)]);
+      return typeof value === "string" ? value : null;
+    },
+    async ownerForToken(token) {
+      const value = await redis(conn, ["GET", key(`token:${token}`)]);
+      return typeof value === "string" ? value : null;
+    },
+    async ownersForUser(userId) {
+      return readList(`user:${userId}`);
+    },
+    async ownersForEmail(email) {
+      return readList(`email:${email}`);
+    },
+    async getProRequest(userId) {
+      return readJson3(`proreq:${userId}`);
+    },
+    async saveProRequest(request) {
+      const lock = key("lock:proreq");
+      let locked2 = null;
+      for (let attempt = 0; attempt < 4 && locked2 !== "OK"; attempt += 1) {
+        locked2 = await redis(conn, ["SET", lock, "1", "NX", "EX", "8"]);
+        if (locked2 !== "OK")
+          await new Promise((resolve) => setTimeout(resolve, 40 * (attempt + 1)));
+      }
+      if (locked2 !== "OK") throw Object.assign(new Error("busy"), { code: "conflict" });
+      try {
+        await writeJson(`proreq:${request.userId}`, request);
+        const index = await readList("proreq:index");
+        if (!index.includes(request.userId))
+          await writeList("proreq:index", [...index, request.userId]);
+      } finally {
+        await redis(conn, ["DEL", lock]);
+      }
+    },
+    async listProRequests() {
+      const index = await readList("proreq:index");
+      const rows = await Promise.all(
+        index.map((userId) => readJson3(`proreq:${userId}`))
+      );
+      return rows.filter((row) => row !== null).sort((a, b) => a.createdAt < b.createdAt ? 1 : -1);
+    }
+  };
+}
+
+// src/lib/creator/store.ts
+function byNewest(rows) {
+  return [...rows].sort(
+    (a, b) => a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0
+  );
+}
+function createMemoryCreatorStore() {
+  const rows = /* @__PURE__ */ new Map();
+  return {
+    async get(id) {
+      return rows.get(id) ?? null;
+    },
+    async save(activity) {
+      rows.set(activity.id, activity);
+    },
+    async delete(id) {
+      rows.delete(id);
+    },
+    async list() {
+      return byNewest([...rows.values()]);
+    }
+  };
+}
+function createFileCreatorStore(filePath) {
+  const rows = /* @__PURE__ */ new Map();
+  try {
+    const parsed = JSON.parse(readFileSync2(filePath, "utf8"));
+    for (const activity of parsed.activities ?? []) {
+      if (activity?.id) rows.set(activity.id, activity);
+    }
+  } catch {
+  }
+  const persist = () => {
+    mkdirSync2(path2.dirname(filePath), { recursive: true });
+    writeFileSync2(filePath, JSON.stringify({ activities: [...rows.values()] }));
+  };
+  const inner = {
+    async get(id) {
+      return rows.get(id) ?? null;
+    },
+    async save(activity) {
+      rows.set(activity.id, activity);
+      persist();
+    },
+    async delete(id) {
+      rows.delete(id);
+      persist();
+    },
+    async list() {
+      return byNewest([...rows.values()]);
+    }
+  };
+  return inner;
+}
+async function redis2(conn, command) {
+  const response = await fetch(conn.url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${conn.token}`,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(command)
+  });
+  const payload = await response.json();
+  if (!response.ok || payload.error) {
+    throw new Error(payload.error || `Redis request failed (${response.status}).`);
+  }
+  return payload.result;
+}
+function createRedisCreatorStore(conn, prefix) {
+  const key = (suffix) => `${prefix}${suffix}`;
+  const readJson3 = async (suffix) => {
+    const raw = await redis2(conn, ["GET", key(suffix)]);
+    if (typeof raw !== "string" || !raw) return null;
+    return JSON.parse(raw);
+  };
+  const readIds = async () => {
+    return await readJson3("ids") ?? [];
+  };
+  const withLock = async (work) => {
+    const lock = key("lock");
+    let locked2 = null;
+    for (let attempt = 0; attempt < 4 && locked2 !== "OK"; attempt += 1) {
+      locked2 = await redis2(conn, ["SET", lock, "1", "NX", "EX", "8"]);
+      if (locked2 !== "OK") await new Promise((resolve) => setTimeout(resolve, 40 * (attempt + 1)));
+    }
+    if (locked2 !== "OK") throw Object.assign(new Error("busy"), { code: "conflict" });
+    try {
+      return await work();
+    } finally {
+      await redis2(conn, ["DEL", lock]);
+    }
+  };
+  return {
+    async get(id) {
+      return readJson3(`act:${id}`);
+    },
+    async save(activity) {
+      await withLock(async () => {
+        await redis2(conn, ["SET", key(`act:${activity.id}`), JSON.stringify(activity)]);
+        const ids = await readIds();
+        if (!ids.includes(activity.id)) {
+          await redis2(conn, ["SET", key("ids"), JSON.stringify([...ids, activity.id])]);
+        }
+      });
+    },
+    async delete(id) {
+      await withLock(async () => {
+        await redis2(conn, ["DEL", key(`act:${id}`)]);
+        const ids = (await readIds()).filter((item) => item !== id);
+        if (ids.length) await redis2(conn, ["SET", key("ids"), JSON.stringify(ids)]);
+        else await redis2(conn, ["DEL", key("ids")]);
+      });
+    },
+    async list() {
+      const ids = await readIds();
+      const rows = await Promise.all(ids.map((id) => readJson3(`act:${id}`)));
+      return byNewest(rows.filter((row) => row !== null));
+    }
+  };
+}
+function createCreatorStore(env = process.env) {
+  if (env["SHARE_STORE"] === "memory") return createMemoryCreatorStore();
+  const redisConn = redisEnv(env);
+  if (redisConn) return createRedisCreatorStore(redisConn, creatorKeyPrefix(env));
+  if (!env["VERCEL"] && env["SHARE_STORE"] !== "none") {
+    return createFileCreatorStore(path2.join(process.cwd(), ".data", "creator-activities.json"));
+  }
+  return null;
+}
+
+// src/lib/share/mail.ts
+function clip(message) {
+  return message.replace(/\s+/g, " ").trim().slice(0, 240);
+}
+function classify(err) {
+  const row = err;
+  const detail = row?.errors?.[0]?.longMessage || row?.errors?.[0]?.message || (err instanceof Error ? err.message : "") || "Clerk could not send the email.";
+  const message = clip(detail);
+  const lower = message.toLowerCase();
+  if (lower.includes("redirect") || lower.includes("not allowed")) {
+    return { sent: false, code: "redirect_blocked", message };
+  }
+  if (lower.includes("exist") || lower.includes("taken") || lower.includes("already") || row?.errors?.[0]?.code === "form_identifier_exists") {
+    return { sent: false, code: "already_user", message };
+  }
+  return { sent: false, code: "clerk_error", message };
+}
+async function sendClerkInvitation(input) {
+  if (!input.secretKey) {
+    return {
+      sent: false,
+      code: "not_configured",
+      message: "CLERK_SECRET_KEY is not set on this preview."
+    };
+  }
+  try {
+    const { createClerkClient } = await import("@clerk/backend");
+    const clerk = createClerkClient({ secretKey: input.secretKey });
+    await clerk.invitations.createInvitation({
+      emailAddress: input.email,
+      redirectUrl: input.redirectUrl,
+      notify: true,
+      ignoreExisting: true,
+      expiresInDays: 30,
+      publicMetadata: { synlumaeInvite: input.token }
+    });
+    return { sent: true, code: "sent", message: "Invitation email sent." };
+  } catch (err) {
+    console.error("clerk invitation", err);
+    return classify(err);
+  }
+}
+
+// src/lib/share/pro-request.ts
+var PRO_REQUEST_ADMIN_EMAILS = [
+  "samlooijenstein@gmail.com",
+  "s.looijenstein@synlumae.com"
+];
+var PRO_REQUEST_ROLES = ["therapist", "psychologist", "other"];
+function clipLine2(raw, max) {
+  let cleaned = "";
+  for (const char of raw) {
+    cleaned += char.charCodeAt(0) < 32 ? " " : char;
+  }
+  return cleaned.replace(/\s+/g, " ").trim().slice(0, max);
+}
+function newProRequestId() {
+  return `proreq_${crypto.randomUUID().replace(/-/g, "").slice(0, 20)}`;
+}
+function adminAllowlist(override) {
+  const configured = override?.trim() ?? "";
+  const listed = configured ? configured.split(",") : [...PRO_REQUEST_ADMIN_EMAILS];
+  const allow = /* @__PURE__ */ new Set();
+  for (const raw of listed) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    try {
+      allow.add(canonicalEmail(assertEmail(trimmed)));
+    } catch {
+    }
+  }
+  return allow;
+}
+function isProRequestAdmin(actor, override) {
+  const allow = adminAllowlist(override);
+  if (allow.size === 0) return false;
+  return actorEmailKeys(actor).some((key) => allow.has(canonicalEmail(key)));
+}
+function parseProRequestInput(body) {
+  const fullName = clipLine2(typeof body["fullName"] === "string" ? body["fullName"] : "", 80);
+  if (!fullName || fullName.includes("@")) {
+    throw new ShareError(400, "invalid_name", "Enter your full name.");
+  }
+  const email = assertEmail(typeof body["email"] === "string" ? body["email"] : "");
+  const roleRaw = typeof body["role"] === "string" ? body["role"] : "";
+  if (!PRO_REQUEST_ROLES.includes(roleRaw)) {
+    throw new ShareError(400, "invalid_role", "Choose therapist, psychologist, or other.");
+  }
+  const countryRaw = typeof body["country"] === "string" ? body["country"].trim().toUpperCase() : "";
+  if (!/^[A-Z]{2}$/.test(countryRaw)) {
+    throw new ShareError(400, "invalid_country", "Choose a country.");
+  }
+  if (body["worksWithFamilies"] !== true) {
+    throw new ShareError(
+      400,
+      "confirm_required",
+      "Confirm that you work with families in a professional role."
+    );
+  }
+  return {
+    fullName,
+    email,
+    role: roleRaw,
+    country: countryRaw,
+    organisation: clipLine2(
+      typeof body["organisation"] === "string" ? body["organisation"] : "",
+      80
+    ),
+    why: clipLine2(typeof body["why"] === "string" ? body["why"] : "", 160),
+    worksWithFamilies: true
+  };
+}
+async function submitProRequest(store, actor, input, now) {
+  if (actor.isPro) {
+    throw new ShareError(409, "already_pro", "This account already has Pro.");
+  }
+  const existing = await store.getProRequest(actor.userId);
+  const request = {
+    id: existing?.id ?? newProRequestId(),
+    userId: actor.userId,
+    email: normalizeEmail(input.email),
+    fullName: input.fullName,
+    role: input.role,
+    country: input.country,
+    organisation: input.organisation,
+    why: input.why,
+    worksWithFamilies: true,
+    status: "pending",
+    createdAt: existing?.createdAt ?? now,
+    updatedAt: now
+  };
+  await store.saveProRequest(request);
+  return request;
+}
+async function pendingForReview(requests, userIsPro) {
+  const waiting = [];
+  for (const request of requests) {
+    if (await userIsPro(request.userId)) continue;
+    waiting.push(request);
+  }
+  return waiting;
+}
+function proRequestNotifyResult(notifyEmail) {
+  const to = notifyEmail?.trim();
+  if (!to) return { notified: false, code: "not_configured" };
+  return { notified: false, code: "no_mailer" };
+}
+
+// src/lib/calendar/permissions.ts
+function canEditPlan(role) {
+  return role === "therapist" || role === "caregiver";
+}
+function canInvite(role) {
+  return role === "therapist" || role === "caregiver";
+}
+function inviteRolesFor(actor) {
+  if (actor === "therapist") return ["caregiver"];
+  if (actor === "caregiver") return ["helper"];
+  return [];
+}
+function canRemoveMember(actor, target) {
+  if (target === "therapist") return false;
+  if (actor === "therapist") return true;
+  if (actor === "caregiver") return target === "helper";
+  return false;
+}
+function membershipOnChild(memberships, childId, personId) {
+  return memberships.find(
+    (m) => m.childId === childId && m.personId === personId && m.status === "active"
+  ) ?? null;
+}
+
+// src/lib/calendar/types.ts
+var AGE_BANDS = [
+  { id: "1-2", labelKey: "calendar.ageBands.1_2" },
+  { id: "3-5", labelKey: "calendar.ageBands.3_5" },
+  { id: "6-8", labelKey: "calendar.ageBands.6_8" },
+  { id: "9-12", labelKey: "calendar.ageBands.9_12" }
+];
+function isAgeBand(value) {
+  return AGE_BANDS.some((band) => band.id === value);
+}
+function toDateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function nid(prefix) {
+  const raw = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID().replace(/-/g, "") : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+  return `${prefix}_${raw.slice(0, 12)}`;
+}
+
+// src/lib/calendar/child-age.ts
+var MAX_AGE_YEARS = 25;
+var AGE_STEP_MONTHS = 6;
+var SLIDER_MAX_MONTHS = 10 * 12;
+var SLIDER_MAX_INDEX = SLIDER_MAX_MONTHS / AGE_STEP_MONTHS;
+function parseBirthDate(raw, today = /* @__PURE__ */ new Date()) {
+  const trimmed = raw.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return null;
+  const parts = trimmed.split("-").map(Number);
+  const year = parts[0];
+  const month = parts[1];
+  const day = parts[2];
+  if (year == null || month == null || day == null) return null;
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+  if (trimmed > toDateKey(today)) return null;
+  if (wholeYears2(trimmed, today) > MAX_AGE_YEARS) return null;
+  return trimmed;
+}
+function wholeYears2(birthDate, today = /* @__PURE__ */ new Date()) {
+  const parts = birthDate.split("-").map(Number);
+  const year = parts[0] ?? 0;
+  const month = parts[1] ?? 1;
+  const day = parts[2] ?? 1;
+  let years = today.getFullYear() - year;
+  const todayMonth = today.getMonth() + 1;
+  const todayDay = today.getDate();
+  if (todayMonth < month || todayMonth === month && todayDay < day) years -= 1;
+  return Math.max(0, years);
+}
+function isStoredAgeMonths(value) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= MAX_AGE_YEARS * 12;
+}
+function isStoredAgeYears(value) {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= MAX_AGE_YEARS;
+}
+function isStoredBirthDate(value, today = /* @__PURE__ */ new Date()) {
+  return typeof value === "string" && parseBirthDate(value, today) === value;
+}
+
+// src/lib/share/mutate.ts
+function keptDone(existing, step) {
+  if (!existing?.length) return false;
+  const match2 = existing.find((item) => item.id === step.id) ?? (step.activityId ? existing.find((item) => item.activityId && item.activityId === step.activityId) : void 0);
+  return match2?.done === true;
+}
+function nowOr(value) {
+  return /^\d{4}-\d{2}-\d{2}T/.test(value) ? value : (/* @__PURE__ */ new Date()).toISOString();
+}
+function sanitizeStep(step, id) {
+  const title = step.title.replace(/\s+/g, " ").trim().slice(0, 80);
+  if (!title) throw new ShareError(400, "invalid_step", "Each step needs a title.");
+  const notes = (step.notes || step.description || "").trim().slice(0, 400);
+  const minutes = Math.round(Number(step.minutes));
+  if (!Number.isFinite(minutes) || minutes < 1 || minutes > 180) {
+    throw new ShareError(400, "invalid_step", "Keep each step between 1 and 180 minutes.");
+  }
+  const activityId = step.activityId && /^[a-z0-9-]{1,80}$/.test(step.activityId) ? step.activityId : null;
+  if (!/^(st|ds)_[a-z0-9_]{8,64}$/.test(id)) {
+    throw new ShareError(400, "invalid_id", "Invalid id.");
+  }
+  return { id, title, notes, description: notes, minutes, activityId };
+}
+function roleOn(state, childId, actorId) {
+  return membershipOnChild(state.memberships, childId, actorId)?.role ?? null;
+}
+function requireEditor(state, childId, actorId) {
+  const role = roleOn(state, childId, actorId);
+  if (!canEditPlan(role)) {
+    throw new ShareError(403, "forbidden", "You cannot edit this plan.");
+  }
+  return role;
+}
+function personOf(state, actorId) {
+  return state.people.find((person) => person.id === actorId) ?? null;
+}
+function applyShareAction(state, actor, action) {
+  const now = "now" in action ? nowOr(action.now) : (/* @__PURE__ */ new Date()).toISOString();
+  switch (action.type) {
+    case "addChild": {
+      const person = personOf(state, actor.userId);
+      if (!actor.isPro || person?.appRole !== "therapist") {
+        throw new ShareError(403, "pro_required", "Only a Pro account can add a patient.");
+      }
+      if (state.children.length >= 40) {
+        throw new ShareError(400, "limit", "This caseload is full.");
+      }
+      if (!isAgeBand(action.ageBand)) {
+        throw new ShareError(400, "invalid_age", "Choose an age band.");
+      }
+      if (action.ageYears !== void 0 && !isStoredAgeYears(action.ageYears)) {
+        throw new ShareError(400, "invalid_age", "Enter a whole age in years.");
+      }
+      if (action.ageMonths !== void 0 && !isStoredAgeMonths(action.ageMonths)) {
+        throw new ShareError(400, "invalid_age", "Enter an age in months.");
+      }
+      if (action.birthDate !== void 0 && !isStoredBirthDate(action.birthDate)) {
+        throw new ShareError(400, "invalid_age", "Enter a valid date of birth.");
+      }
+      const childId = assertId(action.childId, "child");
+      const child = {
+        id: childId,
+        displayName: clipDisplayName(action.displayName, "Child"),
+        ageBand: action.ageBand,
+        ...action.ageYears !== void 0 ? { ageYears: action.ageYears } : {},
+        ...action.ageMonths !== void 0 ? { ageMonths: action.ageMonths } : {},
+        ...action.birthDate ? { birthDate: action.birthDate } : {},
+        createdAt: now,
+        createdById: actor.userId
+      };
+      const allowedTags = new Set(
+        state.therapistTags.filter((tag) => tag.therapistId === actor.userId).map((tag) => tag.id)
+      );
+      return {
+        state: {
+          ...state,
+          children: [...state.children, child],
+          memberships: [
+            ...state.memberships,
+            {
+              id: assertId(action.membershipId, "mem"),
+              childId,
+              personId: actor.userId,
+              role: "therapist",
+              status: "active"
+            }
+          ],
+          childTags: [
+            ...state.childTags,
+            ...action.tagIds.filter((tagId) => allowedTags.has(tagId)).map((tagId) => ({ childId, tagId }))
+          ],
+          selectedChildId: childId
+        }
+      };
+    }
+    case "addTherapistTag": {
+      const person = personOf(state, actor.userId);
+      if (!actor.isPro || person?.appRole !== "therapist") {
+        throw new ShareError(403, "pro_required", "Only a Pro account can add tags.");
+      }
+      const name = clipDisplayName(action.name, "");
+      if (!name) return { state };
+      return {
+        state: {
+          ...state,
+          therapistTags: [
+            ...state.therapistTags,
+            { id: assertId(action.tagId, "tag"), therapistId: actor.userId, name }
+          ]
+        }
+      };
+    }
+    case "updateChild": {
+      if (!actor.isPro || roleOn(state, action.childId, actor.userId) !== "therapist") {
+        throw new ShareError(403, "pro_required", "Only a Pro account can edit a patient.");
+      }
+      if (!isAgeBand(action.ageBand)) {
+        throw new ShareError(400, "invalid_age", "Choose an age band.");
+      }
+      if (action.ageYears !== void 0 && !isStoredAgeYears(action.ageYears)) {
+        throw new ShareError(400, "invalid_age", "Enter a whole age in years.");
+      }
+      if (action.ageMonths !== void 0 && !isStoredAgeMonths(action.ageMonths)) {
+        throw new ShareError(400, "invalid_age", "Enter an age in months.");
+      }
+      if (action.birthDate !== void 0 && action.birthDate !== null && !isStoredBirthDate(action.birthDate)) {
+        throw new ShareError(400, "invalid_age", "Enter a valid date of birth.");
+      }
+      const current = state.children.find((child) => child.id === action.childId);
+      if (!current) throw new ShareError(404, "not_found", "Patient not found.");
+      const allowed = new Set(
+        state.therapistTags.filter((tag) => tag.therapistId === actor.userId).map((tag) => tag.id)
+      );
+      const { birthDate: previousBirth, ...withoutBirth } = current;
+      const next = {
+        ...withoutBirth,
+        displayName: clipDisplayName(action.displayName, current.displayName),
+        ageBand: action.ageBand,
+        ...action.ageYears !== void 0 ? { ageYears: action.ageYears } : {},
+        ...action.ageMonths !== void 0 ? { ageMonths: action.ageMonths } : {},
+        ...action.birthDate ? { birthDate: action.birthDate } : action.birthDate === null || !previousBirth ? {} : { birthDate: previousBirth }
+      };
+      return {
+        state: {
+          ...state,
+          children: state.children.map((child) => child.id === current.id ? next : child),
+          childTags: [
+            ...state.childTags.filter((tag) => tag.childId !== current.id),
+            ...action.tagIds.filter((tagId) => allowed.has(tagId)).map((tagId) => ({ childId: current.id, tagId }))
+          ]
+        }
+      };
+    }
+    case "removeChild": {
+      if (!actor.isPro || roleOn(state, action.childId, actor.userId) !== "therapist") {
+        throw new ShareError(403, "pro_required", "Only a Pro account can remove a patient.");
+      }
+      if (!state.children.some((child) => child.id === action.childId)) return { state };
+      return {
+        state: {
+          ...state,
+          children: state.children.filter((child) => child.id !== action.childId),
+          memberships: state.memberships.filter((item) => item.childId !== action.childId),
+          invites: state.invites.filter((invite) => invite.childId !== action.childId),
+          childTags: state.childTags.filter((tag) => tag.childId !== action.childId),
+          dayPlans: state.dayPlans.filter((plan) => plan.childId !== action.childId),
+          libraryPlans: state.libraryPlans.filter((plan) => plan.childId !== action.childId),
+          selectedChildId: state.selectedChildId === action.childId ? null : state.selectedChildId,
+          dismissedChildIds: [.../* @__PURE__ */ new Set([...state.dismissedChildIds ?? [], action.childId])]
+        }
+      };
+    }
+    case "setChildTags": {
+      const role = roleOn(state, action.childId, actor.userId);
+      if (role !== "therapist") {
+        throw new ShareError(403, "forbidden", "Only the therapist can tag a patient.");
+      }
+      const allowed = new Set(
+        state.therapistTags.filter((tag) => tag.therapistId === actor.userId).map((tag) => tag.id)
+      );
+      return {
+        state: {
+          ...state,
+          childTags: [
+            ...state.childTags.filter((tag) => tag.childId !== action.childId),
+            ...action.tagIds.filter((tagId) => allowed.has(tagId)).map((tagId) => ({ childId: action.childId, tagId }))
+          ]
+        }
+      };
+    }
+    case "toggleStepDone": {
+      if (!roleOn(state, action.childId, actor.userId)) {
+        throw new ShareError(403, "forbidden", "You cannot update this plan.");
+      }
+      assertDateKey(action.date);
+      return {
+        state: {
+          ...state,
+          dayPlans: state.dayPlans.map((plan) => {
+            if (plan.childId !== action.childId || plan.date !== action.date) return plan;
+            return {
+              ...plan,
+              updatedAt: now,
+              steps: plan.steps.map(
+                (step) => step.id === action.stepId ? { ...step, done: !step.done } : step
+              )
+            };
+          })
+        }
+      };
+    }
+    case "applyLibraryPlan": {
+      requireEditor(state, action.childId, actor.userId);
+      const plan = state.libraryPlans.find((item) => item.id === action.libraryPlanId);
+      if (!plan) throw new ShareError(404, "not_found", "Plan not found.");
+      let dayPlans = [...state.dayPlans];
+      for (const day of action.days) {
+        assertDateKey(day.date);
+        if (day.stepIds.length !== plan.steps.length) {
+          throw new ShareError(400, "invalid_step", "Step ids do not match the plan.");
+        }
+        const previous = dayPlans.find(
+          (item) => item.childId === action.childId && item.date === day.date
+        );
+        const next = {
+          id: previous?.id ?? assertId(day.dayId, "day"),
+          childId: action.childId,
+          date: day.date,
+          name: plan.name,
+          nameKey: plan.nameKey ?? null,
+          libraryPlanId: plan.id,
+          steps: plan.steps.map((step, index) => ({
+            ...sanitizeStep(step, day.stepIds[index]),
+            done: keptDone(previous?.steps, step)
+          })),
+          tweaked: false,
+          updatedAt: now
+        };
+        dayPlans = dayPlans.filter(
+          (item) => !(item.childId === action.childId && item.date === day.date)
+        );
+        dayPlans.push(next);
+      }
+      return { state: { ...state, dayPlans } };
+    }
+    case "createLibraryPlan": {
+      const childId = action.plan.childId;
+      if (childId) requireEditor(state, childId, actor.userId);
+      else if (!actor.isPro || personOf(state, actor.userId)?.appRole !== "therapist") {
+        throw new ShareError(403, "pro_required", "Only a Pro account can add a template.");
+      }
+      if (state.libraryPlans.length >= 40) {
+        throw new ShareError(400, "limit", "Too many plans.");
+      }
+      const steps = action.plan.steps.slice(0, 30).map((step) => sanitizeStep(step, step.id));
+      const plan = {
+        id: assertId(action.plan.id, "lib"),
+        ownerId: actor.userId,
+        name: clipDisplayName(action.plan.name, "Untitled plan"),
+        nameKey: action.plan.nameKey ?? null,
+        steps,
+        childId,
+        sourceTemplateId: null,
+        updatedAt: now
+      };
+      return { state: { ...state, libraryPlans: [...state.libraryPlans, plan] } };
+    }
+    case "updateLibraryPlan": {
+      const current = state.libraryPlans.find((plan) => plan.id === action.id);
+      if (!current) return { state };
+      if (current.childId) requireEditor(state, current.childId, actor.userId);
+      else if (current.ownerId !== actor.userId) {
+        throw new ShareError(403, "forbidden", "You cannot edit this template.");
+      }
+      const name = action.name !== void 0 ? clipDisplayName(action.name, current.name) : current.name;
+      const renamed = action.name !== void 0 && name !== current.name;
+      const nextSteps = action.steps ? action.steps.slice(0, 30).map((step) => sanitizeStep(step, step.id)) : current.steps;
+      return {
+        state: {
+          ...state,
+          libraryPlans: state.libraryPlans.map(
+            (plan) => plan.id === action.id ? {
+              ...plan,
+              name,
+              nameKey: renamed ? null : plan.nameKey ?? null,
+              steps: nextSteps,
+              updatedAt: now
+            } : plan
+          ),
+          dayPlans: state.dayPlans.map((day) => {
+            if (day.libraryPlanId !== action.id) return day;
+            return {
+              ...day,
+              name,
+              nameKey: renamed ? null : day.nameKey ?? null,
+              steps: nextSteps.map((step) => ({
+                ...step,
+                done: keptDone(day.steps, step)
+              })),
+              updatedAt: now
+            };
+          })
+        }
+      };
+    }
+    case "duplicateLibraryPlan": {
+      const source = state.libraryPlans.find((plan) => plan.id === action.sourceId);
+      if (!source) return { state };
+      if (source.childId) requireEditor(state, source.childId, actor.userId);
+      else if (source.ownerId !== actor.userId) {
+        throw new ShareError(403, "forbidden", "You cannot copy this template.");
+      }
+      if (action.stepIds.length !== source.steps.length) {
+        throw new ShareError(400, "invalid_step", "Step ids do not match the plan.");
+      }
+      const copy = {
+        ...source,
+        id: assertId(action.copyId, "lib"),
+        name: clipDisplayName(`${source.name} (copy)`, "Copy"),
+        nameKey: null,
+        steps: source.steps.map((step, index) => sanitizeStep(step, action.stepIds[index])),
+        updatedAt: now
+      };
+      return { state: { ...state, libraryPlans: [...state.libraryPlans, copy] } };
+    }
+    case "deleteLibraryPlan": {
+      const current = state.libraryPlans.find((plan) => plan.id === action.id);
+      if (!current) return { state };
+      if (current.childId) requireEditor(state, current.childId, actor.userId);
+      else if (current.ownerId !== actor.userId) {
+        throw new ShareError(403, "forbidden", "You cannot delete this template.");
+      }
+      return {
+        state: {
+          ...state,
+          libraryPlans: state.libraryPlans.filter((plan) => plan.id !== action.id),
+          dayPlans: state.dayPlans.filter((plan) => plan.libraryPlanId !== action.id)
+        }
+      };
+    }
+    case "useTemplateForPatient": {
+      if (personOf(state, actor.userId)?.appRole !== "therapist") {
+        throw new ShareError(403, "pro_required", "Only a Pro account can copy a template.");
+      }
+      requireEditor(state, action.childId, actor.userId);
+      const master = state.libraryPlans.find(
+        (plan) => plan.id === action.masterId && plan.childId === null && plan.ownerId === actor.userId
+      );
+      if (!master) throw new ShareError(404, "not_found", "Template not found.");
+      if (action.stepIds.length !== master.steps.length) {
+        throw new ShareError(400, "invalid_step", "Step ids do not match the template.");
+      }
+      const copy = {
+        id: assertId(action.copyId, "lib"),
+        ownerId: actor.userId,
+        name: master.name,
+        nameKey: master.nameKey ?? null,
+        steps: master.steps.map((step, index) => sanitizeStep(step, action.stepIds[index])),
+        childId: action.childId,
+        sourceTemplateId: master.id,
+        updatedAt: now
+      };
+      return { state: { ...state, libraryPlans: [...state.libraryPlans, copy] } };
+    }
+    case "tweakDayStep": {
+      requireEditor(state, action.childId, actor.userId);
+      assertDateKey(action.date);
+      const title = clipDisplayName(action.title, "");
+      if (!title) throw new ShareError(400, "invalid_step", "Each step needs a title.");
+      return {
+        state: {
+          ...state,
+          dayPlans: state.dayPlans.map((plan) => {
+            if (plan.childId !== action.childId || plan.date !== action.date) return plan;
+            return {
+              ...plan,
+              tweaked: true,
+              updatedAt: now,
+              steps: plan.steps.map(
+                (step) => step.id === action.stepId ? { ...step, title } : step
+              )
+            };
+          })
+        }
+      };
+    }
+    case "addDayStep": {
+      requireEditor(state, action.childId, actor.userId);
+      assertDateKey(action.date);
+      const step = { ...sanitizeStep(action.step, action.stepId), done: false };
+      const existing = state.dayPlans.find(
+        (plan) => plan.childId === action.childId && plan.date === action.date
+      );
+      if (existing) {
+        return {
+          state: {
+            ...state,
+            dayPlans: state.dayPlans.map(
+              (plan) => plan.id === existing.id ? { ...plan, steps: [...plan.steps, step], tweaked: true, updatedAt: now } : plan
+            )
+          }
+        };
+      }
+      return {
+        state: {
+          ...state,
+          dayPlans: [
+            ...state.dayPlans,
+            {
+              id: assertId(action.dayId, "day"),
+              childId: action.childId,
+              date: action.date,
+              name: "Today's plan",
+              nameKey: "calendar.today.customPlan",
+              libraryPlanId: null,
+              steps: [step],
+              tweaked: true,
+              updatedAt: now
+            }
+          ]
+        }
+      };
+    }
+    case "replaceDayStep": {
+      requireEditor(state, action.childId, actor.userId);
+      assertDateKey(action.date);
+      return {
+        state: {
+          ...state,
+          dayPlans: state.dayPlans.map((plan) => {
+            if (plan.childId !== action.childId || plan.date !== action.date) return plan;
+            return {
+              ...plan,
+              tweaked: true,
+              updatedAt: now,
+              steps: plan.steps.map(
+                (step) => step.id === action.stepId ? {
+                  ...sanitizeStep({ ...action.step, id: action.stepId }, action.stepId),
+                  done: step.done
+                } : step
+              )
+            };
+          })
+        }
+      };
+    }
+    case "removeDayPlan": {
+      requireEditor(state, action.childId, actor.userId);
+      assertDateKey(action.date);
+      return {
+        state: {
+          ...state,
+          dayPlans: state.dayPlans.filter(
+            (plan) => !(plan.childId === action.childId && plan.date === action.date)
+          )
+        }
+      };
+    }
+    case "removeDayStep": {
+      requireEditor(state, action.childId, actor.userId);
+      assertDateKey(action.date);
+      return {
+        state: {
+          ...state,
+          dayPlans: state.dayPlans.map((plan) => {
+            if (plan.childId !== action.childId || plan.date !== action.date) return plan;
+            return {
+              ...plan,
+              tweaked: true,
+              updatedAt: now,
+              steps: plan.steps.filter((step) => step.id !== action.stepId)
+            };
+          })
+        }
+      };
+    }
+    case "appendLibraryStep": {
+      const plan = state.libraryPlans.find((item) => item.id === action.libraryPlanId);
+      if (!plan) return { state };
+      if (plan.childId) requireEditor(state, plan.childId, actor.userId);
+      else if (plan.ownerId !== actor.userId) {
+        throw new ShareError(403, "forbidden", "You cannot edit this template.");
+      }
+      const step = sanitizeStep(action.step, action.stepId);
+      return {
+        state: {
+          ...state,
+          libraryPlans: state.libraryPlans.map(
+            (item) => item.id === plan.id ? { ...item, steps: [...item.steps, step].slice(0, 30), updatedAt: now } : item
+          )
+        }
+      };
+    }
+    case "saveDayBackToLibrary": {
+      requireEditor(state, action.childId, actor.userId);
+      assertDateKey(action.date);
+      const day = state.dayPlans.find(
+        (plan) => plan.childId === action.childId && plan.date === action.date
+      );
+      if (!day) return { state };
+      if (action.stepIds.length !== day.steps.length) {
+        throw new ShareError(400, "invalid_step", "Step ids do not match the day.");
+      }
+      const steps = day.steps.map((step, index) => sanitizeStep(step, action.stepIds[index]));
+      if (day.libraryPlanId && state.libraryPlans.some((plan) => plan.id === day.libraryPlanId)) {
+        return {
+          state: {
+            ...state,
+            libraryPlans: state.libraryPlans.map(
+              (plan) => plan.id === day.libraryPlanId ? {
+                ...plan,
+                name: day.name,
+                nameKey: day.nameKey ?? plan.nameKey ?? null,
+                steps,
+                updatedAt: now
+              } : plan
+            ),
+            dayPlans: state.dayPlans.map(
+              (plan) => plan.id === day.id ? { ...plan, tweaked: false } : plan
+            )
+          }
+        };
+      }
+      const created = {
+        id: assertId(action.planId, "lib"),
+        ownerId: actor.userId,
+        name: day.name,
+        nameKey: day.nameKey ?? null,
+        steps,
+        childId: action.childId,
+        sourceTemplateId: null,
+        updatedAt: now
+      };
+      return {
+        state: {
+          ...state,
+          libraryPlans: [...state.libraryPlans, created],
+          dayPlans: state.dayPlans.map(
+            (plan) => plan.id === day.id ? { ...plan, libraryPlanId: created.id, tweaked: false } : plan
+          )
+        }
+      };
+    }
+    case "createInvite": {
+      const actorRole = roleOn(state, action.childId, actor.userId);
+      if (!canInvite(actorRole)) {
+        throw new ShareError(403, "forbidden", "You cannot invite someone to this plan.");
+      }
+      if (!inviteRolesFor(actorRole).includes(action.role)) {
+        throw new ShareError(403, "role_not_allowed", "That role is not allowed.");
+      }
+      const email = assertEmail(action.email);
+      const existing = state.invites.find(
+        (invite2) => invite2.childId === action.childId && invite2.email === email && invite2.status === "pending"
+      );
+      const token = assertId(action.token, "tok");
+      if (existing) {
+        const invite2 = { ...existing, createdAt: now, token, status: "pending" };
+        return {
+          invite: invite2,
+          state: {
+            ...state,
+            invites: state.invites.map((item) => item.id === existing.id ? invite2 : item)
+          }
+        };
+      }
+      if (state.invites.filter((invite2) => invite2.childId === action.childId).length >= 20) {
+        throw new ShareError(400, "limit", "Too many invites for this child.");
+      }
+      const invite = {
+        id: assertId(action.inviteId, "inv"),
+        childId: action.childId,
+        email,
+        role: action.role,
+        status: "pending",
+        invitedById: actor.userId,
+        token,
+        createdAt: now,
+        membershipId: assertId(action.membershipId, "mem"),
+        displayName: clipDisplayName(action.displayName, emailLocalPart(email))
+      };
+      return {
+        invite,
+        state: {
+          ...state,
+          memberships: [
+            ...state.memberships,
+            {
+              id: invite.membershipId,
+              childId: action.childId,
+              personId: assertId(action.pendingPersonId, "pending"),
+              role: action.role,
+              status: "pending"
+            }
+          ],
+          invites: [...state.invites, invite]
+        }
+      };
+    }
+    case "resendInvite": {
+      const current = state.invites.find((invite2) => invite2.id === action.inviteId);
+      if (!current) throw new ShareError(404, "not_found", "Invite not found.");
+      const actorRole = roleOn(state, current.childId, actor.userId);
+      if (!canInvite(actorRole)) {
+        throw new ShareError(403, "forbidden", "You cannot resend this invite.");
+      }
+      const invite = {
+        ...current,
+        createdAt: now,
+        token: assertId(action.token, "tok"),
+        status: "pending"
+      };
+      return {
+        invite,
+        state: {
+          ...state,
+          invites: state.invites.map((item) => item.id === invite.id ? invite : item)
+        }
+      };
+    }
+    case "changeMemberRole": {
+      const membership = state.memberships.find((item) => item.id === action.membershipId);
+      if (!membership || membership.role === "therapist") {
+        throw new ShareError(403, "forbidden", "That role cannot be changed.");
+      }
+      const actorRole = roleOn(state, membership.childId, actor.userId);
+      if (actorRole !== "therapist" && actorRole !== "caregiver") {
+        throw new ShareError(403, "forbidden", "You cannot change roles.");
+      }
+      if (action.role === "therapist") {
+        throw new ShareError(403, "forbidden", "You cannot assign the therapist role.");
+      }
+      return {
+        state: {
+          ...state,
+          memberships: state.memberships.map(
+            (item) => item.id === membership.id ? { ...item, role: action.role } : item
+          )
+        }
+      };
+    }
+    case "removeMember": {
+      const membership = state.memberships.find((item) => item.id === action.membershipId);
+      if (!membership || membership.role === "therapist") {
+        throw new ShareError(403, "forbidden", "The therapist stays on this plan.");
+      }
+      const actorRole = roleOn(state, membership.childId, actor.userId);
+      if (!canRemoveMember(actorRole, membership.role)) {
+        throw new ShareError(403, "forbidden", "You cannot remove this person.");
+      }
+      return {
+        state: {
+          ...state,
+          memberships: state.memberships.filter((item) => item.id !== membership.id)
+        }
+      };
+    }
+    case "removeInvite": {
+      const invite = state.invites.find((item) => item.id === action.inviteId);
+      if (!invite) return { state };
+      const actorRole = roleOn(state, invite.childId, actor.userId);
+      if (!canInvite(actorRole)) {
+        throw new ShareError(403, "forbidden", "You cannot remove this invite.");
+      }
+      return {
+        state: {
+          ...state,
+          invites: state.invites.filter((item) => item.id !== invite.id),
+          memberships: invite.membershipId ? state.memberships.filter((item) => item.id !== invite.membershipId) : state.memberships
+        }
+      };
+    }
+    case "acceptInvite": {
+      const invite = state.invites.find((item) => item.token === action.token);
+      if (!invite || !emailMatchesActor(invite.email, actor)) {
+        throw new ShareError(
+          invite ? 403 : 404,
+          invite ? "email_mismatch" : "invite_missing",
+          invite ? "Sign in with the invited email to accept." : "This invite is missing or already used."
+        );
+      }
+      if (invite.status === "active") return { state };
+      const appRole = invite.role === "helper" ? "helper" : "caregiver";
+      const person = {
+        id: actor.userId,
+        name: clipDisplayName(actor.name, invite.displayName),
+        email: assertEmail(actor.email),
+        appRole
+      };
+      const people = state.people.some((item) => item.id === person.id) ? state.people.map(
+        (item) => item.id === person.id ? {
+          ...item,
+          name: person.name,
+          email: person.email,
+          appRole: item.appRole === "therapist" ? "therapist" : appRole
+        } : item
+      ) : [...state.people, person];
+      return {
+        invite: { ...invite, status: "active" },
+        state: {
+          ...state,
+          people,
+          selectedChildId: invite.childId,
+          invites: state.invites.map(
+            (item) => item.id === invite.id ? { ...item, status: "active" } : item
+          ),
+          memberships: state.memberships.map(
+            (item) => item.id === invite.membershipId ? { ...item, personId: actor.userId, status: "active", role: invite.role } : item
+          )
+        }
+      };
+    }
+    default: {
+      const unknown = action;
+      throw new ShareError(
+        400,
+        "unknown_action",
+        `Unknown action ${unknown.type ?? ""}.`
+      );
+    }
+  }
+}
+
 // src/lib/calendar/activity-steps.ts
 function planStepFromActivity(activity, keepId) {
   const canonical = ACTIVITIES.find((item) => item.id === activity.id) ?? activity;
@@ -2043,6 +3119,12 @@ function blankAccountState(actor) {
     childTags: []
   };
 }
+function withoutBirthDate(child) {
+  if (!child.birthDate) return child;
+  const { birthDate, ...rest } = child;
+  void birthDate;
+  return rest;
+}
 function viewFor(ws, actor) {
   if (ws.ownerUserId === actor.userId) {
     return stateFromWorkspace(ws, actor.userId, null);
@@ -2051,7 +3133,7 @@ function viewFor(ws, actor) {
     (membership) => membership.personId === actor.userId && membership.status === "active"
   );
   const childIds = new Set(mine.map((membership) => membership.childId));
-  const children = ws.children.filter((child) => childIds.has(child.id));
+  const children = ws.children.filter((child) => childIds.has(child.id)).map((child) => withoutBirthDate(child));
   const memberships = ws.memberships.filter(
     (membership) => childIds.has(membership.childId) && membership.status === "active"
   );
@@ -2191,6 +3273,8 @@ function inviteRedirectUrl(origin, token) {
 async function ownerIdFor(store, action, actor) {
   switch (action.type) {
     case "addChild":
+    case "updateChild":
+    case "removeChild":
     case "addTherapistTag":
       if (!actor.isPro)
         throw new ShareError(403, "pro_required", "Only a Pro account can do that.");
@@ -2212,6 +3296,7 @@ async function ownerIdFor(store, action, actor) {
     case "addDayStep":
     case "replaceDayStep":
     case "removeDayStep":
+    case "removeDayPlan":
     case "saveDayBackToLibrary":
     case "createInvite": {
       const owner = await store.ownerForChild(action.childId);
@@ -2387,341 +3472,23 @@ var ShareService = class {
   }
 };
 
-// src/lib/share/store.ts
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import path from "node:path";
-function emptyBag() {
-  return {
-    workspaces: {},
-    child: {},
-    plan: {},
-    invite: {},
-    membership: {},
-    token: {},
-    user: {},
-    email: {},
-    proRequests: {}
-  };
-}
-function ensureBag(bag) {
-  if (!bag.proRequests || typeof bag.proRequests !== "object") bag.proRequests = {};
-}
-function listAdd(map, key, ownerId) {
-  const current = map[key] ?? [];
-  if (!current.includes(ownerId)) map[key] = [...current, ownerId];
-}
-function listRemove(map, key, ownerId) {
-  const next = (map[key] ?? []).filter((item) => item !== ownerId);
-  if (next.length) map[key] = next;
-  else delete map[key];
-}
-function reindex(bag, previous, next) {
-  const ownerId = next.ownerUserId;
-  if (previous) {
-    for (const child of previous.children) delete bag.child[child.id];
-    for (const plan of previous.libraryPlans) delete bag.plan[plan.id];
-    for (const invite of previous.invites) {
-      delete bag.invite[invite.id];
-      delete bag.token[invite.token];
-    }
-    for (const membership of previous.memberships) delete bag.membership[membership.id];
-    for (const membership of previous.memberships) {
-      if (membership.status === "active") listRemove(bag.user, membership.personId, ownerId);
-    }
-    for (const invite of previous.invites) {
-      if (invite.status !== "pending") continue;
-      for (const emailKey of emailIndexKeys(invite.email)) listRemove(bag.email, emailKey, ownerId);
-    }
-  }
-  bag.workspaces[ownerId] = next;
-  for (const child of next.children) bag.child[child.id] = ownerId;
-  for (const plan of next.libraryPlans) bag.plan[plan.id] = ownerId;
-  for (const invite of next.invites) {
-    bag.invite[invite.id] = ownerId;
-    if (invite.status === "pending") bag.token[invite.token] = ownerId;
-  }
-  for (const membership of next.memberships) bag.membership[membership.id] = ownerId;
-  const activeUsers = new Set(
-    next.memberships.filter((membership) => membership.status === "active").map((membership) => membership.personId)
-  );
-  activeUsers.add(ownerId);
-  for (const userId of activeUsers) listAdd(bag.user, userId, ownerId);
-  for (const invite of next.invites) {
-    if (invite.status !== "pending") continue;
-    for (const emailKey of emailIndexKeys(invite.email)) listAdd(bag.email, emailKey, ownerId);
-  }
-}
-function createMemoryShareStore() {
-  const bag = emptyBag();
-  return storeFromBag(bag);
-}
-function sortedProRequests(bag) {
-  return Object.values(bag.proRequests).sort((a, b) => a.createdAt < b.createdAt ? 1 : -1);
-}
-function storeFromBag(bag) {
-  ensureBag(bag);
-  return {
-    async get(ownerUserId) {
-      return bag.workspaces[ownerUserId] ?? null;
-    },
-    async save(previous, next) {
-      reindex(bag, previous, next);
-    },
-    async ownerForChild(childId) {
-      return bag.child[childId] ?? null;
-    },
-    async ownerForPlan(planId) {
-      return bag.plan[planId] ?? null;
-    },
-    async ownerForInvite(inviteId) {
-      return bag.invite[inviteId] ?? null;
-    },
-    async ownerForMembership(membershipId) {
-      return bag.membership[membershipId] ?? null;
-    },
-    async ownerForToken(token) {
-      return bag.token[token] ?? null;
-    },
-    async ownersForUser(userId) {
-      return [...bag.user[userId] ?? []];
-    },
-    async ownersForEmail(email) {
-      return [...bag.email[email] ?? []];
-    },
-    async getProRequest(userId) {
-      return bag.proRequests[userId] ?? null;
-    },
-    async saveProRequest(request) {
-      bag.proRequests[request.userId] = request;
-    },
-    async listProRequests() {
-      return sortedProRequests(bag);
-    }
-  };
-}
-function createFileShareStore(filePath) {
-  const bag = emptyBag();
-  try {
-    const parsed = JSON.parse(readFileSync(filePath, "utf8"));
-    Object.assign(bag, parsed);
-    ensureBag(bag);
-  } catch {
-  }
-  const persist = () => {
-    mkdirSync(path.dirname(filePath), { recursive: true });
-    writeFileSync(filePath, JSON.stringify(bag));
-  };
-  const inner = storeFromBag(bag);
-  return {
-    ...inner,
-    async save(previous, next) {
-      await inner.save(previous, next);
-      persist();
-    },
-    async saveProRequest(request) {
-      await inner.saveProRequest(request);
-      persist();
-    }
-  };
-}
-function readEnv(env, name) {
-  return env[name];
-}
-function redisEnv(env) {
-  const url = readEnv(env, "UPSTASH_REDIS_REST_URL") || readEnv(env, "KV_REST_API_URL");
-  const token = readEnv(env, "UPSTASH_REDIS_REST_TOKEN") || readEnv(env, "KV_REST_API_TOKEN");
-  if (!url || !token) return null;
-  return { url: url.replace(/\/$/, ""), token };
-}
-async function redis(conn, command) {
-  const response = await fetch(conn.url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${conn.token}`,
-      "content-type": "application/json"
-    },
-    body: JSON.stringify(command)
-  });
-  const payload = await response.json();
-  if (!response.ok || payload.error) {
-    throw new Error(payload.error || `Redis request failed (${response.status}).`);
-  }
-  return payload.result;
-}
-var PREFIX = "synlumae:share:";
-function createRedisShareStore(conn) {
-  const key = (suffix) => `${PREFIX}${suffix}`;
-  const readJson2 = async (suffix) => {
-    const raw = await redis(conn, ["GET", key(suffix)]);
-    if (typeof raw !== "string" || !raw) return null;
-    return JSON.parse(raw);
-  };
-  const writeJson = async (suffix, value) => {
-    await redis(conn, ["SET", key(suffix), JSON.stringify(value)]);
-  };
-  const readList = async (suffix) => {
-    return await readJson2(suffix) ?? [];
-  };
-  const writeList = async (suffix, values) => {
-    if (values.length === 0) await redis(conn, ["DEL", key(suffix)]);
-    else await writeJson(suffix, values);
-  };
-  return {
-    async get(ownerUserId) {
-      return readJson2(`ws:${ownerUserId}`);
-    },
-    async save(_passed, next) {
-      const lock = key(`lock:${next.ownerUserId}`);
-      const locked2 = await redis(conn, ["SET", lock, "1", "NX", "EX", "8"]);
-      if (locked2 !== "OK") {
-        throw Object.assign(new Error("busy"), { code: "conflict" });
-      }
-      try {
-        const previous = await readJson2(`ws:${next.ownerUserId}`);
-        if ((previous?.rev ?? 0) !== next.rev - 1) {
-          throw Object.assign(new Error("conflict"), { code: "conflict" });
-        }
-        await writeJson(`ws:${next.ownerUserId}`, next);
-        const drop = (suffix) => redis(conn, ["DEL", key(suffix)]);
-        if (previous) {
-          await Promise.all([
-            ...previous.children.map((child) => drop(`child:${child.id}`)),
-            ...previous.libraryPlans.map((plan) => drop(`plan:${plan.id}`)),
-            ...previous.invites.flatMap((invite) => [
-              drop(`invite:${invite.id}`),
-              drop(`token:${invite.token}`)
-            ]),
-            ...previous.memberships.map((membership) => drop(`mem:${membership.id}`))
-          ]);
-          const prevUsers = new Set(
-            previous.memberships.filter((membership) => membership.status === "active").map((membership) => membership.personId)
-          );
-          for (const userId of prevUsers) {
-            const list = (await readList(`user:${userId}`)).filter((id) => id !== next.ownerUserId);
-            await writeList(`user:${userId}`, list);
-          }
-          for (const invite of previous.invites) {
-            if (invite.status !== "pending") continue;
-            for (const emailKey of emailIndexKeys(invite.email)) {
-              const list = (await readList(`email:${emailKey}`)).filter(
-                (id) => id !== next.ownerUserId
-              );
-              await writeList(`email:${emailKey}`, list);
-            }
-          }
-        }
-        await Promise.all([
-          ...next.children.map(
-            (child) => redis(conn, ["SET", key(`child:${child.id}`), next.ownerUserId])
-          ),
-          ...next.libraryPlans.map(
-            (plan) => redis(conn, ["SET", key(`plan:${plan.id}`), next.ownerUserId])
-          ),
-          ...next.invites.map(
-            (invite) => redis(conn, ["SET", key(`invite:${invite.id}`), next.ownerUserId])
-          ),
-          ...next.invites.filter((invite) => invite.status === "pending").map((invite) => redis(conn, ["SET", key(`token:${invite.token}`), next.ownerUserId])),
-          ...next.memberships.map(
-            (membership) => redis(conn, ["SET", key(`mem:${membership.id}`), next.ownerUserId])
-          )
-        ]);
-        const users = new Set(
-          next.memberships.filter((membership) => membership.status === "active").map((membership) => membership.personId)
-        );
-        users.add(next.ownerUserId);
-        for (const userId of users) {
-          const list = await readList(`user:${userId}`);
-          if (!list.includes(next.ownerUserId)) {
-            await writeList(`user:${userId}`, [...list, next.ownerUserId]);
-          }
-        }
-        for (const invite of next.invites) {
-          if (invite.status !== "pending") continue;
-          for (const emailKey of emailIndexKeys(invite.email)) {
-            const list = await readList(`email:${emailKey}`);
-            if (!list.includes(next.ownerUserId)) {
-              await writeList(`email:${emailKey}`, [...list, next.ownerUserId]);
-            }
-          }
-        }
-      } finally {
-        await redis(conn, ["DEL", lock]);
-      }
-    },
-    async ownerForChild(childId) {
-      const value = await redis(conn, ["GET", key(`child:${childId}`)]);
-      return typeof value === "string" ? value : null;
-    },
-    async ownerForPlan(planId) {
-      const value = await redis(conn, ["GET", key(`plan:${planId}`)]);
-      return typeof value === "string" ? value : null;
-    },
-    async ownerForInvite(inviteId) {
-      const value = await redis(conn, ["GET", key(`invite:${inviteId}`)]);
-      return typeof value === "string" ? value : null;
-    },
-    async ownerForMembership(membershipId) {
-      const value = await redis(conn, ["GET", key(`mem:${membershipId}`)]);
-      return typeof value === "string" ? value : null;
-    },
-    async ownerForToken(token) {
-      const value = await redis(conn, ["GET", key(`token:${token}`)]);
-      return typeof value === "string" ? value : null;
-    },
-    async ownersForUser(userId) {
-      return readList(`user:${userId}`);
-    },
-    async ownersForEmail(email) {
-      return readList(`email:${email}`);
-    },
-    async getProRequest(userId) {
-      return readJson2(`proreq:${userId}`);
-    },
-    async saveProRequest(request) {
-      const lock = key("lock:proreq");
-      let locked2 = null;
-      for (let attempt = 0; attempt < 4 && locked2 !== "OK"; attempt += 1) {
-        locked2 = await redis(conn, ["SET", lock, "1", "NX", "EX", "8"]);
-        if (locked2 !== "OK")
-          await new Promise((resolve) => setTimeout(resolve, 40 * (attempt + 1)));
-      }
-      if (locked2 !== "OK") throw Object.assign(new Error("busy"), { code: "conflict" });
-      try {
-        await writeJson(`proreq:${request.userId}`, request);
-        const index = await readList("proreq:index");
-        if (!index.includes(request.userId))
-          await writeList("proreq:index", [...index, request.userId]);
-      } finally {
-        await redis(conn, ["DEL", lock]);
-      }
-    },
-    async listProRequests() {
-      const index = await readList("proreq:index");
-      const rows = await Promise.all(
-        index.map((userId) => readJson2(`proreq:${userId}`))
-      );
-      return rows.filter((row) => row !== null).sort((a, b) => a.createdAt < b.createdAt ? 1 : -1);
-    }
-  };
-}
-
 // src/lib/share/http.ts
-import path2 from "node:path";
+import path3 from "node:path";
 function readEnv2(env, name) {
   return env[name];
 }
-function json(data, status = 200) {
+function json2(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "content-type": "application/json; charset=utf-8" }
   });
 }
-function errorResponse(err) {
-  if (err instanceof ShareError) return json({ error: err.message, code: err.code }, err.status);
+function errorResponse2(err) {
+  if (err instanceof ShareError) return json2({ error: err.message, code: err.code }, err.status);
   console.error(err);
-  return json({ error: "Something went wrong. Try again.", code: "server_error" }, 500);
+  return json2({ error: "Something went wrong. Try again.", code: "server_error" }, 500);
 }
-async function readJson(req) {
+async function readJson2(req) {
   if (req.method === "GET" || req.method === "HEAD") return {};
   const text = await req.text();
   if (!text.trim()) return {};
@@ -2753,7 +3520,7 @@ async function clerkUserIsPro(secretKey, userId) {
     const { createClerkClient } = await import("@clerk/backend");
     const user = await createClerkClient({ secretKey }).users.getUser(userId);
     const meta = user.publicMetadata;
-    return meta?.isPro === true;
+    return meta?.isPro === true || meta?.isCreatorPro === true;
   } catch (err) {
     console.error("pro request clerk lookup", err);
     return false;
@@ -2763,9 +3530,16 @@ function devActor(req, env) {
   if (readEnv2(env, "SHARE_DEV_BYPASS") !== "1" || readEnv2(env, "VERCEL")) return null;
   const raw = req.headers.get("x-share-dev-user");
   if (!raw) return null;
-  const [userId, email, name, pro] = raw.split("|");
+  const [userId, email, name, pro, creator] = raw.split("|");
   if (!userId || !email || !email.includes("@")) return null;
-  return { userId, email, name: name || "Member", isPro: pro === "1" };
+  const isCreatorPro = creator === "1";
+  return {
+    userId,
+    email,
+    name: name || "Member",
+    isPro: pro === "1" || isCreatorPro,
+    isCreatorPro
+  };
 }
 async function clerkActor(req, secretKey, env) {
   const header2 = req.headers.get("authorization") || "";
@@ -2788,28 +3562,30 @@ async function clerkActor(req, secretKey, env) {
   const email = user.emailAddresses.find((item) => item.id === user.primaryEmailAddressId)?.emailAddress ?? emails[0] ?? "";
   if (!email) return null;
   const meta = user.publicMetadata;
+  const isCreatorPro = meta?.isCreatorPro === true;
   return {
     userId,
     email,
     emails,
     name: user.firstName || user.fullName || email.split("@")[0] || "Member",
-    isPro: meta?.isPro === true
+    isPro: meta?.isPro === true || isCreatorPro,
+    isCreatorPro
   };
 }
 function createShareDeps(env = process.env) {
-  const redis2 = redisEnv(env);
+  const redis3 = redisEnv(env);
   const secretKey = readEnv2(env, "CLERK_SECRET_KEY");
   const clerk = Boolean(secretKey);
   let store = null;
   let storeName = "none";
-  if (redis2) {
-    store = createRedisShareStore(redis2);
+  if (redis3) {
+    store = createRedisShareStore(redis3);
     storeName = "redis";
   } else if (readEnv2(env, "SHARE_STORE") === "memory") {
     store = createMemoryShareStore();
     storeName = "memory";
   } else if (!readEnv2(env, "VERCEL") && readEnv2(env, "SHARE_STORE") !== "none") {
-    const filePath = readEnv2(env, "SHARE_STORE_PATH") || path2.join(process.cwd(), ".data", "share-store.json");
+    const filePath = readEnv2(env, "SHARE_STORE_PATH") || path3.join(process.cwd(), ".data", "share-store.json");
     store = createFileShareStore(filePath);
     storeName = "file";
   }
@@ -2828,6 +3604,8 @@ function createShareDeps(env = process.env) {
     storeName,
     service,
     store,
+    creatorStore: createCreatorStore(env),
+    clerkSecret: secretKey || null,
     userIsPro: (userId) => clerkUserIsPro(secretKey, userId),
     proRequestNotify: proRequestNotifyResult(readEnv2(env, "PRO_REQUEST_NOTIFY_EMAIL")),
     proRequestAdminEmails: readEnv2(env, "PRO_REQUEST_ADMIN_EMAILS"),
@@ -2859,17 +3637,19 @@ function shareDeps(env = process.env) {
   return deps;
 }
 async function handleShareApi(req, deps) {
+  const creatorResponse = await handleCreatorApi(req, deps);
+  if (creatorResponse) return creatorResponse;
   const route = match(new URL(req.url).pathname);
-  if (!route) return json({ error: "Not found.", code: "not_found" }, 404);
+  if (!route) return json2({ error: "Not found.", code: "not_found" }, 404);
   if (route.name === "health") {
-    return json({
+    return json2({
       ok: deps.configured,
       clerk: deps.clerk,
       store: deps.storeName
     });
   }
   if (!deps.service || !deps.store || !deps.configured) {
-    return json(
+    return json2(
       {
         error: "Live sharing is not configured on this preview yet.",
         code: "not_configured",
@@ -2883,19 +3663,19 @@ async function handleShareApi(req, deps) {
     if (route.name === "peek" && req.method === "GET") {
       const preview = await deps.service.peek(route.token);
       if (!preview)
-        return json(
+        return json2(
           { error: "This invite is missing or already used.", code: "invite_missing" },
           404
         );
-      return json(preview);
+      return json2(preview);
     }
     const actor = await deps.authenticate(req);
-    if (!actor) return json({ error: "Sign in to continue.", code: "unauthorized" }, 401);
+    if (!actor) return json2({ error: "Sign in to continue.", code: "unauthorized" }, 401);
     if (route.name === "snapshot" && req.method === "GET") {
-      return json(await deps.service.snapshot(actor, req.headers.get("x-share-invite-token")));
+      return json2(await deps.service.snapshot(actor, req.headers.get("x-share-invite-token")));
     }
     if (route.name === "actions" && req.method === "POST") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       const action = body["action"];
       const originValue = body["origin"];
       const origin = typeof originValue === "string" ? originValue : "";
@@ -2903,27 +3683,27 @@ async function handleShareApi(req, deps) {
         throw new ShareError(400, "invalid_action", "Missing action.");
       }
       const result = await deps.service.act(actor, action, origin);
-      return json(result);
+      return json2(result);
     }
     if (route.name === "pro-request" && req.method === "GET") {
       const request = await deps.store.getProRequest(actor.userId);
-      return json({ request });
+      return json2({ request });
     }
     if (route.name === "pro-request" && req.method === "POST") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       const input = parseProRequestInput(body);
       const request = await submitProRequest(deps.store, actor, input, (/* @__PURE__ */ new Date()).toISOString());
-      return json({ request, notify: deps.proRequestNotify });
+      return json2({ request, notify: deps.proRequestNotify });
     }
     if (route.name === "pro-requests" && req.method === "GET") {
       if (!isProRequestAdmin(actor, deps.proRequestAdminEmails)) {
         throw new ShareError(403, "forbidden", "You cannot view Pro requests.");
       }
       const waiting = await pendingForReview(await deps.store.listProRequests(), deps.userIsPro);
-      return json({ requests: waiting });
+      return json2({ requests: waiting });
     }
     if (route.name === "accept" && req.method === "POST") {
-      const body = await readJson(req);
+      const body = await readJson2(req);
       const originValue = body["origin"];
       const origin = typeof originValue === "string" ? originValue : new URL(req.url).origin;
       const result = await deps.service.act(
@@ -2931,14 +3711,14 @@ async function handleShareApi(req, deps) {
         { type: "acceptInvite", token: route.token, now: (/* @__PURE__ */ new Date()).toISOString() },
         origin
       );
-      return json(result);
+      return json2(result);
     }
-    return json({ error: "Not found.", code: "not_found" }, 404);
+    return json2({ error: "Not found.", code: "not_found" }, 404);
   } catch (err) {
     if (err instanceof SyntaxError) {
-      return json({ error: "Request body must be JSON.", code: "invalid_json" }, 400);
+      return json2({ error: "Request body must be JSON.", code: "invalid_json" }, 400);
     }
-    return errorResponse(err);
+    return errorResponse2(err);
   }
 }
 

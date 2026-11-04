@@ -99,6 +99,11 @@ export type Profile = {
    * A profile role tag cannot turn it on. Local development can still preview it.
    */
   isPro?: boolean;
+  /**
+   * Creates activities for the catalog. Clerk publicMetadata.isCreatorPro.
+   * Only the founder can turn it on. It includes Pro.
+   */
+  isCreatorPro?: boolean;
 };
 
 export type { DemoPersona };

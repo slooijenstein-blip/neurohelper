@@ -11,6 +11,9 @@ import {
 import { useI18n } from "@/i18n/I18nProvider";
 import { localizedActivity } from "@/lib/activity-locale";
 import { resolveActivity } from "@/lib/calendar/activity-steps";
+import { creatorCreditName } from "@/lib/creator/catalog";
+import { CreatorCredit } from "../CreatorCredit";
+import { useMergedActivities } from "../usePublishedActivities";
 import type { DayStep, PlanStep } from "@/lib/calendar/types";
 import { AgeTag, DurationTag, SkillTag } from "../ui-bits";
 
@@ -32,6 +35,7 @@ export function StepDetailDialog({
   onRemove?: () => void;
 }) {
   const { t, locale } = useI18n();
+  useMergedActivities();
   const raw = step ? resolveActivity(step.activityId) : null;
   const activity = raw ? localizedActivity(raw, locale) : null;
   const shown = step
@@ -46,15 +50,16 @@ export function StepDetailDialog({
         <DialogHeader>
           <DialogTitle>{shown?.title ?? t("calendar.stepDetail.title")}</DialogTitle>
           <DialogDescription>
-            {activity
-              ? t("calendar.stepDetail.fromCatalog")
-              : t("calendar.stepDetail.custom")}
+            {activity ? t("calendar.stepDetail.fromCatalog") : t("calendar.stepDetail.custom")}
           </DialogDescription>
         </DialogHeader>
 
         {step ? (
           <div className="space-y-4 text-sm">
             <p className="text-muted-foreground">{shown?.description}</p>
+            {activity && "creatorName" in activity ? (
+              <CreatorCredit name={creatorCreditName(activity)} />
+            ) : null}
 
             <div className="flex flex-wrap gap-1.5">
               {activity ? (
@@ -63,10 +68,7 @@ export function StepDetailDialog({
                     {activity.minAge}–{activity.maxAge}
                   </AgeTag>
                   <SkillTag skill={activity.skill} />
-                  <DurationTag
-                    minMinutes={activity.minMinutes}
-                    maxMinutes={activity.maxMinutes}
-                  />
+                  <DurationTag minMinutes={activity.minMinutes} maxMinutes={activity.maxMinutes} />
                 </>
               ) : (
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">

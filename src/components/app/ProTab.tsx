@@ -5,6 +5,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { useCalendarStore } from "@/lib/calendar/store";
 import { cn } from "@/lib/utils";
 
+import { CreatedActivitiesPane } from "./CreatedActivitiesPane";
 import { LibraryTab } from "./calendar/LibraryTab";
 import { PatientsTab } from "./calendar/PatientsTab";
 import { PeopleTab } from "./calendar/PeopleTab";
@@ -18,8 +19,55 @@ const SECTIONS: Array<{ id: Section; labelKey: string }> = [
   { id: "share", labelKey: "pro.share" },
 ];
 
+type Area = "patients" | "created";
+
 /** Therapist caseload, catalog plans, and parent invites — inside the Pro tab only. */
-export function ProTab() {
+export function ProTab({ showCreated }: { showCreated: boolean }) {
+  const { t } = useI18n();
+  const [area, setArea] = useState<Area>("patients");
+
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {showCreated ? (
+        <div className="shrink-0 border-b border-border bg-card px-4 py-2 md:px-8">
+          <div
+            className="flex gap-1 rounded-xl bg-muted p-1"
+            role="tablist"
+            aria-label={t("pro.areas")}
+            data-testid="pro-areas"
+          >
+            {(
+              [
+                ["patients", "pro.patients"],
+                ["created", "pro.created"],
+              ] as const
+            ).map(([id, labelKey]) => (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={area === id}
+                data-testid={`pro-area-${id}`}
+                onClick={() => setArea(id)}
+                className={cn(
+                  "flex-1 rounded-lg py-1.5 text-xs font-semibold",
+                  area === id ? "bg-card text-foreground shadow-sm" : "text-muted-foreground",
+                )}
+              >
+                {t(labelKey)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {showCreated && area === "created" ? <CreatedActivitiesPane /> : <ProPatientWorkspace />}
+      </div>
+    </div>
+  );
+}
+
+function ProPatientWorkspace() {
   const { t } = useI18n();
   const cal = useCalendarStore();
   const [section, setSection] = useState<Section>("plans");
