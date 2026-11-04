@@ -1,7 +1,13 @@
 import { ACTIVITIES, type Activity } from "../activities-data.ts";
 import type { PublishedCreatorActivity } from "./types.ts";
 
-export type CatalogActivity = Activity & { creatorName?: string };
+export type CatalogActivity = Activity & {
+  creatorName?: string;
+  /** Language the professional wrote in. Empty means it was not set. */
+  contentLanguage?: "en" | "es" | "";
+  /** Set only on a display copy, after the profile language translated it. */
+  translatedInto?: "en" | "es";
+};
 
 const listeners = new Set<() => void>();
 let published: CatalogActivity[] = [];
@@ -33,6 +39,7 @@ export function creatorActivityToCatalog(activity: PublishedCreatorActivity): Ca
     materials: activity.materials,
     steps: activity.steps,
     creatorName: activity.ownerName,
+    contentLanguage: activity.language,
   };
 }
 

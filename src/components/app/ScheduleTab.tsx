@@ -16,6 +16,7 @@ import { useI18n } from "@/i18n/I18nProvider";
 import { useAppStore, uid } from "@/lib/app-store";
 import type { Activity } from "@/lib/activities-data";
 import { findAnyActivity } from "@/lib/creator/catalog";
+import { useLocalizedCatalog } from "./useLocalizedCatalog";
 import { useMergedActivities } from "./usePublishedActivities";
 import { SharedPlansPanel } from "./SharedPlansPanel";
 import { ScreenHeader } from "./ui-bits";
@@ -54,7 +55,8 @@ export function ScheduleTab() {
   const viewerKey = demoPersona ?? state.profile?.id ?? "me";
   const schedule = state.schedule.filter((item) => !item.viewerKey || item.viewerKey === viewerKey);
   const { t } = useI18n();
-  const catalog = useMergedActivities();
+  const source = useMergedActivities();
+  const { activities: catalog } = useLocalizedCatalog(source);
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [saveOpen, setSaveOpen] = useState(false);
@@ -212,6 +214,12 @@ export function ScheduleTab() {
       dayPlans: prev.dayPlans.filter((plan) => plan.viewerKey && plan.viewerKey !== viewerKey),
     }));
 
+  const creatorScheduleCopy = (activityId: string | undefined) => {
+    if (!activityId) return null;
+    const activity = catalog.find((item) => item.id === activityId);
+    return activity && "creatorName" in activity ? activity : null;
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <ScreenHeader
@@ -314,10 +322,11 @@ export function ScheduleTab() {
                           item.done && "text-muted-foreground line-through",
                         )}
                       >
-                        {item.time} · {item.title}
+                        {item.time} · {creatorScheduleCopy(item.activityId)?.title ?? item.title}
                       </p>
                       <p className="truncate text-[11px] text-muted-foreground">
-                        {item.description} · {formatDuration(item.minutes)}
+                        {creatorScheduleCopy(item.activityId)?.description ?? item.description} ·{" "}
+                        {formatDuration(item.minutes)}
                       </p>
                     </div>
                     <button

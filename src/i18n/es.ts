@@ -219,6 +219,8 @@ export const es: DeepString<Messages> = {
     addToSchedule: "Añadir al horario",
     createdByPro: "Creada por un profesional",
     createdByName: "Creada por un profesional · {{name}}",
+    shownTranslated: "Traducida al idioma de tu perfil",
+    translatingActivity: "Traduciendo…",
     durationExact: "{{count}} min",
     durationRange: "{{min}}–{{max}} min",
     skills: {

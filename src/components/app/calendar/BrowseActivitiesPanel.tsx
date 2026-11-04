@@ -14,9 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { useI18n } from "@/i18n/I18nProvider";
 import { SKILLS, type Activity, type Skill } from "@/lib/activities-data";
-import { localizedActivity, presentPlanName, skillMessageKey } from "@/lib/activity-locale";
+import { presentPlanName, skillMessageKey } from "@/lib/activity-locale";
 import { creatorCreditName } from "@/lib/creator/catalog";
-import { CreatorCredit } from "../CreatorCredit";
+import { CreatorCredit, CreatorTranslationNote } from "../CreatorCredit";
+import { useLocalizedCatalog } from "../useLocalizedCatalog";
 import { useMergedActivities } from "../usePublishedActivities";
 import { planStepFromActivity } from "@/lib/calendar/activity-steps";
 import { toDateKey, useCalendarStore } from "@/lib/calendar/store";
@@ -25,9 +26,10 @@ import { AgeTag, DurationTag, ScreenHeader, SkillTag } from "../ui-bits";
 import { cn } from "@/lib/utils";
 
 export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const cal = useCalendarStore();
-  const catalog = useMergedActivities();
+  const source = useMergedActivities();
+  const { activities: catalog } = useLocalizedCatalog(source);
   const [range, setRange] = useState<number[]>([1, 10]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [query, setQuery] = useState("");
@@ -43,22 +45,20 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
     return catalog
-      .map((activity) => localizedActivity(activity, locale))
       .filter((a) => a.maxAge >= (range[0] ?? 1) && a.minAge <= (range[1] ?? 10))
       .filter((a) => (skills.length ? skills.includes(a.skill) : true))
       .filter((a) => {
         if (!q) return true;
-        const raw = catalog.find((item) => item.id === a.id);
+        const raw = source.find((item) => item.id === a.id);
         const haystack = `${a.title} ${a.description} ${raw?.title ?? ""} ${raw?.description ?? ""} ${creatorCreditName(raw) ?? ""} ${t(skillMessageKey(a.skill))}`;
         return haystack.toLowerCase().includes(q);
       });
-  }, [catalog, range, skills, query, locale, t]);
+  }, [catalog, range, skills, query, source, t]);
 
   const detail = useMemo(() => {
     if (!detailId) return null;
-    const raw = catalog.find((activity) => activity.id === detailId);
-    return raw ? localizedActivity(raw, locale) : null;
-  }, [catalog, detailId, locale]);
+    return catalog.find((activity) => activity.id === detailId) ?? null;
+  }, [catalog, detailId]);
 
   const toggleSkill = (s: Skill) =>
     setSkills((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
@@ -158,6 +158,7 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
           >
             <p className="text-sm font-semibold">{a.title}</p>
             {"creatorName" in a ? <CreatorCredit name={creatorCreditName(a)} /> : null}
+            <CreatorTranslationNote translated={"translatedInto" in a} />
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.description}</p>
             <div className="mt-2 flex flex-wrap gap-1">
               <AgeTag>
@@ -182,6 +183,7 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
           {detail ? (
             <div className="space-y-4 text-sm">
               {"creatorName" in detail ? <CreatorCredit name={creatorCreditName(detail)} /> : null}
+              <CreatorTranslationNote translated={"translatedInto" in detail} />
               <div className="flex flex-wrap gap-1.5">
                 <AgeTag>
                   {detail.minAge}–{detail.maxAge}
