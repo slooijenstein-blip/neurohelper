@@ -713,6 +713,7 @@ export const en = {
       subtitle: "Pick a detailed activity from the catalog, or write a custom step.",
       fromCatalog: "From Activities",
       custom: "Custom step",
+      customHint: "This stays on this patient’s calendar. It is not added to Activities.",
       search: "Search activities…",
       resultCount: "{{count}} activities",
       noMatches: "No matching activities.",

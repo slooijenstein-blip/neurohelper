@@ -10,7 +10,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useI18n } from "@/i18n/I18nProvider";
+import { SKILLS, type Skill } from "@/lib/activities-data";
 import { localizedActivity, skillMessageKey } from "@/lib/activity-locale";
 import { creatorCreditName } from "@/lib/creator/catalog";
 import { CreatorCredit } from "../CreatorCredit";
@@ -21,6 +23,30 @@ import { AgeTag, DurationTag, SkillTag } from "../ui-bits";
 import { cn } from "@/lib/utils";
 
 type Mode = "catalog" | "custom";
+
+const fieldLabelClass =
+  "mb-1 block text-[11px] font-bold uppercase tracking-wide text-muted-foreground";
+
+const selectClass =
+  "flex h-11 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
+
+function lines(value: string): string[] {
+  return value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+const emptyCustom = {
+  title: "",
+  description: "",
+  minAge: "1",
+  maxAge: "3",
+  skill: "Sensory Play" as Skill,
+  minutes: "10",
+  materials: "",
+  howTo: "",
+};
 
 export function ActivityPickerDialog({
   open,
@@ -38,9 +64,7 @@ export function ActivityPickerDialog({
   const [mode, setMode] = useState<Mode>("catalog");
   const [query, setQuery] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
-  const [customTitle, setCustomTitle] = useState("");
-  const [customMinutes, setCustomMinutes] = useState("10");
-  const [customNotes, setCustomNotes] = useState("");
+  const [custom, setCustom] = useState(emptyCustom);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -65,9 +89,7 @@ export function ActivityPickerDialog({
     setMode("catalog");
     setQuery("");
     setPreviewId(null);
-    setCustomTitle("");
-    setCustomMinutes("10");
-    setCustomNotes("");
+    setCustom(emptyCustom);
   };
 
   const close = (next: boolean) => {
@@ -209,43 +231,166 @@ export function ActivityPickerDialog({
             )}
           </div>
         ) : (
-          <div className="space-y-3 px-5 py-4">
+          <form
+            className="hide-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4"
+            data-testid="custom-step-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const minAge = Number(custom.minAge);
+              const maxAge = Number(custom.maxAge);
+              const minutes = Number(custom.minutes);
+              const howTo = lines(custom.howTo);
+              if (
+                !custom.title.trim() ||
+                !custom.description.trim() ||
+                !howTo.length ||
+                !Number.isInteger(minAge) ||
+                !Number.isInteger(maxAge) ||
+                minAge < 0 ||
+                maxAge > 6 ||
+                minAge > maxAge ||
+                !Number.isInteger(minutes) ||
+                minutes < 1 ||
+                minutes > 180
+              ) {
+                return;
+              }
+              onPick(
+                customPlanStep({
+                  title: custom.title,
+                  description: custom.description,
+                  minutes,
+                  skill: custom.skill,
+                  minAge,
+                  maxAge,
+                  materials: lines(custom.materials),
+                  howTo,
+                }),
+              );
+              close(false);
+            }}
+          >
+            <p className="text-xs text-muted-foreground">{t("calendar.picker.customHint")}</p>
+            <label className={fieldLabelClass} htmlFor="custom-name">
+              {t("creator.name")}
+            </label>
             <Input
-              value={customTitle}
-              onChange={(e) => setCustomTitle(e.target.value)}
-              placeholder={t("calendar.picker.customTitle")}
+              id="custom-name"
+              data-testid="custom-name"
+              value={custom.title}
+              maxLength={80}
+              onChange={(event) => setCustom((prev) => ({ ...prev, title: event.target.value }))}
             />
-            <Input
-              value={customMinutes}
-              onChange={(e) => setCustomMinutes(e.target.value)}
-              placeholder={t("calendar.picker.customMinutes")}
-              inputMode="numeric"
+            <label className={fieldLabelClass} htmlFor="custom-about">
+              {t("creator.about")}
+            </label>
+            <Textarea
+              id="custom-about"
+              data-testid="custom-about"
+              value={custom.description}
+              maxLength={800}
+              onChange={(event) =>
+                setCustom((prev) => ({ ...prev, description: event.target.value }))
+              }
             />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={fieldLabelClass} htmlFor="custom-age-min">
+                  {t("creator.ageMin")}
+                </label>
+                <Input
+                  id="custom-age-min"
+                  data-testid="custom-age-min"
+                  type="number"
+                  min={0}
+                  max={6}
+                  value={custom.minAge}
+                  onChange={(event) =>
+                    setCustom((prev) => ({ ...prev, minAge: event.target.value }))
+                  }
+                />
+              </div>
+              <div>
+                <label className={fieldLabelClass} htmlFor="custom-age-max">
+                  {t("creator.ageMax")}
+                </label>
+                <Input
+                  id="custom-age-max"
+                  data-testid="custom-age-max"
+                  type="number"
+                  min={0}
+                  max={6}
+                  value={custom.maxAge}
+                  onChange={(event) =>
+                    setCustom((prev) => ({ ...prev, maxAge: event.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            <label className={fieldLabelClass} htmlFor="custom-skill">
+              {t("creator.type")}
+            </label>
+            <select
+              id="custom-skill"
+              data-testid="custom-skill"
+              className={selectClass}
+              value={custom.skill}
+              onChange={(event) =>
+                setCustom((prev) => ({ ...prev, skill: event.target.value as Skill }))
+              }
+            >
+              {SKILLS.map((skill) => (
+                <option key={skill} value={skill}>
+                  {t(skillMessageKey(skill))}
+                </option>
+              ))}
+            </select>
+            <label className={fieldLabelClass} htmlFor="custom-minutes">
+              {t("creator.length")}
+            </label>
             <Input
-              value={customNotes}
-              onChange={(e) => setCustomNotes(e.target.value)}
-              placeholder={t("calendar.picker.customNotes")}
+              id="custom-minutes"
+              data-testid="custom-minutes"
+              type="number"
+              min={1}
+              max={180}
+              value={custom.minutes}
+              onChange={(event) => setCustom((prev) => ({ ...prev, minutes: event.target.value }))}
+            />
+            <label className={fieldLabelClass} htmlFor="custom-materials">
+              {t("creator.materials")}
+            </label>
+            <Textarea
+              id="custom-materials"
+              data-testid="custom-materials"
+              value={custom.materials}
+              placeholder={t("creator.materialsHint")}
+              onChange={(event) =>
+                setCustom((prev) => ({ ...prev, materials: event.target.value }))
+              }
+            />
+            <label className={fieldLabelClass} htmlFor="custom-steps">
+              {t("creator.steps")}
+            </label>
+            <Textarea
+              id="custom-steps"
+              data-testid="custom-steps"
+              value={custom.howTo}
+              placeholder={t("creator.stepsHint")}
+              onChange={(event) => setCustom((prev) => ({ ...prev, howTo: event.target.value }))}
             />
             <Button
-              type="button"
+              type="submit"
               className="w-full"
-              disabled={!customTitle.trim()}
-              onClick={() => {
-                const mins = Number.parseInt(customMinutes, 10);
-                onPick(
-                  customPlanStep(
-                    customTitle,
-                    Number.isFinite(mins) && mins > 0 ? mins : 10,
-                    customNotes,
-                  ),
-                );
-                close(false);
-              }}
+              disabled={
+                !custom.title.trim() || !custom.description.trim() || !lines(custom.howTo).length
+              }
+              data-testid="custom-step-submit"
             >
               <Sparkles className="mr-1 size-4" />
               {t("calendar.picker.addCustom")}
             </Button>
-          </div>
+          </form>
         )}
       </DialogContent>
     </Dialog>
