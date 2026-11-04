@@ -11,12 +11,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/i18n/I18nProvider";
-import { ACTIVITIES } from "@/lib/activities-data";
 import { localizedActivity, skillMessageKey } from "@/lib/activity-locale";
-import {
-  customPlanStep,
-  planStepFromActivity,
-} from "@/lib/calendar/activity-steps";
+import { creatorCreditName } from "@/lib/creator/catalog";
+import { CreatorCredit } from "../CreatorCredit";
+import { useMergedActivities } from "../usePublishedActivities";
+import { customPlanStep, planStepFromActivity } from "@/lib/calendar/activity-steps";
 import type { PlanStep } from "@/lib/calendar/types";
 import { AgeTag, DurationTag, SkillTag } from "../ui-bits";
 import { cn } from "@/lib/utils";
@@ -35,6 +34,7 @@ export function ActivityPickerDialog({
   title?: string;
 }) {
   const { t, locale } = useI18n();
+  const catalog = useMergedActivities();
   const [mode, setMode] = useState<Mode>("catalog");
   const [query, setQuery] = useState("");
   const [previewId, setPreviewId] = useState<string | null>(null);
@@ -44,21 +44,22 @@ export function ActivityPickerDialog({
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return ACTIVITIES.map((activity) => localizedActivity(activity, locale))
+    return catalog
+      .map((activity) => localizedActivity(activity, locale))
       .filter((a) => {
         if (!q) return true;
-        const raw = ACTIVITIES.find((item) => item.id === a.id);
-        const haystack = `${a.title} ${a.description} ${raw?.title ?? ""} ${raw?.description ?? ""} ${t(skillMessageKey(a.skill))} ${a.skill}`;
+        const raw = catalog.find((item) => item.id === a.id);
+        const haystack = `${a.title} ${a.description} ${raw?.title ?? ""} ${raw?.description ?? ""} ${creatorCreditName(raw) ?? ""} ${t(skillMessageKey(a.skill))} ${a.skill}`;
         return haystack.toLowerCase().includes(q);
       })
       .slice(0, 40);
-  }, [query, locale, t]);
+  }, [catalog, query, locale, t]);
 
   const preview = useMemo(() => {
     if (!previewId) return null;
-    const raw = ACTIVITIES.find((activity) => activity.id === previewId);
+    const raw = catalog.find((activity) => activity.id === previewId);
     return raw ? localizedActivity(raw, locale) : null;
-  }, [previewId, locale]);
+  }, [catalog, previewId, locale]);
 
   const reset = () => {
     setMode("catalog");
@@ -136,16 +137,16 @@ export function ActivityPickerDialog({
                   {t("common.back")}
                 </button>
                 <h3 className="font-display text-lg font-semibold">{preview.title}</h3>
+                {"creatorName" in preview ? (
+                  <CreatorCredit name={creatorCreditName(preview)} />
+                ) : null}
                 <p className="text-sm text-muted-foreground">{preview.description}</p>
                 <div className="flex flex-wrap gap-1.5">
                   <AgeTag>
                     {preview.minAge}–{preview.maxAge}
                   </AgeTag>
                   <SkillTag skill={preview.skill} />
-                  <DurationTag
-                    minMinutes={preview.minMinutes}
-                    maxMinutes={preview.maxMinutes}
-                  />
+                  <DurationTag minMinutes={preview.minMinutes} maxMinutes={preview.maxMinutes} />
                 </div>
                 <div>
                   <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -191,6 +192,7 @@ export function ActivityPickerDialog({
                     className="w-full rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-border transition-colors hover:bg-muted/50"
                   >
                     <p className="text-sm font-semibold">{a.title}</p>
+                    {"creatorName" in a ? <CreatorCredit name={creatorCreditName(a)} /> : null}
                     <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                       {a.description}
                     </p>

@@ -17,6 +17,41 @@ export function isProAccount(profile: { isPro?: boolean } | null | undefined): b
   return profile?.isPro === true;
 }
 
+export function isCreatorProAccount(
+  profile: { isCreatorPro?: boolean } | null | undefined,
+): boolean {
+  return profile?.isCreatorPro === true;
+}
+
+/**
+ * Pro tab, and whether that tab shows Created activities.
+ * Creator Pro and the founder account see the extra section. Regular Pro does not.
+ */
+export function accountChrome(input: {
+  demoOverlay: boolean;
+  profile: { isPro?: boolean; isCreatorPro?: boolean; role?: string } | null | undefined;
+  clerkIsPro: boolean;
+  clerkIsCreatorPro: boolean;
+  founder: boolean;
+  devPro: boolean;
+  devCreator: boolean;
+  devFounder: boolean;
+}): { isPro: boolean; showCreated: boolean } {
+  if (input.demoOverlay) {
+    const showCreated = input.profile?.isCreatorPro === true || input.profile?.role === "Founder";
+    return {
+      isPro: input.profile?.isPro === true || showCreated,
+      showCreated,
+    };
+  }
+  const showCreated =
+    input.clerkIsCreatorPro || input.founder || input.devCreator || input.devFounder;
+  return {
+    isPro: input.clerkIsPro || input.devPro || showCreated,
+    showCreated,
+  };
+}
+
 /**
  * Pro chrome on a deployed app. Clerk publicMetadata.isPro is the only grant.
  * A profile role tag cannot set this. The device demo is local development only.

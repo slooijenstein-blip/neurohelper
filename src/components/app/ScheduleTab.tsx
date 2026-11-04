@@ -14,7 +14,9 @@ import {
 
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAppStore, uid } from "@/lib/app-store";
-import { ACTIVITIES, type Activity } from "@/lib/activities-data";
+import type { Activity } from "@/lib/activities-data";
+import { findAnyActivity } from "@/lib/creator/catalog";
+import { useMergedActivities } from "./usePublishedActivities";
 import { SharedPlansPanel } from "./SharedPlansPanel";
 import { ScreenHeader } from "./ui-bits";
 import { ScheduleCalendar } from "./ScheduleCalendar";
@@ -52,6 +54,7 @@ export function ScheduleTab() {
   const viewerKey = demoPersona ?? state.profile?.id ?? "me";
   const schedule = state.schedule.filter((item) => !item.viewerKey || item.viewerKey === viewerKey);
   const { t } = useI18n();
+  const catalog = useMergedActivities();
   const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [saveOpen, setSaveOpen] = useState(false);
@@ -63,13 +66,13 @@ export function ScheduleTab() {
 
   const filtered = useMemo(
     () =>
-      ACTIVITIES.filter((a: Activity) =>
+      catalog.filter((a: Activity) =>
         query.trim()
           ? a.title.toLowerCase().includes(query.trim().toLowerCase()) ||
             a.skill.toLowerCase().includes(query.trim().toLowerCase())
           : true,
       ),
-    [query],
+    [catalog, query],
   );
 
   const toggleDone = (id: string) =>
@@ -86,7 +89,7 @@ export function ScheduleTab() {
     }));
 
   const addActivity = (activityId: string) => {
-    const act = ACTIVITIES.find((a: Activity) => a.id === activityId);
+    const act = findAnyActivity(activityId);
     if (!act) return;
     const start = schedule.reduce((sum, i) => sum + i.minutes, 0);
     update((prev) => ({

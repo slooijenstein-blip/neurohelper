@@ -1,3 +1,5 @@
+import { handleCreatorApi } from "../creator/http.ts";
+import { createCreatorStore } from "../creator/store.ts";
 import type { Actor, ShareAction } from "./actions.ts";
 import { ShareError } from "./errors.ts";
 import { sendClerkInvitation } from "./mail.ts";
@@ -28,6 +30,8 @@ export type ShareDeps = {
   storeName: "redis" | "file" | "memory" | "none";
   service: ShareService | null;
   store: ShareStore | null;
+  creatorStore: ReturnType<typeof createCreatorStore>;
+  clerkSecret: string | null;
   userIsPro: (userId: string) => Promise<boolean>;
   proRequestNotify: ReturnType<typeof proRequestNotifyResult>;
   /** Unset uses the built-in reviewer addresses. A value replaces that list. */
@@ -91,8 +95,9 @@ async function clerkUserIsPro(secretKey: string | undefined, userId: string): Pr
   try {
     const { createClerkClient } = await import("@clerk/backend");
     const user = await createClerkClient({ secretKey }).users.getUser(userId);
-    const meta = user.publicMetadata as { isPro?: unknown } | null | undefined;
-    return meta?.isPro === true;
+    const meta = user.publicMetadata as
+      { isPro?: unknown; isCreatorPro?: unknown } | null | undefined;
+    return meta?.isPro === true || meta?.isCreatorPro === true;
   } catch (err) {
     console.error("pro request clerk lookup", err);
     return false;
@@ -103,9 +108,16 @@ function devActor(req: Request, env: NodeJS.ProcessEnv): Actor | null {
   if (readEnv(env, "SHARE_DEV_BYPASS") !== "1" || readEnv(env, "VERCEL")) return null;
   const raw = req.headers.get("x-share-dev-user");
   if (!raw) return null;
-  const [userId, email, name, pro] = raw.split("|");
+  const [userId, email, name, pro, creator] = raw.split("|");
   if (!userId || !email || !email.includes("@")) return null;
-  return { userId, email, name: name || "Member", isPro: pro === "1" };
+  const isCreatorPro = creator === "1";
+  return {
+    userId,
+    email,
+    name: name || "Member",
+    isPro: pro === "1" || isCreatorPro,
+    isCreatorPro,
+  };
 }
 
 async function clerkActor(
@@ -142,13 +154,16 @@ async function clerkActor(
     emails[0] ??
     "";
   if (!email) return null;
-  const meta = user.publicMetadata as { isPro?: unknown } | null | undefined;
+  const meta = user.publicMetadata as
+    { isPro?: unknown; isCreatorPro?: unknown } | null | undefined;
+  const isCreatorPro = meta?.isCreatorPro === true;
   return {
     userId,
     email,
     emails,
     name: user.firstName || user.fullName || email.split("@")[0] || "Member",
-    isPro: meta?.isPro === true,
+    isPro: meta?.isPro === true || isCreatorPro,
+    isCreatorPro,
   };
 }
 
@@ -186,6 +201,8 @@ export function createShareDeps(env: NodeJS.ProcessEnv = process.env): ShareDeps
     storeName,
     service,
     store,
+    creatorStore: createCreatorStore(env),
+    clerkSecret: secretKey || null,
     userIsPro: (userId) => clerkUserIsPro(secretKey, userId),
     proRequestNotify: proRequestNotifyResult(readEnv(env, "PRO_REQUEST_NOTIFY_EMAIL")),
     proRequestAdminEmails: readEnv(env, "PRO_REQUEST_ADMIN_EMAILS"),
@@ -220,6 +237,8 @@ export function shareDeps(env: NodeJS.ProcessEnv = process.env): ShareDeps {
 }
 
 export async function handleShareApi(req: Request, deps: ShareDeps): Promise<Response> {
+  const creatorResponse = await handleCreatorApi(req, deps);
+  if (creatorResponse) return creatorResponse;
   const route = match(new URL(req.url).pathname);
   if (!route) return json({ error: "Not found.", code: "not_found" }, 404);
   if (route.name === "health") {

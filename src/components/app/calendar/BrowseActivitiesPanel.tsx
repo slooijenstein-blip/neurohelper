@@ -13,8 +13,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { useI18n } from "@/i18n/I18nProvider";
-import { ACTIVITIES, SKILLS, type Activity, type Skill } from "@/lib/activities-data";
-import { localizedActivity, localizedCatalog, presentPlanName, skillMessageKey } from "@/lib/activity-locale";
+import { SKILLS, type Activity, type Skill } from "@/lib/activities-data";
+import { localizedActivity, presentPlanName, skillMessageKey } from "@/lib/activity-locale";
+import { creatorCreditName } from "@/lib/creator/catalog";
+import { CreatorCredit } from "../CreatorCredit";
+import { useMergedActivities } from "../usePublishedActivities";
 import { planStepFromActivity } from "@/lib/calendar/activity-steps";
 import { toDateKey, useCalendarStore } from "@/lib/calendar/store";
 import { canEditPlan, canManageLibrary } from "@/lib/calendar/permissions";
@@ -24,6 +27,7 @@ import { cn } from "@/lib/utils";
 export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
   const { t, locale } = useI18n();
   const cal = useCalendarStore();
+  const catalog = useMergedActivities();
   const [range, setRange] = useState<number[]>([1, 10]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [query, setQuery] = useState("");
@@ -33,28 +37,28 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
 
   const role = cal.roleOnSelected;
   const canAddToday = canEditPlan(role);
-  const canAddLibrary =
-    canManageLibrary(role) || cal.activePerson.appRole === "therapist";
+  const canAddLibrary = canManageLibrary(role) || cal.activePerson.appRole === "therapist";
   const libraryPlans = cal.visibleLibrary(cal.selectedChild?.id ?? null);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return localizedCatalog(locale)
+    return catalog
+      .map((activity) => localizedActivity(activity, locale))
       .filter((a) => a.maxAge >= (range[0] ?? 1) && a.minAge <= (range[1] ?? 10))
       .filter((a) => (skills.length ? skills.includes(a.skill) : true))
       .filter((a) => {
         if (!q) return true;
-        const raw = ACTIVITIES.find((item) => item.id === a.id);
-        const haystack = `${a.title} ${a.description} ${raw?.title ?? ""} ${raw?.description ?? ""} ${t(skillMessageKey(a.skill))}`;
+        const raw = catalog.find((item) => item.id === a.id);
+        const haystack = `${a.title} ${a.description} ${raw?.title ?? ""} ${raw?.description ?? ""} ${creatorCreditName(raw) ?? ""} ${t(skillMessageKey(a.skill))}`;
         return haystack.toLowerCase().includes(q);
       });
-  }, [range, skills, query, locale, t]);
+  }, [catalog, range, skills, query, locale, t]);
 
   const detail = useMemo(() => {
     if (!detailId) return null;
-    const raw = ACTIVITIES.find((activity) => activity.id === detailId);
+    const raw = catalog.find((activity) => activity.id === detailId);
     return raw ? localizedActivity(raw, locale) : null;
-  }, [detailId, locale]);
+  }, [catalog, detailId, locale]);
 
   const toggleSkill = (s: Skill) =>
     setSkills((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
@@ -153,6 +157,7 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
             className="w-full rounded-2xl bg-card px-3 py-3 text-left ring-1 ring-border hover:bg-muted/40"
           >
             <p className="text-sm font-semibold">{a.title}</p>
+            {"creatorName" in a ? <CreatorCredit name={creatorCreditName(a)} /> : null}
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{a.description}</p>
             <div className="mt-2 flex flex-wrap gap-1">
               <AgeTag>
@@ -176,6 +181,7 @@ export function BrowseActivitiesPanel({ onBack }: { onBack?: () => void }) {
           </DialogHeader>
           {detail ? (
             <div className="space-y-4 text-sm">
+              {"creatorName" in detail ? <CreatorCredit name={creatorCreditName(detail)} /> : null}
               <div className="flex flex-wrap gap-1.5">
                 <AgeTag>
                   {detail.minAge}–{detail.maxAge}

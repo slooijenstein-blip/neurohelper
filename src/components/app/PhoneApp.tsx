@@ -15,9 +15,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 import { isClerkConfigured } from "@/lib/clerk";
-import { isClerkPro, type ClerkNameSource } from "@/lib/clerk-profile";
+import { isClerkCreatorPro, isClerkPro, type ClerkNameSource } from "@/lib/clerk-profile";
 import { demoRolesAllowed } from "@/lib/demo-roles";
-import { isProAccount, showProChrome, tabsForAccount, type AppTabKey } from "@/lib/pro-access";
+import { canUseFounderRole, founderEmailsFromClerk } from "@/lib/founder-role";
+import { accountChrome, tabsForAccount, type AppTabKey } from "@/lib/pro-access";
 import { useCalendarStore } from "@/lib/calendar/store";
 import { useDevShareUser } from "@/lib/share/dev-session";
 import { useAppStore } from "@/lib/app-store";
@@ -52,16 +53,29 @@ const TAB_META: Record<TabKey, { labelKey: string; icon: typeof Activity }> = {
   profile: { labelKey: "nav.profile", icon: UserRound },
 };
 
+function devShareFlags(devShare: string | null) {
+  if (!import.meta.env.DEV || !devShare) return { pro: false, creator: false, founder: false };
+  const parts = devShare.split("|");
+  const creator = parts[4] === "1";
+  return {
+    pro: parts[3] === "1" || creator,
+    creator,
+    founder: canUseFounderRole([parts[1]]),
+  };
+}
+
 function AppShell({
   tab,
   onTab,
-  clerkIsPro,
+  accountIsPro,
+  showCreated,
 }: {
   tab: TabKey;
   onTab: (t: TabKey) => void;
-  clerkIsPro: boolean;
+  accountIsPro: boolean;
+  showCreated: boolean;
 }) {
-  const { state, prototypeDemo } = useAppStore();
+  const { state } = useAppStore();
   const cal = useCalendarStore();
   const { t } = useI18n();
   const [profileId, setProfileId] = useState<string | null>(null);
@@ -71,11 +85,7 @@ function AppShell({
   const [activityId, setActivityId] = useState<string | null>(null);
   const [helpFocus, setHelpFocus] = useState<HelpFocus | null>(null);
   const clearHelpFocus = useCallback(() => setHelpFocus(null), []);
-  const demoOverlay =
-    prototypeDemo && (import.meta.env.DEV || demoRolesAllowed(window.location.hostname));
-  const isPro = demoOverlay
-    ? isProAccount(state.profile)
-    : showProChrome({ clerkIsPro, deviceDemo: false });
+  const isPro = accountIsPro;
   const hasLinkedChildren = cal.hydrated && cal.myChildren.length > 0;
   const tabs = tabsForAccount(isPro, hasLinkedChildren);
 
@@ -141,7 +151,7 @@ function AppShell({
       ) : (
         <ActivitiesTab key={tabEpoch} />
       ),
-      pro: <ProTab key={tabEpoch} />,
+      pro: <ProTab key={tabEpoch} showCreated={showCreated} />,
       schedule: <ScheduleTab key={tabEpoch} />,
       journey: <JourneyTab key={tabEpoch} />,
       community: (
@@ -268,28 +278,54 @@ function AppShell({
 function ClerkGatedApp(props: { tab: TabKey; onTab: (t: TabKey) => void }) {
   const { isLoaded, isSignedIn } = useAuth();
   const { user } = useUser();
-  const { devDemo, prototypeDemo, hydrated } = useAppStore();
+  const { state, devDemo, prototypeDemo, hydrated } = useAppStore();
   const devShare = useDevShareUser();
   const demoOverlay =
     hydrated &&
     ((import.meta.env.DEV && (prototypeDemo || devDemo)) ||
       (prototypeDemo && demoRolesAllowed(window.location.hostname)));
-  const clerkIsPro = user ? isClerkPro(user as ClerkNameSource) : false;
+  const clerkUser = user as ClerkNameSource | null | undefined;
+  const dev = devShareFlags(devShare);
+  const chrome = accountChrome({
+    demoOverlay,
+    profile: state.profile,
+    clerkIsPro: clerkUser ? isClerkPro(clerkUser) : false,
+    clerkIsCreatorPro: clerkUser ? isClerkCreatorPro(clerkUser) : false,
+    founder: clerkUser ? canUseFounderRole(founderEmailsFromClerk(clerkUser)) : false,
+    devPro: dev.pro,
+    devCreator: dev.creator,
+    devFounder: dev.founder,
+  });
 
   if (!isLoaded || !hydrated) return <AuthLoading />;
-  if (isSignedIn || demoOverlay || devShare) return <AppShell {...props} clerkIsPro={clerkIsPro} />;
+  if (isSignedIn || demoOverlay || devShare) {
+    return <AppShell {...props} accountIsPro={chrome.isPro} showCreated={chrome.showCreated} />;
+  }
   return <Navigate to="/sign-in" />;
 }
 
 function LocalGatedApp(props: { tab: TabKey; onTab: (t: TabKey) => void }) {
-  const { devDemo, prototypeDemo, hydrated } = useAppStore();
+  const { state, devDemo, prototypeDemo, hydrated } = useAppStore();
   const devShare = useDevShareUser();
   const demoOverlay =
     hydrated &&
     ((import.meta.env.DEV && (prototypeDemo || devDemo)) ||
       (prototypeDemo && demoRolesAllowed(window.location.hostname)));
+  const dev = devShareFlags(devShare);
+  const chrome = accountChrome({
+    demoOverlay,
+    profile: state.profile,
+    clerkIsPro: false,
+    clerkIsCreatorPro: false,
+    founder: false,
+    devPro: dev.pro,
+    devCreator: dev.creator,
+    devFounder: dev.founder,
+  });
   if (!hydrated) return <AuthLoading />;
-  if (demoOverlay || devShare) return <AppShell {...props} clerkIsPro={false} />;
+  if (demoOverlay || devShare) {
+    return <AppShell {...props} accountIsPro={chrome.isPro} showCreated={chrome.showCreated} />;
+  }
   return <Navigate to="/sign-in" />;
 }
 

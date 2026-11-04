@@ -100,6 +100,15 @@ function DevShareButtons() {
       >
         Dev live Founder
       </Button>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full"
+        data-testid="dev-live-creator"
+        onClick={() => enter("user_creator01|alex.rivera@example.com|Alex Rivera|0|1")}
+      >
+        Dev live Creator
+      </Button>
     </div>
   );
 }

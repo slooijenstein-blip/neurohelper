@@ -7,11 +7,16 @@ export type ClerkNameSource = {
   firstName: string | null;
   username: string | null;
   primaryEmailAddress: { emailAddress: string } | null;
-  publicMetadata?: { isPro?: unknown } | null;
+  publicMetadata?: { isPro?: unknown; isCreatorPro?: unknown } | null;
 };
 
+export function isClerkCreatorPro(user: ClerkNameSource): boolean {
+  return user.publicMetadata?.isCreatorPro === true;
+}
+
+/** Pro, or Creator Pro (which includes Pro). A role tag cannot turn this on. */
 export function isClerkPro(user: ClerkNameSource): boolean {
-  return user.publicMetadata?.isPro === true;
+  return user.publicMetadata?.isPro === true || isClerkCreatorPro(user);
 }
 
 const DEMO_SAM_BIO =
@@ -70,15 +75,23 @@ export function profileFromClerkUser(user: ClerkNameSource, existing: Profile | 
     ...(existing?.locale ? { locale: existing.locale } : {}),
     ...(existing?.helpCountry ? { helpCountry: existing.helpCountry } : {}),
     ...(isClerkPro(user) ? { isPro: true as const } : {}),
+    ...(isClerkCreatorPro(user) ? { isCreatorPro: true as const } : {}),
   };
 }
 
-/** Pro is Clerk public metadata only. A profile role tag cannot turn it on. */
+/** Pro and Creator Pro are Clerk public metadata only. A profile role tag cannot turn them on. */
 export function applyClerkProFlag(profile: Profile, user: ClerkNameSource): Profile {
-  if (isClerkPro(user)) return profile.isPro === true ? profile : { ...profile, isPro: true };
-  if (profile.isPro !== true) return profile;
-  const { isPro: _drop, ...rest } = profile;
-  return rest;
+  const wantPro = isClerkPro(user);
+  const wantCreator = isClerkCreatorPro(user);
+  if ((profile.isPro === true) === wantPro && (profile.isCreatorPro === true) === wantCreator) {
+    return profile;
+  }
+  const { isPro: _pro, isCreatorPro: _creator, ...rest } = profile;
+  return {
+    ...rest,
+    ...(wantPro ? { isPro: true as const } : {}),
+    ...(wantCreator ? { isCreatorPro: true as const } : {}),
+  };
 }
 
 /**

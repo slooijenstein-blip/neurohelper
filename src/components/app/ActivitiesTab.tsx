@@ -3,8 +3,11 @@ import { Filter, Plus, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useI18n } from "@/i18n/I18nProvider";
-import { ACTIVITIES, SKILLS, type Activity, type Skill } from "@/lib/activities-data";
-import { localizedActivity, localizedCatalog, skillMessageKey } from "@/lib/activity-locale";
+import { SKILLS, type Activity, type Skill } from "@/lib/activities-data";
+import { localizedActivity, skillMessageKey } from "@/lib/activity-locale";
+import { creatorCreditName } from "@/lib/creator/catalog";
+import { CreatorCredit } from "./CreatorCredit";
+import { useMergedActivities } from "./usePublishedActivities";
 import { useAppStore, uid } from "@/lib/app-store";
 import { HelperLaunch } from "./HelperChat";
 import { AgeTag, DurationTag, ScreenHeader, SkillTag } from "./ui-bits";
@@ -23,6 +26,7 @@ import { cn } from "@/lib/utils";
 export function ActivitiesTab() {
   const { update } = useAppStore();
   const { t, locale } = useI18n();
+  const catalog = useMergedActivities();
   const [range, setRange] = useState<number[]>([1, 10]);
   const [skills, setSkills] = useState<Skill[]>([]);
   const [query, setQuery] = useState("");
@@ -31,22 +35,23 @@ export function ActivitiesTab() {
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return localizedCatalog(locale)
+    return catalog
+      .map((activity) => localizedActivity(activity, locale))
       .filter((a) => a.maxAge >= (range[0] ?? 1) && a.minAge <= (range[1] ?? 10))
       .filter((a) => (skills.length ? skills.includes(a.skill) : true))
       .filter((a) => {
         if (!q) return true;
-        const raw = ACTIVITIES.find((item) => item.id === a.id);
-        const haystack = `${a.title} ${a.description} ${raw?.title ?? ""} ${raw?.description ?? ""} ${t(skillMessageKey(a.skill))}`;
+        const raw = catalog.find((item) => item.id === a.id);
+        const haystack = `${a.title} ${a.description} ${raw?.title ?? ""} ${raw?.description ?? ""} ${creatorCreditName(raw) ?? ""} ${t(skillMessageKey(a.skill))}`;
         return haystack.toLowerCase().includes(q);
       });
-  }, [range, skills, query, locale, t]);
+  }, [catalog, range, skills, query, locale, t]);
 
   const detail = useMemo(() => {
     if (!detailId) return null;
-    const raw = ACTIVITIES.find((activity) => activity.id === detailId);
+    const raw = catalog.find((activity) => activity.id === detailId);
     return raw ? localizedActivity(raw, locale) : null;
-  }, [detailId, locale]);
+  }, [catalog, detailId, locale]);
 
   const toggleSkill = (s: Skill) =>
     setSkills((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
@@ -167,6 +172,7 @@ export function ActivitiesTab() {
             <p className="mt-1 flex-1 text-xs leading-relaxed text-muted-foreground">
               {a.description}
             </p>
+            {"creatorName" in a ? <CreatorCredit name={creatorCreditName(a)} /> : null}
             <div className="mt-3 flex items-center justify-between gap-2">
               <div className="flex gap-1.5">
                 <AgeTag>
@@ -195,6 +201,7 @@ export function ActivitiesTab() {
           </DialogHeader>
           {detail ? (
             <div className="space-y-4 text-sm">
+              {"creatorName" in detail ? <CreatorCredit name={creatorCreditName(detail)} /> : null}
               <div className="flex flex-wrap gap-1.5">
                 <AgeTag>
                   Age: {detail.minAge}-{detail.maxAge}
