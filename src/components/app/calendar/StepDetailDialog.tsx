@@ -71,9 +71,15 @@ export function StepDetailDialog({
                   <DurationTag minMinutes={activity.minMinutes} maxMinutes={activity.maxMinutes} />
                 </>
               ) : (
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                  {step.minutes}m
-                </span>
+                <>
+                  {step.minAge != null && step.maxAge != null ? (
+                    <AgeTag>
+                      {step.minAge}–{step.maxAge}
+                    </AgeTag>
+                  ) : null}
+                  {step.skill ? <SkillTag skill={step.skill} /> : null}
+                  <DurationTag minMinutes={step.minutes} maxMinutes={step.minutes} />
+                </>
               )}
             </div>
 
@@ -100,9 +106,40 @@ export function StepDetailDialog({
                   </ol>
                 </div>
               </>
-            ) : step.notes ? (
-              <p className="text-muted-foreground">{step.notes}</p>
-            ) : null}
+            ) : (
+              <>
+                {step.materials?.length ? (
+                  <div>
+                    <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                      {t("calendar.picker.materials")}
+                    </p>
+                    <ul className="list-inside list-disc text-muted-foreground">
+                      {step.materials.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {step.howTo?.length ? (
+                  <div>
+                    <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+                      {t("calendar.picker.howTo")}
+                    </p>
+                    <ol className="list-inside list-decimal space-y-1 text-muted-foreground">
+                      {step.howTo.map((item, index) => (
+                        <li key={`${index}-${item}`}>{item}</li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
+                {!step.howTo?.length && step.notes && step.notes !== shown?.description ? (
+                  <p className="text-muted-foreground">{step.notes}</p>
+                ) : null}
+                <p className="text-[11px] text-muted-foreground">
+                  {t("calendar.picker.customHint")}
+                </p>
+              </>
+            )}
 
             <div className="flex flex-col gap-2">
               {onToggleDone ? (

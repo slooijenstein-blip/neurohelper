@@ -732,6 +732,7 @@ export const es: DeepString<Messages> = {
       subtitle: "Elige una actividad detallada del catálogo, o escribe un paso personalizado.",
       fromCatalog: "Desde Actividades",
       custom: "Paso personalizado",
+      customHint: "Esto se queda en el calendario de este paciente. No se añade a Actividades.",
       search: "Buscar actividades…",
       resultCount: "{{count}} actividades",
       noMatches: "No hay actividades que coincidan.",

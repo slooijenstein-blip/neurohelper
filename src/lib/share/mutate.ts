@@ -18,6 +18,7 @@ import {
   type PlanStep,
 } from "../calendar/types.ts";
 import type { Actor, ShareAction } from "./actions.ts";
+import { customStepDetail } from "../calendar/activity-steps.ts";
 import { ShareError } from "./errors.ts";
 import {
   assertDateKey,
@@ -50,7 +51,7 @@ function nowOr(value: string): string {
 function sanitizeStep(step: PlanStep, id: string): PlanStep {
   const title = step.title.replace(/\s+/g, " ").trim().slice(0, 80);
   if (!title) throw new ShareError(400, "invalid_step", "Each step needs a title.");
-  const notes = (step.notes || step.description || "").trim().slice(0, 400);
+  const notes = (step.notes || step.description || "").trim().slice(0, 800);
   const minutes = Math.round(Number(step.minutes));
   if (!Number.isFinite(minutes) || minutes < 1 || minutes > 180) {
     throw new ShareError(400, "invalid_step", "Keep each step between 1 and 180 minutes.");
@@ -60,7 +61,15 @@ function sanitizeStep(step: PlanStep, id: string): PlanStep {
   if (!/^(st|ds)_[a-z0-9_]{8,64}$/.test(id)) {
     throw new ShareError(400, "invalid_id", "Invalid id.");
   }
-  return { id, title, notes, description: notes, minutes, activityId };
+  return {
+    id,
+    title,
+    notes,
+    description: notes,
+    minutes,
+    activityId,
+    ...customStepDetail(step),
+  };
 }
 
 function roleOn(state: CalendarState, childId: string, actorId: string): ChildRole | null {

@@ -1,3 +1,5 @@
+import type { Skill } from "../activities-data.ts";
+
 /** Synlumae Calendar prototype — shared schedule IA (Today / Library / People). */
 
 export const AGE_BANDS = [
@@ -27,6 +29,12 @@ export type PlanStep = {
   activityId: string | null;
   /** Longer detail blurb (from activity.description). */
   description: string;
+  /** Custom steps only. These stay on the patient’s calendar and are not catalog activities. */
+  skill?: Skill;
+  minAge?: number;
+  maxAge?: number;
+  materials?: string[];
+  howTo?: string[];
 };
 
 export type DayStep = PlanStep & {
