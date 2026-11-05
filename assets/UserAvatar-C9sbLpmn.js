@@ -1,0 +1,1 @@
+import{n as e}from"./emotion-react-jsx-runtime.browser.esm-Di9PkMfP.js";import{t}from"./Avatar-DLSRF2iy.js";import{r as n,t as r}from"./user-uStbr8jn.js";var i=i=>{let{name:a,firstName:o,lastName:s,avatarUrl:c,imageUrl:l,...u}=i;return e(t,{title:r({name:a,firstName:o,lastName:s}),initials:n({name:a,firstName:o,lastName:s}),imageUrl:c||l,...u})};export{i as t};

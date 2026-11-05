@@ -1,1 +1,0 @@
-import{o as e}from"./react-BqBvWGiZ.js";import{t}from"./client-DBao-Ega.js";var n=e(t(),1).createRoot;export{n as createRoot};

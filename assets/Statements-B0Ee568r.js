@@ -1,0 +1,1 @@
+import{t as e}from"./StatementPage-BVjDB9dr.js";export{e as StatementPage};

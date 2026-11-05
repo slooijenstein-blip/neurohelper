@@ -1,0 +1,1 @@
+import"./rolldown-runtime-B0Z9INg1.js";import{t as e}from"./react-DVplv7_D.js";import{V as t}from"./react-Df3wD2XQ.js";import{n}from"./emotion-react-jsx-runtime.browser.esm-Di9PkMfP.js";e();function r(e){let r=r=>t()===void 0?null:n(e,{...r}),i=e.displayName||e.name||`Component`;return e.displayName=i,r.displayName=i,r}export{r as t};

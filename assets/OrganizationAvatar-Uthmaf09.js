@@ -1,0 +1,1 @@
+import{n as e}from"./emotion-react-jsx-runtime.browser.esm-Di9PkMfP.js";import{t}from"./Avatar-DLSRF2iy.js";var n=n=>{let{name:r=``,imageUrl:i,showLoadingSpinner:a,...o}=n;return e(t,{title:r,initials:(r||` `)[0],imageUrl:i,showLoadingSpinner:a,rounded:!1,...o})};export{n as t};

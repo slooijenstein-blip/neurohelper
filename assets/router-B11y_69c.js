@@ -1,0 +1,1 @@
+import{t as e}from"./VirtualRouter-Dwnzr5Oz.js";export{e as VirtualRouter};

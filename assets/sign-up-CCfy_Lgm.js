@@ -1,0 +1,1 @@
+import{a as e}from"./rolldown-runtime-B0Z9INg1.js";import{t}from"./jsx-runtime-B74pBk57.js";import{n,r}from"./AuthScreen-CgLXtr66.js";var i=e(t());function a(){return(0,i.jsx)(r,{children:(0,i.jsx)(n,{mode:`sign-up`})})}export{a as component};

@@ -1,0 +1,1 @@
+import{a as e}from"./rolldown-runtime-B0Z9INg1.js";import{t}from"./client-DgOoIm2f.js";var n=e(t(),1).createRoot;export{n as createRoot};

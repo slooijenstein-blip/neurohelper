@@ -1,0 +1,1 @@
+import"./rolldown-runtime-B0Z9INg1.js";import{t as e}from"./react-DVplv7_D.js";import{a as t,n}from"./emotion-react-jsx-runtime.browser.esm-Di9PkMfP.js";import{r}from"./AppearanceContext-bAUKOySl.js";e();var i=e=>{let{parsedInternalTheme:i}=r();return n(t,{theme:i,children:e.children})};export{i as t};

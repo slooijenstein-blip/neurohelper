@@ -1,0 +1,1 @@
+import{n as e}from"./RouteContext-DfLZIA6_.js";var t=()=>{let t=e();return{navigateToFlowStart:async()=>{let e=t.indexPath;if(e!==t.currentPath)return t.navigate(e);if(t.urlStateParam?.path)return t.navigate(`/`+t.basePath+t.urlStateParam?.startPath)}}};export{t};

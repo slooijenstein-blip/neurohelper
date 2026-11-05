@@ -1,1 +1,0 @@
-import{n as e}from"./RouteContext-CX2wioi0.js";var t=()=>{let t=e();return{navigateToFlowStart:async()=>{let e=t.indexPath;if(e!==t.currentPath)return t.navigate(e);if(t.urlStateParam?.path)return t.navigate(`/`+t.basePath+t.urlStateParam?.startPath)}}};export{t};

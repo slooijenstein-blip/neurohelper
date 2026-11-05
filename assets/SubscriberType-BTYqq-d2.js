@@ -1,0 +1,1 @@
+import{a as e}from"./rolldown-runtime-B0Z9INg1.js";import{t}from"./react-DVplv7_D.js";var n=e(t(),1),r=`user`,i=(0,n.createContext)(r),a=()=>(0,n.useContext)(i)||r,o=()=>a()===`user`?`userProfile`:`organizationProfile`;export{a as n,o as r,i as t};

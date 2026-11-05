@@ -1,0 +1,1 @@
+import{n as e}from"./emotion-react-jsx-runtime.browser.esm-Di9PkMfP.js";import{t}from"./UserPreview-DyLi1Jbx.js";var n=n=>e(t,{elementId:`personalWorkspace`,rounded:!1,...n});export{n as t};
